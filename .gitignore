@@ -1,0 +1,55 @@
+# IDE and Tool Configurations
+.bmad-core/
+.claude/
+.windsurf/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor Files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Cache and Build
+.cache/
+dist/
+build/
+*.egg-info/
+
+# Keep docs folder visible - this contains your project documentation
+# All other folders starting with . are ignored above
