@@ -9,25 +9,32 @@
 Core project definition and setup documents
 
 - **`project_brief.md`** - Project overview with objectives, scope, timeline, and deliverables
-- **`evidence_pack_interview_guide.md`** - What evidence pack is and how to gather interview data for it
-- **`evidence_pack_files_explained.md`** - Each evidence pack file explained with interview question mappings
+- **`project_description.md`** - Additional project details and context
 
 ### 🔍 02_Research_Design/
 Interview methodology and research planning
 
 - **`Interview_Guide_Retail_Operations.md`** - 45-minute interview script with all questions and techniques
-- **`Evidence_Pack_Interview_Strategy.md`** - Strategy for mapping retail workflows to agent architecture
-- **`Interview_Notes_Template.md`** - Quick note-taking template for interviews
+- **`Interview_Strategy.md`** - Strategy for mapping retail workflows to agent architecture
 
 ### 📊 03_Data_Collection/
 Raw interview data storage
 
 - **`Interview_Notes/`** - Contains template and individual interview notes (INT-001, INT-002, etc.)
+  - **`Interview_Notes_Template.md`** - Quick note-taking template for interviews
 
 ### 📈 04_Analysis_Findings/
 Processed research results
 
-- **`Evidence_Pack/`** - Main deliverable with time analysis template and all evidence components
+- **`Evidence_Pack/`** - Main deliverable folder containing:
+  - **`what_is_evi_pack.md`** - Explanation of evidence pack structure and purpose
+  - **`Time_Motion_Analysis.md`** - Template for analyzing where time is spent
+  - **`pain_point_inventory.xlsx`** - Spreadsheet for cataloging discovered problems
+
+### 📊 06_Progress_Reports/
+Project status updates
+
+- **`Week_01_Updates.md`** - Weekly progress documentation
 
 ---
 
@@ -66,9 +73,10 @@ Evidence_Pack/
 |---------------|------------------|
 | Project overview | `01_Project_Foundation/project_brief.md` |
 | Interview questions | `02_Research_Design/Interview_Guide_Retail_Operations.md` |
-| Note-taking template | `03_Data_Collection/Interview_Notes/` |
-| Evidence pack guide | `01_Project_Foundation/evidence_pack_files_explained.md` |
-| Analysis templates | `04_Analysis_Findings/Evidence_Pack/` |
+| Note-taking template | `03_Data_Collection/Interview_Notes/Interview_Notes_Template.md` |
+| Evidence pack guide | `04_Analysis_Findings/Evidence_Pack/what_is_evi_pack.md` |
+| Pain point tracking | `04_Analysis_Findings/Evidence_Pack/pain_point_inventory.xlsx` |
+| Time analysis | `04_Analysis_Findings/Evidence_Pack/Time_Motion_Analysis.md` |
 
 ---
 
