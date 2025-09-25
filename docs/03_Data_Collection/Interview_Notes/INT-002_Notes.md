@@ -1,10 +1,15 @@
 # INT-002 Notes
 
 **Interview ID:** INT-002
+
 **Date:** September 24, 2025
+
 **Participant:** Opted for Anonymity
+
 **Role:** Opted for Anonymity
+
 **Company:** Walmart
+
 **Company Size:** Large - Massive global retail company
 
 ---
