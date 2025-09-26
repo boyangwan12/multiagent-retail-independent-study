@@ -1,10 +1,11 @@
 # Interview Notes Template
 
-**Interview ID:** INT-03
+**Interview ID:** INT-003
 **Date:** September 25th, 2025
 **Participant:** anonymous
 **Role:** Market Analyst
-**Company Size:** Large (400+ stores across 20 countries)
+**Company:** La Vie En Rose
+**Company Size:** Medium (400+ stores across 20 countries)
 
 ---
 
