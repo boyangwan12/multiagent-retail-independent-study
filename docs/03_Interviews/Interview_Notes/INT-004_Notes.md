@@ -117,4 +117,3 @@
 ### Follow-ups / Evidence Pack Hooks
 - Anchor the demand agent on **seasonality + weather**, enriched with **StatsCan** demographics at **store/FSA** granularity.  
 - Provide **scenario & alerting**: e.g., “No snow next 14 days in GTA → reduce shovel promo depth; shift to de-icing accessories.”  
-- Roadmap to integrate with **Robson AI** (price/promo) as an **upstream signal** with a simple governance view for Category Managers.
