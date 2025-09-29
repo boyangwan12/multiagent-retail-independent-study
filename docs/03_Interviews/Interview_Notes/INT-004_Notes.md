@@ -60,7 +60,7 @@
 ## 3. TIME BREAKDOWN
 
 ### Where They Spend Time:
-** Approximate Total 40 hrs/week **
+**Approximate Total 40 hrs/week**
 - **Data Prep:** ~20 hrs/week (≈50% of week).  
 - **Stakeholder/Alignment:** ~10 hrs/week (reviews, explaining results, iteration).  
 - **Modeling/Visualization:** ~10 hrs/week (emphasis on interpretability).  
