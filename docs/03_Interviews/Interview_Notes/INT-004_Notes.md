@@ -12,6 +12,7 @@
 ## 1. WORKFLOW UNDERSTANDING
 
 ### Their Current Process:
+````
 **Step 1:** Seasonal planning window defined by banner and store ownership model. Dealer-operated banners set promo/flyer calendars up to **~12 months** ahead; company-operated banners plan **~6–8 months** ahead.  
 **Step 2:** DS builds SKU- and category-level forecasts and decision support for **pricing & promotions**; outputs delivered to Category Managers (who retain override rights).  
 **Step 3:** Feature and signal assembly from **POS & e-comm**, **seasonality & weather**, **competitor/market (esp. Amazon)**, **loyalty/CRM**, and **macro (StatsCan: population, income, spend, birth rates; rural/urban)**.  
@@ -19,7 +20,7 @@
 **Step 5:** Build & deploy interpretable models on hybrid cloud (**Azure Databricks/MLflow** + **GCP Vertex/Kubeflow**). Results land in dashboards, batch reports, and experiment readouts.  
 **Step 6:** In-season weekly monitoring—promo uplift reads, anomaly checks, short-horizon signals; campaign experiments (Braze → GCP).  
 **Step 7:** Feedback loop—post-event outcomes feed back as correctness/penalty signals; parameters/features adjusted for next cycle.
-
+````
 ### Planning (Pre-Season):
 - **MFP/Target Setting:** Top-down commercial targets; Marketing’s north-star KPI is **ROI**. Targets differ by banner/season.  
 - **Forecasting Process:** Forecasts at **SKU level** with strong **seasonality/weather** sensitivity; weather provider updated **monthly** (desire: higher frequency).  
