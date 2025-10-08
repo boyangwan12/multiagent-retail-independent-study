@@ -2,6 +2,7 @@
 
 **Project:** Multi-Agent Retail Demand Forecasting System
 **Date Created:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Purpose:** Document research process, data collection methods, analysis approach, and methodological rigor
 
 ---
@@ -28,6 +29,7 @@ The methodology prioritizes **ecological validity** (real-world contexts), **tri
 1. **Workflow Documentation:** Map current-state planning, forecasting, and allocation processes
 2. **Technology Landscape Mapping:** Identify existing tools, systems, and workarounds
 3. **Success Criteria Definition:** Understand how users would measure solution effectiveness
+4. **Horizon vs cadence:** Capture "how far ahead we forecast" vs "how often we run" distinctly across participants/processes
 4. **Collaboration Opportunities:** Identify stakeholders willing to provide ongoing validation and testing access
 
 ---
@@ -184,7 +186,7 @@ The methodology prioritizes **ecological validity** (real-world contexts), **tri
 - INT-001: Good (high-level, limited quantitative detail)
 - INT-002: Excellent (detailed workflow, quantitative time breakdowns)
 - INT-003: Excellent (detailed pain points, specific $500K markdown impact)
-- INT-004: Excellent (technical depth, infrastructure details)
+- INT-004: Excellent (technical depth, narrowed scope (e.g. demand forecasting), infrastructure details)
 - INT-005: Excellent (methodology detail, recommendations for project)
 
 **Limitations:**
@@ -665,21 +667,27 @@ The methodology prioritizes **ecological validity** (real-world contexts), **tri
    - Expand sample to 50+ retail professionals
    - Validate pain point prevalence and severity quantitatively
    - Test hypotheses about forecast accuracy, data prep time, cost impacts
+   
 
-2. **Longitudinal Study:**
+2. **Protocol upgrades for Phase 2 (qual):**
+   - Bound scope to the first use case (allocation forecasting) and a three-agent + orchestrator architecture
+   - Distinguish allocation vs reallocation flows explicitly
+   - Define time-bounded rules for using external signals (e.g., weather short-term only) aligned with horizon/granularity 
+
+3. **Longitudinal Study:**
    - Track same participants over 12-24 months to observe changes in workflows, pain points, technology adoption
    - Monitor evolution of AI/LLM adoption in retail forecasting
 
-3. **Cross-Geographic Validation:**
+4. **Cross-Geographic Validation:**
    - Conduct interviews with European, Asian, Latin American retail professionals
    - Identify regional variations in pain points and requirements
 
-4. **System Deployment Study:**
+5. **System Deployment Study:**
    - Implement multi-agent forecasting system in real retail context (e.g., INT-001 planning team)
    - Measure actual improvements in forecast accuracy, data prep time, markdown savings
    - Conduct pre/post case study
 
-5. **Comparative Analysis:**
+6. **Comparative Analysis:**
    - Interview retail professionals using advanced AI/ML solutions (e.g., Blue Yonder, o9 Solutions)
    - Compare pain points and workflows to identify what advanced solutions solve vs. what remains unsolved
 
@@ -713,5 +721,5 @@ This research methodology prioritized **depth over breadth**, employing 5 in-dep
 ---
 
 **Document Status:** Complete
-**Last Updated:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Source Material:** Interview Notes INT-001 through INT-005, Interview Process Documentation, Thematic Analysis Outputs
