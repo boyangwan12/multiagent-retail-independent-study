@@ -2,6 +2,7 @@
 
 **Project:** Multi-Agent Retail Demand Forecasting System
 **Date Created:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Purpose:** Define measurable success criteria, business impact expectations, and validation methodology
 
 ---
@@ -19,6 +20,8 @@ This document establishes the metrics framework that will determine whether the 
 ### USC-01: Improved Forecast Accuracy
 
 **Source:** All interviews (INT-001, INT-002, INT-003, INT-004, INT-005)
+
+**Scope Note (Oct 3)**: Accuracy is reported by horizon (how far ahead) and cadence (how often forecasts are refreshed). For allocation-first, primary horizon is 4–12 weeks with weekly refreshes; shorter horizons (≤2 weeks) used for reallocation scenario checks.
 
 **Current Baseline:**
 - **Walmart (INT-002):** 60-85% varying by category, measured SKU per store
@@ -50,6 +53,11 @@ Measurable improvement over traditional ML baselines, with specific focus on:
    - Event type (promotional vs. non-promotional periods)
    - Weather sensitivity (weather-dependent vs. weather-independent categories)
 
+**Measurement Methodology (refined after Oct 3 meeting):**
+1. Compute MAPE/RMSE at SKU-store; aggregate to category/region.
+2. Report accuracy by horizon band (0–2w, 2–6w, 6–12w, >12w) and by cadence (weekly runs baseline; daily optional).
+3. Segment by event type, store type, and weather sensitivity; compare against traditional ML baseline.
+
 **Validation Checkpoints:**
 - Weekly accuracy monitoring during in-season periods
 - Post-event accuracy review within 7 days of event completion
@@ -75,6 +83,11 @@ Measurable improvement over traditional ML baselines, with specific focus on:
 > "50% of the time was data cleaning - removing anomalies, making the data clean." (INT-005)
 
 Automated pipeline reduces manual data prep from 50% to <20% of analyst time.
+
+**New Automation SLAs (Oct 3):**
+- **Pipeline Uptime:** ≥99.0% during business hours.
+- **Data Freshness SLA:** POS/inventory land-to-model-ready <24h (weekly cadence) and <6h when daily refresh is enabled.
+- **DQ Guardrails:** Automatic anomaly/duplicate detection precision/recall ≥0.8/0.8.
 
 **Target Improvement:**
 - **Phase 1 (MVP):** Reduce manual data prep to 30-35% of time (30-50% reduction)
@@ -106,6 +119,8 @@ Automated pipeline reduces manual data prep from 50% to <20% of analyst time.
 ### USC-03: Better Inventory Allocation and Reduced Misallocation
 
 **Source:** INT-001, INT-003, INT-005
+
+**Scope Clarification (Oct 3):** Distinguish Allocation (initial distribution at buy/launch, 4–12w horizon) from Reallocation (mid-season moves, ≤2w horizon). We will optimize allocation first and measure reallocation separately to evidence reduced emergencies rather than maximizing transfers.
 
 **Current Pain:**
 - Frequent misallocation between stores and warehouses (PP-002, PP-015)
@@ -155,6 +170,10 @@ Better initial forecasts at store-level granularity will reduce the need for rea
 - **Canadian Tire (INT-004):** Monthly model runs vs. desired weekly cadence
 - **La Vie En Rose (INT-003):** 3-day data lag prevents timely markdown decisions
 - **Furniture Retail (INT-001):** Lack of agility in forecast adjustments (severity 4)
+
+**Horizon vs. Cadence (Oct 3):**
+- **Horizon:** fashion typically 10–12 weeks; CPG/replenishment continuous.
+- **Cadence:** business may want weekly updates; daily optional where ops allow. Report metrics separately to avoid mixing concepts.
 
 **User Expectation:**
 > "Inventory is a lagging factor—it helps to forecast inventory first, then layer marketing/pricing AI." (INT-004)
@@ -278,6 +297,9 @@ Proactive forecasting reduces reactive problem-solving by catching issues earlie
 - **La Vie En Rose (INT-003):** Forecasts treated as "suggestions" by merchandising team; buyers override with "gut feel"
 - **Canadian Tire (INT-004):** ~10 hrs/week with stakeholders explaining results; emphasis on interpretability
 
+**Architecture Note (Oct 3):** 
+Evaluation recognizes three agents + Orchestrator pattern; ML models are tools. Success includes whether users can trace which agent/tool contributed what and why.
+
 **User Expectation:**
 Single source of truth with trusted, interpretable outputs reduces coordination overhead and builds confidence in analytical recommendations.
 
@@ -285,6 +307,12 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 - **Reduced alignment meetings:** 30-40% reduction in time spent reconciling conflicting forecasts (from 6-12 hrs/week to 4-7 hrs/week)
 - **Increased forecast adoption:** >80% of analytical recommendations accepted without override
 - **Trust score:** Stakeholder confidence rating >7/10 (measured via survey)
+
+**Target Improvement:(New Oct 3)**
+- **Interpretability KPIs (new):**
+   - ≥95% of forecasts ship with explanations (top drivers, feature attributions).
+   - Attribution Coverage: For each forecast, list which agent(s)/tool(s) contributed signals and confidence.
+   - Replayability: Decision log reproducible end-to-end.
 
 **Measurement Methodology:**
 1. **Meeting Time Tracking:**
@@ -317,7 +345,7 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 
 ## Business Impact Expectations
 
-### Expected Impact 1: Cost Savings from Improved Allocation
+### Expected Impact 1: Cost Savings from Improved Allocation (Oct 3 -> splitting allocation vs. reallocation effects in reporting)
 
 **Categories:**
 1. **Reduced Redistribution Costs:**
@@ -442,7 +470,7 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 
 ---
 
-## Validation Checkpoints
+## Validation Checkpoints 
 
 ### Checkpoint 1: Planning Team Access and Validation (INT-001)
 
@@ -529,6 +557,11 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 
 ### Phase 1: Baseline Establishment (Pre-Implementation)
 
+**(New Oct 3)**
+1. **Add two baselines:**
+   - Horizon vs. Cadence Matrix: Current horizons used per category and run cadence.
+   - Pipeline SLAs: Current freshness, uptime, and DQ incident rates.
+
 **Data Collection:**
 1. **Historical Forecast Performance:**
    - 6-12 months of forecast vs. actual data
@@ -564,6 +597,9 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 
 ### Phase 2: MVP Validation (Post-Implementation, Short-Term)
 
+**(New Oct 3)**
+1. Parallel run vs. baseline; report accuracy by horizon band; verify pipeline SLAs; capture interpretability coverage and orchestrator decision logs as part of acceptance.
+
 **Timeline:** 4-8 weeks post-MVP deployment
 
 **Metrics Tracked:**
@@ -590,6 +626,9 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 ---
 
 ### Phase 3: Production Monitoring (Post-Implementation, Long-Term)
+
+**(New Oct 3)**
+1. Sustain accuracy; track markdown/stockout/reallocation; monitor SLAs; quarterly interpretability audits (sampled forecasts have consistent driver attributions and agent/tool provenance).
 
 **Timeline:** Ongoing (6-12 months post-deployment)
 
@@ -666,6 +705,13 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 - Defer additional features to future phases
 - Document feature requests but prioritize core demand forecasting accuracy first
 
+### Risk 5: New (Oct 3): External-Data Eligibility Risk
+
+**Example:** Constraint: Some external signals are only forecastable short-term (e.g., weather ≤1–2 weeks).
+
+**Mitigation:**
+- Enforce Eligibility Rules per signal; only include external features when horizon ≤ allowed window; report feature usage by horizon in audits.
+
 ---
 
 ## Summary: Success Metrics Overview
@@ -719,5 +765,5 @@ Single source of truth with trusted, interpretable outputs reduces coordination 
 ---
 
 **Document Status:** Complete
-**Last Updated:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Source Material:** Requirements_Extract.md (USC sections), Interview Notes INT-001 through INT-005
