@@ -18,8 +18,7 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Magic wand responses align with intelligent, automated, integrated system concepts
 
 **IMPORTANT DISTINCTION:**
-- **This Document (Evidence Pack):** Validates DIRECTION (AI-based, multi-source, adaptive)
-- **Technical Design Doc (Separate):** Specifies HOW (multi-agent architecture, RL, communication protocols)
+This document validates conceptual direction; technical implementation will be covered in a separate design doc.
 
 ---
 
@@ -42,11 +41,6 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Direction toward AI-based approaches (vs. incremental improvement of traditional ML)
 - ✓ Industry recognition that traditional ML is structurally insufficient
 - ✓ Market readiness for paradigm shift in forecasting technology
-
-**What This Does NOT Validate:**
-- ✗ Specific multi-agent architecture
-- ✗ Particular AI/LLM models to use
-- ✗ Technical implementation details
 
 ---
 
@@ -71,11 +65,6 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Current manual integration is unsustainable (50% time burden)
 - ✓ Value in automating multi-source coordination
 
-**What This Does NOT Validate:**
-- ✗ Specific agent assignment per data source
-- ✗ Communication protocols between data processing components
-- ✗ Technical data pipeline architecture
-
 ---
 
 ### Preference 3: Continuous Learning and Adaptation
@@ -97,11 +86,6 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Need for systems that learn from performance and self-adjust
 - ✓ Value in closed-loop feedback mechanisms
 - ✓ Importance of responsiveness to emerging patterns
-
-**What This Does NOT Validate:**
-- ✗ Reinforcement learning framework specifically
-- ✗ Reward function design
-- ✗ Training methodology or hyperparameters
 
 ---
 
@@ -125,11 +109,6 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Need for automated coordination (vs. manual handoffs)
 - ✓ Importance of event-driven responses (threshold alerts)
 
-**What This Does NOT Validate:**
-- ✗ Specific system architecture (event-driven, pub-sub, etc.)
-- ✗ Technical latency requirements (milliseconds vs. hours)
-- ✗ Infrastructure design
-
 ---
 
 ### Preference 5: Transparency and Interpretability
@@ -148,11 +127,6 @@ This document validates that the **general direction** of using AI-based, multi-
 - ✓ Need for explainable outputs (not black-box predictions)
 - ✓ Importance of stakeholder trust and buy-in
 - ✓ Value in visualization and interpretability features
-
-**What This Does NOT Validate:**
-- ✗ Specific interpretability techniques (SHAP, LIME, attention visualization, etc.)
-- ✗ Dashboard design or UX
-- ✗ Technical explanation generation methods
 
 ---
 
@@ -349,9 +323,9 @@ This document validates that the **general direction** of using AI-based, multi-
 ### Principle 1: Automation Should Reduce Manual Toil, Not Eliminate Human Judgment
 
 **Research Evidence:**
-- 50% time on data prep (INT-005, INT-004, INT-003, INT-002) → Automate this
-- Manual interventions still needed for edge cases (INT-005) → Accept this
-- Stakeholder override happens (INT-003) → Don't fight this, support it
+- 50% time on data prep → Automate this
+- Manual interventions still needed for edge cases → Accept this
+- Stakeholder override happens → Don't fight this, support it
 
 **Design Implication:**
 - Automate repetitive, low-value tasks (data consolidation, cleaning, integration)
@@ -368,11 +342,11 @@ This document validates that the **general direction** of using AI-based, multi-
 
 **Research Evidence:**
 - All 5 interviews mentioned external factors that current models miss:
-  - Weather (INT-004, INT-003, INT-005)
-  - Social media trends (INT-005, INT-003)
-  - Competitor actions (INT-004)
-  - Economic/policy changes (INT-001)
-  - Demographics (INT-004, INT-005)
+  - Weather
+  - Social media trends
+  - Competitor actions
+  - Economic/policy changes
+  - Demographics
 
 **Design Implication:**
 - Prioritize external data integration over just mining historical sales
@@ -443,7 +417,6 @@ This document validates that the **general direction** of using AI-based, multi-
 
 ### Not Validated: Specific AI/LLM Models
 
-**What Users Said:**
 - "AI/LLMs" mentioned generically (INT-001)
 - No mention of GPT, Claude, LLaMA, or any specific model
 
@@ -456,7 +429,6 @@ This document validates that the **general direction** of using AI-based, multi-
 
 ### Not Validated: Multi-Agent Architecture Specifically
 
-**What Users Said:**
 - INT-001 mentioned planning team exploring "agentic systems"
 - No user specified multi-agent architecture as requirement
 
@@ -469,7 +441,6 @@ This document validates that the **general direction** of using AI-based, multi-
 
 ### Not Validated: Reinforcement Learning Framework
 
-**What Users Said:**
 - INT-004 uses "correctness/penalty signals" → Sounds like RL concept
 - But user didn't specify RL, just feedback loops
 
@@ -482,7 +453,6 @@ This document validates that the **general direction** of using AI-based, multi-
 
 ### Not Validated: Specific Accuracy Targets
 
-**What Users Said:**
 - Current: 60-85% (INT-002), 60-70% (INT-003)
 - Desired: Better than current, but no specific target stated
 
@@ -495,7 +465,6 @@ This document validates that the **general direction** of using AI-based, multi-
 
 ### Not Validated: Technical Performance Requirements
 
-**What Users Said:**
 - "Real-time" mentioned but not defined (milliseconds? minutes? hours?)
 - "Agility" mentioned but not quantified
 
@@ -671,8 +640,8 @@ This document validates that the **general direction** of using AI-based, multi-
 ### Risk 1: Users May Expect Fully Autonomous System
 
 **Evidence:**
-- Magic wand responses mention "less (or no) manual handoffs" (INT-002)
-- "Automatically triggers right actions" (INT-003)
+- Magic wand responses mention "less (or no) manual handoffs"
+- "Automatically triggers right actions"
 
 **Risk:**
 - Users may expect full automation that eliminates human involvement
