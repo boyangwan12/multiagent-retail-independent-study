@@ -8,10 +8,10 @@
 
 ## Executive Summary
 
-Between September 24-29, 2024, we conducted 5 in-depth interviews with retail professionals across 4 distinct retail segments spanning furniture, mass retail, fashion, and multi-banner operations. Combined company scale ranges from 200 stores to 10,000+ stores globally, representing operational diversity from mid-market to enterprise retail.
+Between September 24-29, 2025, we conducted 5 in-depth interviews with retail professionals across 4 distinct retail segments: furniture, mass retail, fashion, and multi-banner operations. The combined company scale ranges from 200 stores to 10,000+ stores globally, representing operational diversity from mid-market to enterprise retail.
 
 **Key Research Findings:**
-1. **Universal pain:** All 5 participants independently identified forecast accuracy as their #1 challenge
+1. **Universal pain:** All 5 participants independently identified forecast accuracy as their top challenge
 2. **Data burden:** 50% of analyst time spent on data preparation vs. strategic analysis
 3. **Technology gap:** All participants expressed interest in AI/LLM approaches over traditional ML
 4. **Scale variation:** Problems manifest differently across segments but share common root causes
@@ -25,11 +25,11 @@ This synthesis provides the user context, workflows, and personas that inform re
 
 | ID | Date | Role | Company/Industry | Company Size | Key Pain Points | Unique Insights |
 |---|---|---|---|---|---|---|
-| **INT-001** | Sep 24, 2024 | Business Analyst | Furniture Manufacturing & Retail (Anonymous) | ~1000 employees, Global (US/Canada) | • Traditional ML inaccuracy (S:5)<br>• Cross-border complexity (S:3)<br>• Lack of agility (S:4) | 1-year planning cycles; cross-border tariff complexity; planning team already exploring agentic systems |
+| **INT-001** | Sep 24, 2025 | Business Analyst | Furniture Manufacturing & Retail (Anonymous) | ~1000 employees, Global (US/Canada) | • Traditional ML inaccuracy (S:5)<br>• Cross-border complexity (S:3)<br>• Lack of agility (S:4) | 1-year planning cycles; cross-border tariff complexity; planning team already exploring agentic systems |
 | **INT-002** | Sep 24, 2025 | Planning Manager | Walmart (Mass Retail) | ~10,000 stores globally, Millions of SKUs | • Forecast fragmentation (S:4)<br>• Supplier data quality (S:4)<br>• Localization difficulty (S:4) | Massive scale; Retail Link platform fragmentation; 60-85% forecast accuracy varying by category |
 | **INT-003** | Sep 25, 2025 | Market Analyst | La Vie En Rose (Fashion Retail) | 400+ stores, 20 countries | • Data consolidation (S:5)<br>• Swimwear volatility (S:4)<br>• Late markdowns (S:5, $500K loss) | Fashion trend sensitivity; stakeholder friction; 15+ Excel reports with no single source of truth |
 | **INT-004** | Sep 29, 2025 | Data Scientist | Canadian Tire (Multi-Banner Retail) | ~1,700 stores, ~250k SKUs, 15-20M loyalty members | • Weather shocks (S:5)<br>• Data prep burden (S:4, 50% time)<br>• Inventory-marketing disconnect (S:4) | Dealer vs. company-operated complexity; seasonality expertise; hybrid cloud (Azure + GCP) |
-| **INT-005** | Sep 2024 | BI Developer (prev.), Policy & Governance (current) | Groupe Dynamite (prev.), Walmart (current) | Mid-market fashion → Enterprise mass retail | • Data cleaning (S:5, 50%+ time)<br>• Inventory optimization balance (S:4)<br>• Omnichannel complexity (S:4) | SE Asia CPG experience; correlation methodology (Spearman/Pearson); offered project review |
+| **INT-005** | Sep 2025 | BI Developer (prev.), Policy & Governance (current) | Groupe Dynamite (prev.), Walmart (current) | Mid-market fashion → Enterprise mass retail | • Data cleaning (S:5, 50%+ time)<br>• Inventory optimization balance (S:4)<br>• Omnichannel complexity (S:4) | SE Asia CPG experience; correlation methodology (Spearman/Pearson); offered project review |
 
 **Industry Representation:**
 - **Furniture:** 1 company (long lead times, cross-border)
@@ -37,7 +37,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 - **Fashion Retail:** 2 companies (trend volatility, seasonality)
 - **Multi-Banner Retail:** 1 company (dealer complexity, weather sensitivity)
 
-**Geographic Coverage:** North America (US/Canada focus), with participant experience spanning Southeast Asia
+**Geographic Coverage:** North America (US/Canada focus), with participant experience from Southeast Asia
 
 ---
 
@@ -49,16 +49,16 @@ This synthesis provides the user context, workflows, and personas that inform re
 **Role:** Business Analyst at global furniture manufacturing & retail company
 
 **Demographics & Context:**
-- Works separately from planning team but liaises with them
-- Company prefers anonymity due to competitive sensitivity
+- Works separately from the planning team but liaises with them
+- The company prefers anonymity due to competitive sensitivity
 - ~1000 employees, US & Canada warehouse operations
 - 1-year advance planning due to manufacturing lead times
 
 **Goals:**
 - Improve demand forecast accuracy to reduce costly inventory misallocation
 - Minimize cross-border redistribution (tariffs, logistics costs)
-- Enable planning team to adopt more agile forecasting approaches
-- Facilitate adoption of AI/LLM solutions over traditional ML
+- Enable the planning team to adopt more agile forecasting approaches
+- Facilitate the adoption of AI/LLM solutions over traditional ML
 
 **Pain Points:**
 - Traditional ML models deliver insufficient accuracy (Severity 5)
@@ -70,7 +70,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 **Current Workflow:**
 1. Design & forecast 1 year ahead
 2. Predict quantity demand by location (traditional ML)
-3. Allocate inventory to US & Canada warehouses
+3. Allocate inventory to the US & Canada warehouses
 4. Monitor actual vs. forecast performance
 5. Reallocate inventory when gaps emerge
 6. Optimize redistribution routes and manage tariffs
@@ -101,13 +101,13 @@ This synthesis provides the user context, workflows, and personas that inform re
 
 **Demographics & Context:**
 - Operates at unprecedented scale: 10,000 stores globally, millions of SKUs
-- Coordinates across corporate merchandising, demand planners, buyers, suppliers
+- Coordinates across corporate merchandising, demand planners, buyers, and suppliers
 - Manages relationships with external platforms (Retail Link, Blue Yonder)
 - Multi-team coordination role
 
 **Goals:**
 - Unify fragmented forecasting views across teams and tools
-- Improve forecast accuracy from current 60-85% baseline (varies by category)
+- Improve forecast accuracy from the current 60-85% baseline (varies by category)
 - Reduce manual consolidation of Retail Link extracts and spreadsheets
 - Enable real-time, localized assortment decisions
 - Minimize out-of-stock firefighting (currently 6-18 hrs/week)
@@ -147,7 +147,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 > "Make forecasting and allocation truly real-time and integrated into a single source that automatically localizes the assortments and rebalances inventory with less (or no) manual handoffs."
 
 **Quote:**
-> "Manual consolidation of Retail Link extracts and the internal spreadsheets" [listed as biggest time waster]
+> "Manual consolidation of Retail Link extracts and the internal spreadsheets" [listed as the biggest time waster]
 
 ---
 
@@ -157,7 +157,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 **Role:** Market Analyst at La Vie En Rose (lingerie & swimwear)
 
 **Demographics & Context:**
-- 400+ stores across 20 countries (primarily Canada, expanding to US)
+- 400+ stores across 20 countries (primarily Canada, expanding to the US)
 - 3,500 active SKUs per season
 - High seasonality (swimwear vs. lingerie categories)
 - 6-month manufacturing lead times
@@ -167,7 +167,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 - Improve swimwear forecast accuracy (weather-dependent, highly volatile)
 - Prevent late markdown decisions ($500K annual margin loss)
 - Gain stakeholder trust (merchandising team overrides analytical recommendations)
-- Achieve single source of truth (currently 15+ Excel reports)
+- Achieve a single source of truth (currently 15+ Excel reports)
 - Support US expansion without breaking current manual processes
 
 **Pain Points:**
@@ -181,11 +181,11 @@ This synthesis provides the user context, workflows, and personas that inform re
 - Firefighting (12 hrs/week)
 
 **Current Workflow:**
-1. Pull historical sales from e-commerce platform and internal dashboards
+1. Pull historical sales from the e-commerce platform and internal dashboards
 2. Clean and consolidate data in Excel (match SKUs across channels, adjust for stockouts)
 3. Forecast models with seasonal adjustments (MMM model)
-4. Present to merchandising team for buy decisions
-5. Work with allocation team to distribute across stores
+4. Present to the merchandising team for buy decisions
+5. Work with the allocation team to distribute across stores
 6. Monitor sell-through weekly, adjust allocations
 7. Recommend markdowns for slow-moving inventory
 
@@ -232,7 +232,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 
 **Pain Points:**
 - Weather/seasonality shocks drive forecast misses (Severity 5)
-- Inventory as lagging constraint to marketing plans (Severity 4)
+- Inventory as a lagging constraint to marketing plans (Severity 4)
 - Heavy multi-source data prep (Severity 4, ~20 hrs/week)
 - Dealer vs. company-operated complexity (Severity 3)
 - Model frequency & infrastructure cost constraints (Severity 3, monthly vs. desired weekly)
@@ -241,7 +241,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 **Current Workflow:**
 1. Seasonal planning window defined by banner and ownership model
 2. Build SKU/category forecasts and decision support for pricing/promotions
-3. Assemble features from POS, e-comm, seasonality, weather, competitor, loyalty, macro data
+3. Assemble features from POS, e-comm, seasonality, weather, competitor, loyalty, and macro data
 4. Price/promo selection support (cannibalization, halo effects, flyer SKU selection)
 5. Deploy interpretable models on hybrid cloud (Azure/GCP)
 6. Weekly in-season monitoring (promo uplift, anomaly checks, short-horizon signals)
@@ -285,8 +285,8 @@ This synthesis provides the user context, workflows, and personas that inform re
 
 **Goals:**
 - Guide students toward realistic, scoped projects (avoid trying to solve everything)
-- Share methodology from successful CPG forecasting project
-- Emphasize importance of data quality and feature selection
+- Share methodology from a successful CPG forecasting project
+- Emphasize the importance of data quality and feature selection
 - Recommend focus on one domain (sales forecasting, not revenue/finance/inventory all at once)
 
 **Pain Points (from previous work):**
@@ -320,14 +320,14 @@ This synthesis provides the user context, workflows, and personas that inform re
 - Educator/mentor (provides detailed methodology guidance)
 - Pragmatic about scope (warns against overreach)
 - Methodical (emphasizes correlation analysis and feature selection)
-- Generous with time (offered to review project before submission)
+- Generous with time (offered to review the project before submission)
 
 **Key Recommendations:**
 1. Focus on ONE domain (sales forecasting, not inventory + revenue + finance)
 2. Choose ONE product category (fashion vs. groceries vs. electronics)
 3. Use Kaggle for public datasets
 4. Start with correlation models for feature selection
-5. Build simulator for scenario testing
+5. Build a simulator for scenario testing
 6. Expect manual insight generation (not 100% automation)
 
 **Key Quotes:**
@@ -337,7 +337,7 @@ This synthesis provides the user context, workflows, and personas that inform re
 
 > "It's good to focus on one [domain]. It would be too much to cover all aspects across different areas like inventory, revenue, or finance."
 
-> "Seasonality can vary based on the sale on the product that comes in. It can be during festivals like Christmas or Halloween, or periods where there are heavy discounts just to get rid of the inventories."
+> "Seasonality can vary based on the sales of the product that comes in. It can be during festivals like Christmas or Halloween, or periods where there are heavy discounts just to get rid of the inventory."
 
 ---
 
@@ -431,9 +431,9 @@ Step 2: Clean & consolidate in Excel (match SKUs across channels, adjust for sto
        → 10 hrs/week (PP-013, Severity 5)
 Step 3: Forecast models with seasonal adjustments (MMM model)
        → Swimwear particularly challenging (PP-014, Severity 4)
-Step 4: Present to merchandising team for buy decisions
+Step 4: Present to the merchandising team for buy decisions
        → Often overridden by "gut feel" (PP-018, Severity 4)
-Step 5: Work with allocation team to distribute across stores
+Step 5: Work with the allocation team to distribute across stores
        → Store clustering too simplistic (PP-015, Severity 4)
 Step 6: Monitor sell-through weekly, adjust allocations
        → 3-day data lag (PP-016 contributor)
@@ -452,7 +452,7 @@ Post-Week 10: Transfers to outlets
 - **Step 2:** Data consolidation nightmare - Always discrepancies between warehouse and store systems
 - **Step 3:** Weather dependency (swimwear) creates forecast volatility
 - **Step 4:** Stakeholder friction - Forecasts treated as "suggestions"
-- **Step 5:** Allocation too simplistic - Manual adjustments for Quebec vs. rest of Canada
+- **Step 5:** Allocation too simplistic - Manual adjustments for Quebec vs. the rest of Canada
 - **Step 6:** 3-day lag prevents timely action
 - **Step 7:** Late markdowns destroy margin
 
@@ -502,11 +502,11 @@ Post-Week 10: Transfers to outlets
 - Data Prep: ~20 hrs/week (50%)
 - Stakeholder/Alignment: ~10 hrs/week
 - Modeling/Visualization: ~10 hrs/week
-- Firefighting: Spikes when feeds break or urgent reads needed
+- Firefighting: Spikes when feeds break or urgent reads are needed
 
 **Biggest Time Wasters:**
 1. Multi-source integration & cleansing (loyalty, partner, GA4, StatsCan, competitor)
-2. Reconciliation and manual conditioning to make data model-ready
+2. Reconciliation and manual conditioning to make the data model-ready
 
 ---
 
@@ -542,7 +542,7 @@ Post-Week 10: Transfers to outlets
 - Canadian Tire: Spikes when feeds break or urgent reads needed
 - Furniture: Reallocation triggered when forecasts fail
 
-**Why This Matters:** Firefighting culture is symptom of inadequate forecasting; reactive vs. proactive operations.
+**Why This Matters:** Firefighting culture is a symptom of inadequate forecasting; reactive vs. proactive operations.
 
 ---
 
@@ -550,14 +550,14 @@ Post-Week 10: Transfers to outlets
 **Examples:**
 - **Walmart:** Suppliers build custom Retail Link queries and local dashboards; buyers use spreadsheet models
 - **La Vie En Rose:** Python scripts to auto-pull data; "shadow" allocation system in Access database; group texts with store managers during promos
-- **Canadian Tire:** Lightweight correctness/penalty features as feedback mechanism (workaround for infrequent retraining)
+- **Canadian Tire:** Lightweight correctness/penalty features as a feedback mechanism (workaround for infrequent retraining)
 - **Furniture:** TBD (interview focused on high-level workflow)
 
 **Why This Matters:** Workarounds indicate system inadequacy; they don't scale and create technical debt.
 
 ---
 
-### Theme 5: Stakeholder Alignment is Friction Point
+### Theme 5: Stakeholder Alignment is a Friction Point
 **Evidence:**
 - Walmart: 6-12 hrs/week in cross-functional alignment meetings to solve disagreements
 - La Vie En Rose: Merchandising team overrides forecasts based on "gut feel"; forecasts treated as "suggestions"
@@ -577,7 +577,7 @@ Post-Week 10: Transfers to outlets
 > "They want to adopt AI/LLMs to improve prediction accuracy, instead of only traditional machine learning models"
 > — INT-001 (Business Analyst, Furniture Retail)
 
-> "Forecast Accuracy: 60-85% varying by category per item and location. Must measure by SKU per store."
+> "Forecast Accuracy: 60-85% varying by category, per item, and location. Must measure by SKU per store."
 > — INT-002 (Planning Manager, Walmart)
 
 > "Forecast Accuracy: 60% at style level, 70% at category level"
@@ -589,7 +589,7 @@ Post-Week 10: Transfers to outlets
 > "Weather/seasonality shocks drive forecast misses [...] Monthly weather updates too coarse; need finer granularity"
 > — INT-004 (Data Scientist, Canadian Tire)
 
-> "Seasonality can vary based on the sale on the product that comes in. It can be during festivals like Christmas or Halloween, or periods where there are heavy discounts just to get rid of the inventories."
+> "Seasonality can vary based on the sales of the product that comes in. It can be during festivals like Christmas or Halloween, or periods where there are heavy discounts just to get rid of the inventory."
 > — INT-005 (Vaibhav Vishal, Groupe Dynamite/Walmart)
 
 ---
@@ -605,7 +605,7 @@ Post-Week 10: Transfers to outlets
 > "Data Prep: 10-20 hrs/week in pulling POS, promos, supplier data, and cleaning Retail Link extracts."
 > — INT-002 (Planning Manager, Walmart)
 
-> "Reconciling inventory numbers between warehouse system and store systems - always discrepancies"
+> "Reconciling inventory numbers between the warehouse system and store systems - always discrepancies"
 > — INT-003 (Market Analyst, La Vie En Rose)
 
 > "15+ different Excel reports circulated weekly, no single source of truth, constant reconciliation issues"
@@ -648,7 +648,7 @@ Post-Week 10: Transfers to outlets
 
 **Stakeholder:** Planning Team Manager at furniture retail company
 **Timeline:** Upon MVP delivery
-**Access Granted By:** INT-001 (Business Analyst) will facilitate introduction
+**Access Granted By:** INT-001 (Business Analyst) will facilitate the introduction
 
 **Value:**
 - Deep-dive into specific workflows (move beyond high-level understanding)
@@ -657,12 +657,12 @@ Post-Week 10: Transfers to outlets
 - Potential real-world testing with actual company data
 
 **Context:**
-> "Upon MVP delivery, interviewee will facilitate introduction to Planning Team Manager"
-> "If MVP demonstrates value, company is open to continued collaboration beyond the independent study period"
+> "Upon MVP delivery, the interviewee will facilitate the introduction to the Planning Team Manager"
+> "If MVP demonstrates value, the company is open to continued collaboration beyond the independent study period"
 > "Opportunity for real-world deployment and testing with actual data"
 > "Potential for ongoing partnership post-graduation"
 
-**Significance:** Planning team was already exploring agentic systems when we reached out, indicating urgency and receptiveness.
+**Significance:** The Planning team was already exploring agentic systems when we reached out, indicating urgency and receptiveness.
 
 ---
 
@@ -680,7 +680,7 @@ Post-Week 10: Transfers to outlets
 **Context:**
 > "Potential project review before submission"
 
-**Significance:** Vaibhav brings multi-industry perspective (fashion retail, CPG, mass retail) and hands-on forecasting project experience.
+**Significance:** Vaibhav brings a multi-industry perspective (fashion retail, CPG, mass retail) and hands-on forecasting project experience.
 
 ---
 
@@ -689,7 +689,7 @@ Post-Week 10: Transfers to outlets
 ### Insight 1: Problem is Industry-Wide, Not Company-Specific
 **Evidence:** 5 different companies across 4 retail segments all independently identified forecast accuracy as #1 challenge.
 
-**Implication:** Solution has broad market applicability beyond single niche.
+**Implication:** Solution has broad market applicability beyond a single niche.
 
 ---
 
@@ -700,17 +700,17 @@ Post-Week 10: Transfers to outlets
 
 ---
 
-### Insight 3: Data Preparation is Universal Bottleneck
+### Insight 3: Data Preparation is a Universal Bottleneck
 **Evidence:** 50% time burden consistent across INT-002, INT-003, INT-004, INT-005.
 
-**Implication:** Automated data pipeline is table-stakes requirement, not nice-to-have.
+**Implication:** Automated data pipeline is a table-stakes requirement, not a nice-to-have.
 
 ---
 
 ### Insight 4: External Factors Consistently Missed by Current Systems
 **Evidence:** Weather (INT-004, INT-003, INT-005), social media (INT-005, INT-003), economic/policy (INT-001), competitor (INT-004).
 
-**Implication:** Multi-source data integration is core value proposition; validates multi-agent architecture where each agent specializes in different data type.
+**Implication:** Multi-source data integration is a core value proposition; it validates a multi-agent architecture where each agent specializes in a different data type.
 
 ---
 
@@ -721,14 +721,14 @@ Post-Week 10: Transfers to outlets
 
 ---
 
-### Insight 6: Scale Varies Dramatically But Core Problems Consistent
+### Insight 6: Scale Varies Dramatically, Core Problems are Consistent
 **Evidence:** 200 stores (La Vie En Rose) to 10,000 stores (Walmart); 3,500 SKUs to millions of SKUs.
 
-**Implication:** Solution must be scalable but core functionality (multi-source integration, external factor incorporation, interpretability) applies across scales.
+**Implication:** Solution must be scalable, but core functionality (multi-source integration, external factor incorporation, interpretability) applies across scales.
 
 ---
 
-### Insight 7: Omnichannel Coordination is Emerging Requirement
+### Insight 7: Omnichannel Coordination is an Emerging Requirement
 **Evidence:** INT-002 (Walmart omnichannel), INT-003 (e-comm + stores), INT-005 (online-store interconnection).
 
 **Implication:** System must account for multi-channel demand influence and inventory fulfillment routing.
@@ -758,11 +758,11 @@ Post-Week 10: Transfers to outlets
 
 **Evidence Pack Component 4 (Approach Validation) will:**
 - Connect multi-agent AI approach to user-expressed technology preferences
-- Validate that solution direction addresses documented pain points
+- Validate that the solution direction addresses documented pain points
 - Demonstrate conceptual alignment with magic wand responses
 
 ---
 
 **Document Status:** Complete
-**Last Updated:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Source Material:** Interview Notes INT-001 through INT-005, Quote_Library.md, Pain_Point_Inventory.md
