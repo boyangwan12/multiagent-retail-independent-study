@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Through 5 user interviews across furniture retail, mass retail, fashion retail, and multi-banner retail operations, we identified a critical and pervasive problem: **traditional machine learning approaches to demand forecasting are fundamentally insufficient for modern retail operations**. This insufficiency creates a cascading series of consequences resulting in:
+Through 5 user interviews across furniture retail, mass retail, fashion retail, and multi-banner retail operations, we identified a critical problem: **traditional ML approaches to demand forecasting are insufficient for modern retail operations**. This insufficiency creates a series of consequences resulting in:
 
 - **50%+ of analyst time** wasted on manual data preparation
 - **$500K+ annual margin losses** from late markdown decisions (single company)
