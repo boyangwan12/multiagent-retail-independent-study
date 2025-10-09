@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Between September 24-29, 2025, we conducted 5 in-depth interviews with retail professionals across 4 distinct retail segments: furniture, mass retail, fashion, and multi-banner operations. The combined company scale ranges from 200 stores to 10,000+ stores globally, representing operational diversity from mid-market to enterprise retail.
+Between September 24th and 29th (2025), we conducted 5 in-depth interviews with retail professionals across distinct retail segments: furniture, mass retail, fashion, and multi-banner operations. The combined company scale ranges from 200 stores to more than 10,000 stores globally, representing operational diversity from mid-market to enterprise retail in our interviews.
 
 **Key Research Findings:**
 1. **Universal pain:** All 5 participants independently identified forecast accuracy as their top challenge
