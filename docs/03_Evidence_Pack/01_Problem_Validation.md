@@ -13,9 +13,9 @@ Through 5 user interviews across furniture retail, mass retail, fashion retail, 
 - **50%+ of analyst time** wasted on manual data preparation
 - **$500K+ annual margin losses** from late markdown decisions (single company)
 - **6-18 hours per week** spent firefighting inventory crises
-- **Forecast accuracy of only 60-70%** at SKU level despite significant investment
+- **Forecast accuracy of only 60-70%** at the SKU level despite significant investment
 
-The problem is not confined to a single retail segment—it manifests across furniture (1-year planning cycles), fashion (trend volatility), mass retail (massive scale), and seasonal categories (weather dependency). All interviewed stakeholders independently expressed urgent need for AI/LLM-based approaches that can incorporate external factors, adapt continuously, and provide store-level granularity.
+The problem is not confined to a single retail segment—it manifests across furniture (with 1-year planning cycles), fashion (trend volatility), mass retail (operating on a massive scale), and seasonal categories (which are weather-dependent). All interviewed stakeholders independently expressed an urgent need for AI/LLM-based approaches that can incorporate external factors, adapt continuously, and provide store-level granularity.
 
 ---
 
@@ -25,13 +25,13 @@ The problem is not confined to a single retail segment—it manifests across fur
 
 1. **External factor integration** (weather, social trends, economic conditions, policy changes)
 2. **Continuous adaptation** to rapidly changing market conditions
-3. **Multi-source data coordination** across fragmented systems
-4. **Store-level granularity** needed for effective inventory allocation
+3. **Multi-source data coordination** across different fragmented systems
+4. **Store-level granularity**, which is needed for effective inventory allocation
 
-**Impact:** Forecast inaccuracy triggers a pain cascade:
+**Impact:** Forecast inaccuracy triggers:
 - Poor forecasts → Inventory misallocation → Stockouts or overstock → Expensive redistribution → Margin erosion → Lost sales
 
-**Consequence:** Retailers spend more time on reactive firefighting (12-18 hrs/week) and manual data reconciliation (50% of time) than on strategic planning and optimization.
+**Consequence:** Retailers spend unnecessary time on reactive firefighting (12-18 hrs/week) and manual data reconciliation (50% of time) than on strategic planning and optimization.
 
 ---
 
@@ -136,10 +136,10 @@ graph TD
 
 **Examples of Missed Factors:**
 - **Weather shocks:** No-snow winters destroy shovel/winter product forecasts
-- **Social media trends:** Fashion trends change daily/weekly but models update monthly
+- **Social media trends:** Fashion trends change daily/weekly, but models update monthly
 - **Economic policy:** Tariff changes impact cross-border costs and consumer behavior
 - **Competitor actions:** Amazon pricing/promotions create sudden demand shifts
-- **Macro conditions:** Population shifts, income trends, birth rates affect long-term patterns
+- **Macro conditions:** Population shifts, income trends, and birth rates affect long-term patterns
 
 **Supporting Evidence:**
 
@@ -178,7 +178,7 @@ graph TD
 | **Inventory reallocation** | High approval bar | INT-004 | Canadian Tire; freight/ops costs limit corrective actions |
 | **Lost opportunity** | Unmeasured | Multiple | Analyst time wasted on data prep vs. strategic optimization |
 
-**Note:** Only one company (INT-003) quantified markdown impact. Extrapolating across 5 companies with similar patterns suggests **multi-million dollar aggregate annual impact** from forecast-driven inefficiencies.
+**Note:** Only one company (INT-003) quantified markdown impact. Extrapolating across five companies with similar patterns suggests a **multi-million-dollar aggregate annual impact** from forecast-driven inefficiencies.
 
 ---
 
@@ -232,7 +232,7 @@ graph TD
 5. **Forecast accuracy stuck at 60-70%** → Can't improve without external data
 6. **Stakeholder trust erodes** (PP-018) → "Forecasts treated as 'suggestions'"
 
-**Organizational Impact:** Cross-functional friction as merchandising teams override analytics due to lack of confidence.
+**Organizational Impact:** Cross-functional friction as merchandising teams override analytics due to a lack of confidence.
 
 ---
 
@@ -242,7 +242,7 @@ graph TD
 **Unique Characteristics:**
 - 1-year planning cycles (long manufacturing lead times)
 - Cross-border operations (US/Canada warehouses)
-- High SKU value → Misallocation very costly
+- High SKU value → Misallocation is very costly
 
 **Problem Manifestation:**
 - Location-based demand prediction failures (severity 4)
@@ -324,7 +324,7 @@ graph TD
 **Why This Matters:**
 - 30-40% forecast error rate drives all downstream allocation problems
 - Thin retail margins (5-10%) cannot absorb this level of inefficiency
-- Improvement requires fundamentally different approach, not incremental optimization
+- Improvement requires a fundamentally different approach, not incremental optimization
 
 ---
 
@@ -350,7 +350,7 @@ graph TD
 
 ---
 
-### Theme 5: System Fragmentation Creates Single Source of Truth Problem
+### Theme 5: System Fragmentation Creates a Single Source of Truth Problem
 **Evidence:**
 - 15+ Excel reports, no SSOT (INT-003)
 - Forecast fragmentation across teams (INT-002)
@@ -363,7 +363,7 @@ graph TD
 
 ---
 
-## Validation That Problem is Significant
+## Validation That the Problem is Significant
 
 ### Criterion 1: Problem Frequency
 **Finding:** 27 of 33 pain points (82%) occur daily, weekly, or seasonally—not occasional edge cases.
@@ -375,14 +375,14 @@ graph TD
 ### Criterion 2: Problem Severity
 **Finding:** 5 severity-5 pain points, 11 severity-4 pain points = 16 high-to-critical issues (48% of total).
 
-**Conclusion:** Problem creates substantial operational and financial impact.
+**Conclusion:** The Problem creates a substantial operational and financial impact.
 
 ---
 
 ### Criterion 3: Problem Scope
 **Finding:** Problem manifests across 4 distinct retail segments (furniture, mass, fashion, multi-banner) and 5 different companies.
 
-**Conclusion:** Problem is industry-wide, not company-specific or niche.
+**Conclusion:** The Problem is industry-wide, not company-specific.
 
 ---
 
@@ -401,9 +401,9 @@ graph TD
 **Finding:**
 - $500K annual margin loss (single company)
 - 30-50% of analyst capacity wasted
-- 60-70% forecast accuracy insufficient for margins
+- 60-70% forecast accuracy is insufficient for margins
 
-**Conclusion:** Problem has measurable, significant financial consequence.
+**Conclusion:** The Problem has measurable, significant financial consequences.
 
 ---
 
@@ -423,11 +423,11 @@ graph TD
 
 **Limitation 3: Single-Model Architecture**
 - One model tries to capture all complexity
-- Cannot specialize for different data types or contexts
+- Cannot specialize in different data types or contexts
 - Overfits to historical patterns, ignores emerging trends
 
 **Limitation 4: Lack of Contextual Reasoning**
-- Cannot understand relationships between external events and demand
+- Cannot understand the relationships between external events and demand
 - Example: Model sees "Christmas sales spike" but doesn't understand WHY or how to generalize to other events
 - Cannot adapt reasoning to new product categories or markets
 
@@ -472,7 +472,7 @@ graph TD
 
 ### Problem is Pervasive ✓
 - Affects furniture, mass retail, fashion, multi-banner segments
-- Manifests in North America across US and Canada operations
+- Manifests in North America across the US and Canada operations
 - Independent validation from 5 different companies
 - Scale ranges from 200 stores to 10,000 stores
 
@@ -483,9 +483,9 @@ graph TD
 - Magic wand responses align with multi-agent AI capabilities
 
 ### Current Solutions Inadequate ✓
-- Traditional ML structurally limited (static, single-model, batch)
+- Traditional ML is structurally limited (static, single-model, batch)
 - Workarounds (Excel, fragmented tools, human override) don't scale
-- 60-70% forecast accuracy insufficient for modern retail margins
+- 60-70% forecast accuracy is insufficient for modern retail margins
 - Industry consensus: need fundamentally new approach
 
 ---
@@ -516,5 +516,5 @@ graph TD
 ---
 
 **Document Status:** Complete
-**Last Updated:** October 2, 2025
+**Last Updated:** October 8, 2025
 **Source Material:** Pain_Point_Inventory.md, Quote_Library.md, Interview Notes INT-001 through INT-005
