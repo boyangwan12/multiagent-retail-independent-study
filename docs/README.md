@@ -2,8 +2,8 @@
 ## Multi-Agent Retail Demand Forecasting System
 
 **Project:** Independent Study - Multi-Agent System for Retail Demand Forecasting
-**Timeline:** September 1 - December 7, 2025
-**Status:** Evidence Pack Complete | PoC Development Phase
+**Timeline:** September 1 - December 10, 2025
+**Status:** Evidence Pack Complete ✅ | Product Specs Complete ✅ | Development Starting 🚧
 
 ---
 
@@ -65,7 +65,6 @@ User research: 5 interviews across 4 retail segments
    - Multi-source data integration confirmed as need
    - Continuous learning validated as requirement
    - Explainability critical for adoption
-   - **NOTE:** Does NOT validate multi-agent architecture specifically—that's a technical design choice
 
 5. **`05_Success_Metrics.md`** - User-defined success criteria and measurement methodology
    - 7 measurable success criteria with baselines and targets
@@ -98,20 +97,62 @@ User research: 5 interviews across 4 retail segments
 ---
 
 ### 💻 04_PoC_Development/
-Technical research and implementation planning
+**✅ COMPLETE** - Product specifications, PRD, and development plan finalized
+
+#### Product Brief (`product_brief/`)
+- **`product_brief_v2.1.md`** - Main product specification (Archetype 2: Stable Catalog Retail)
+  - 3-agent system (Demand, Inventory, Pricing + Orchestrator)
+  - Core prediction: `demand_by_store_by_week` matrix (50 stores × 26 weeks)
+  - Evidence-based problem validation (PP-001, PP-002, PP-015, PP-016, PP-028)
+  - MVP scope: 50 SKUs, 50 stores, 26-week furniture retail season
+
+- **`2_key_parameter.md`** - Parameter-driven system design
+  - 3 retail archetypes (Fashion, Stable Catalog, Continuous Replenishment)
+  - MVP validates on Archetype 2
+  - Configurable parameters: season length, replenishment cadence, markdown timing, DC holdback
+
+- **`2_operational_workflow.md`** - 5-phase seasonal workflow
+  - Phase 1: Pre-season planning (Week -12)
+  - Phase 2: Initial allocation (Week 0)
+  - Phase 3: In-season operations (bi-weekly, Weeks 2-10)
+  - Phase 4: Mid-season pricing (Week 12 markdown checkpoint)
+  - Phase 5: Season end analytics (Week 26)
+
+- **`2_simplified_three_agent_mvp.md`** - Streamlined MVP specification
+  - Adaptive forecasting methods (similar-item matching, time-series)
+  - Inventory optimization approach
+  - Pricing logic and markdown triggers
+
+#### PRD (`prd/`)
+- **`prd_demand_forecasting_system.md`** - Comprehensive Product Requirements Document (600+ lines)
+  - Functional requirements for all 4 agents with plain language explanations
+  - ML/forecasting methods (OpenAI embeddings, Prophet, ARIMA, rule-based pricing)
+  - Agentic features (autonomous decision-making, LLM reasoning, semantic understanding, multi-agent collaboration)
+  - Non-functional requirements (zero-cost MVP, <$5 LLM budget)
+  - User stories, data requirements, 12-week timeline
+  - Technology stack (LangChain, OpenAI SDK, Prophet, statsmodels)
+
+- **`agent_coordination_workflow.md`** - Multi-agent orchestration specification
+  - 7 Mermaid flowcharts (season workflow, phase coordination, decision trees, sequence diagrams)
+  - Phase-by-phase coordination (5 phases)
+  - Event-based triggers (variance >15%, confidence <70%)
+  - Message passing protocol and state management
+  - Performance metrics (~$0.05 LLM cost per season)
+
+- **`development_plan.md`** - 9-week implementation plan (Oct 10 - Dec 10, 2025)
+  - Phase 1-2: Environment setup & data generation (Weeks 1-2)
+  - Phase 3-4: Similar-item matching with embeddings (Weeks 3-4)
+  - Phase 4-5: Forecasting methods (Prophet, ARIMA, hybrid) (Weeks 4-5)
+  - Phase 5-6: Inventory agent (Weeks 5-6)
+  - Phase 6-7: Pricing agent & orchestrator (Weeks 6-7)
+  - Phase 8: Integration & validation (Week 8, MAPE <20%)
+  - Phase 9: Documentation & final report (Week 9)
+
+#### Architecture (`Architecture/`)
+- **`architecture_v1.1.md`** - System architecture design
 
 #### Research (`Research/`)
-- **`OpenAI_Agents_SDK_Retail_PoC_Research.md`** - Comprehensive evaluation of OpenAI Agents SDK & Responses API for retail demand forecasting
-- **`multi-agent-forecasting-pitch.md`** - Technical pitch and architecture overview
-  - Multi-agent system design (vs. workflow)
-  - 5 core agentic features (bidding, autonomous activation, coalitions, confidence scoring, proactive learning)
-  - Two-level forecasting (category → SKU)
-  - Seasonal intelligence engine (LLM-powered)
-  - Reinforcement learning architecture
-  - 16-week MVP roadmap
-  - Success metrics: MAPE < 15% (category), < 25% (SKU)
-
-**Note:** Technical pitch is the SOLUTION to validated problems in Evidence Pack
+- **`OpenAI_Agents_SDK_Retail_PoC_Research.md`** - OpenAI SDK evaluation for retail demand forecasting
 
 ---
 
@@ -121,6 +162,14 @@ Project status tracking and supervisor updates
 #### Weekly Supervisor Meetings (`Weekly_Supervisor_Meetings/`)
 - **`Week_01_Updates.md`** - Initial project setup and planning
 - **`Week_02_Updates.md`** - Interview completions (INT-001, INT-002, INT-003) and key findings
+- **`Week_03_Updates.md`** - Evidence pack progress and remaining interviews
+- **`Week_04_Updates.md`** - Product specs completion (7 major deliverables)
+  - Product Brief v2.1
+  - Operational Workflow Document
+  - Key Parameters Document
+  - Simplified Three-Agent MVP Specification
+  - Comprehensive PRD (600+ lines)
+  - Agent Coordination Workflow (7 flowcharts)
 
 ---
 
@@ -136,13 +185,14 @@ Project status tracking and supervisor updates
 | **Problem Validation** | `03_Evidence_Pack/01_Problem_Validation.md` | 33 pain points, severity analysis |
 | **User Personas** | `03_Evidence_Pack/02_User_Research_Synthesis.md` | 5 detailed personas + workflows |
 | **Requirements** | `03_Evidence_Pack/03_Requirements_Constraints.md` | 41 requirements with traceability |
-| **Solution Validation** | `03_Evidence_Pack/04_Approach_Validation.md` | AI-based direction confirmed |
 | **Success Metrics** | `03_Evidence_Pack/05_Success_Metrics.md` | Measurable criteria + baselines |
-| **Research Methods** | `03_Evidence_Pack/06_Research_Methodology.md` | Interview process + analysis |
 | **Pain Points List** | `03_Evidence_Pack/_extraction/Pain_Point_Inventory.md` | 33 pain points with details |
-| **Key Quotes** | `03_Evidence_Pack/_extraction/Quote_Library.md` | 36 quotes by theme |
-| **Technical Pitch** | `04_PoC_Development/Research/multi-agent-forecasting-pitch.md` | Architecture + MVP plan |
-| **OpenAI SDK Research** | `04_PoC_Development/Research/OpenAI_Agents_SDK_Retail_PoC_Research.md` | Technology evaluation |
+| **Product Brief** | `04_PoC_Development/product_brief/product_brief_v2.1.md` | Main product specification |
+| **PRD** | `04_PoC_Development/prd/prd_demand_forecasting_system.md` | Comprehensive requirements (600+ lines) |
+| **Agent Coordination** | `04_PoC_Development/prd/agent_coordination_workflow.md` | Multi-agent orchestration + flowcharts |
+| **Development Plan** | `04_PoC_Development/prd/development_plan.md` | 9-week implementation plan |
+| **Operational Workflow** | `04_PoC_Development/product_brief/2_operational_workflow.md` | 5-phase seasonal workflow |
+| **System Architecture** | `04_PoC_Development/Architecture/architecture_v1.1.md` | Technical architecture |
 
 ---
 
@@ -168,74 +218,91 @@ Project status tracking and supervisor updates
 - 3 extraction files (pain points, quotes, requirements)
 - Problem validated, requirements defined, direction confirmed
 
-### 🔄 Phase 4: Technical Design (IN PROGRESS)
+### ✅ Phase 4: Product Specifications (COMPLETE)
 **Duration:** Weeks 6-8
-**Current Status:**
-- Multi-agent architecture pitch created
-- OpenAI SDK research complete
-**Next Steps:**
-- Finalize PoC architecture
-- Select dataset (Kaggle retail sales data)
-- Set up development environment
+**Deliverables:**
+- Product Brief v2.1 (Archetype 2: Stable Catalog Retail)
+- Operational Workflow (5-phase seasonal workflow)
+- Key Parameters (3 retail archetypes, parameter-driven design)
+- Comprehensive PRD (600+ lines with ML methods, agentic features)
+- Agent Coordination Workflow (7 Mermaid flowcharts)
+- 9-week Development Plan (Oct 10 - Dec 10)
 
-### ⏳ Phase 5: PoC Development (UPCOMING)
-**Duration:** Weeks 8-14
+### 🚧 Phase 5: PoC Development (STARTING - Week 8)
+**Duration:** Weeks 8-16 (October 10 - December 10, 2025)
+**Current Status:** Starting Phase 1 (Environment Setup & Data Generation)
 **Planned:**
-- Implement multi-agent system
-- Two-level forecasting (category → SKU)
-- Reinforcement learning integration
-- Seasonal intelligence engine
+- Week 1-2: Environment setup, synthetic data generation (50 SKUs, 50 stores, 2 years)
+- Week 3-4: Similar-item matching with OpenAI embeddings
+- Week 4-5: Forecasting methods (Prophet, ARIMA, hybrid)
+- Week 5-6: Inventory agent (manufacturing, allocation, replenishment)
+- Week 6-7: Pricing agent + orchestrator (5-phase workflow)
+- Week 8: Integration & validation (MAPE <20%, cost <$5)
+- Week 9: Documentation & final report
 
 ### ⏳ Phase 6: Validation & Delivery (UPCOMING)
-**Duration:** Weeks 14-16
+**Duration:** Weeks 16-17
 **Planned:**
-- Test with historical retail data
-- Measure accuracy (MAPE targets)
+- Test with synthetic retail data
+- Measure accuracy (MAPE <20% target)
 - Demo to supervisor
 - Final technical report
 
 ---
 
-## 📊 Evidence Pack → Technical Solution Flow
+## 📊 System Architecture Overview
+
+### 3 Agents + Orchestrator
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ EVIDENCE PACK (User Research Validation)                 │
-├──────────────────────────────────────────────────────────┤
-│ Component 1: Problem Validation                          │
-│   → 33 pain points, $500K losses, 50% time waste         │
-│                                                           │
-│ Component 2: User Research Synthesis                     │
-│   → 5 personas, workflows, collaboration opportunities   │
-│                                                           │
-│ Component 3: Requirements & Constraints                  │
-│   → 41 requirements traceable to user needs              │
-│                                                           │
-│ Component 4: Approach Validation                         │
-│   → AI-based, multi-source, adaptive direction confirmed │
-│                                                           │
-│ Component 5: Success Metrics                             │
-│   → 7 measurable criteria with baselines                 │
-│                                                           │
-│ Component 6: Research Methodology                        │
-│   → Interview process, analysis, limitations             │
-└──────────────────────────┬───────────────────────────────┘
-                           ↓
-┌──────────────────────────────────────────────────────────┐
-│ TECHNICAL PITCH (Solution Design)                        │
-├──────────────────────────────────────────────────────────┤
-│ • Multi-agent architecture (vs. workflow)                │
-│ • 5 agentic features (bidding, coalitions, RL, etc.)     │
-│ • Two-level forecasting (category → SKU)                 │
-│ • Seasonal intelligence (LLM-powered)                    │
-│ • 16-week MVP roadmap                                    │
-│ • Success: MAPE < 15% (category), < 25% (SKU)            │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│           ORCHESTRATOR                  │
+│  • 5-phase workflow coordination        │
+│  • Variance detection (>15%)            │
+│  • Performance monitoring               │
+└─────────────┬───────────────────────────┘
+              │
+    ┌─────────┴─────────┬───────────────┐
+    │                   │               │
+    ▼                   ▼               ▼
+┌─────────┐      ┌──────────┐   ┌──────────┐
+│ DEMAND  │─────▶│INVENTORY │   │  PRICING │
+│  AGENT  │      │  AGENT   │   │  AGENT   │
+└─────────┘      └──────────┘   └────┬─────┘
+                                      │
+                                      │ triggers
+                                      ▼
+                                 ┌─────────┐
+                                 │ DEMAND  │
+                                 │(rerun)  │
+                                 └─────────┘
 ```
 
-**Key Relationship:**
-- Evidence Pack = **WHAT** (problem) + **WHY** (user needs) + **DIRECTION** (AI-based, adaptive)
-- Technical Pitch = **HOW** (multi-agent solution) + **WHEN** (16-week MVP)
+### Agent Responsibilities
+
+| Agent | Primary Responsibility | Key Output |
+|-------|----------------------|-----------|
+| **Demand Agent** | Predict store-week demand using similar-item matching + time-series | `demand_by_store_by_week` matrix |
+| **Inventory Agent** | Calculate manufacturing orders, allocate inventory, plan replenishment | Manufacturing order, allocation plans |
+| **Pricing Agent** | Monitor sell-through, recommend markdowns | Markdown triggers, depth recommendations |
+| **Orchestrator** | Coordinate agents through 5-phase seasonal workflow | Agent execution sequence, performance metrics |
+
+### Agentic Features
+- **Autonomous decision-making**: LLM chooses forecasting methods (Prophet, ARIMA, hybrid)
+- **Reasoning & explanation**: Natural language explanations for all decisions
+- **Semantic understanding**: OpenAI embeddings for similar-item matching (charcoal sofa ≈ grey sectional)
+- **Adaptive behavior**: Method selection based on data availability and confidence
+- **Multi-agent collaboration**: Cascading decisions (Pricing → Demand → Inventory)
+- **Memory & state**: Orchestrator maintains full season history
+- **Human-in-the-loop**: Escalates when confidence <70%
+
+### Technology Stack
+- **LLM API**: OpenAI SDK (gpt-4o-mini, text-embedding-3-small)
+- **Agent Framework**: LangChain
+- **Forecasting**: Prophet, statsmodels (ARIMA/SARIMA)
+- **Data Processing**: pandas, NumPy
+- **Storage**: SQLite, CSV/Parquet (local)
+- **Budget**: <$5 LLM costs (~$0.05 per season)
 
 ---
 
@@ -258,66 +325,31 @@ Project status tracking and supervisor updates
 - **Fashion:** Trend volatility, seasonal dependency
 - **Multi-Banner:** Weather sensitivity, dealer complexity
 
-### Validated Direction
-✅ AI-based approaches (vs. traditional ML)
-✅ Multi-source data integration (weather, social media, inventory, etc.)
-✅ Continuous learning and adaptation
-✅ Store-level forecasting granularity
-✅ Explainability and transparency
-✅ Event-based seasonality intelligence
+### MVP Success Metrics
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| **MAPE (Store-Week)** | <20% | Hindcast on synthetic data |
+| **Bias** | ±5% | Over/under-forecasting check |
+| **Confidence Calibration** | 80%+ | Predicted confidence vs actual error |
+| **Runtime (Initial Forecast)** | <4 hours | 50 SKUs, local machine |
+| **Runtime (Bi-weekly Update)** | <30 min | Single update cycle |
+| **LLM Cost** | <$5 | Total for full season (26 weeks) |
 
 ---
 
-## 📌 Important Notes
+## 📌 Current Status
 
-### Evidence Pack Scope
-The Evidence Pack **validates**:
-- ✅ Problem exists and is significant
-- ✅ User needs are documented
-- ✅ General solution direction (AI-based, multi-source, adaptive)
+**Week 4 (October 10, 2025):**
+- ✅ Evidence Pack completed (6 components, 150+ pages)
+- ✅ Product specifications completed (7 major deliverables)
+- ✅ 9-week Development Plan finalized
+- 🚧 Starting Phase 1: Environment Setup & Data Generation
 
-The Evidence Pack **does NOT validate**:
-- ❌ Multi-agent architecture specifically (technical choice)
-- ❌ Reinforcement learning framework (implementation detail)
-- ❌ Specific accuracy targets like MAPE < 15% (goes in Technical Design Doc)
-
-**Why?** Users validate NEEDS and DIRECTION. Engineers validate ARCHITECTURE and IMPLEMENTATION.
-
-### Next Actions
-1. ✅ Evidence Pack complete (6 components + extraction files)
-2. 🔄 Select dataset (Kaggle retail sales with seasonality)
-3. ⏳ Finalize PoC technical design
-4. ⏳ Set up development environment (OpenAI SDK, Ray RLlib)
-5. ⏳ Begin MVP Phase 1: Foundation (Weeks 1-3)
+**Next Milestone:** Week 2 - Data & Environment Ready (synthetic data for 50 SKUs, 50 stores, 2 years)
 
 ---
 
-## 📞 Collaboration Opportunities
-
-### INT-001: Planning Team Access
-**Stakeholder:** Planning Team Manager (Furniture Retail)
-**Timeline:** Upon MVP delivery
-**Opportunity:** Real-world testing, performance benchmarking, potential long-term collaboration
-
-### INT-005: Expert Project Review
-**Stakeholder:** Vaibhav Vishal (Walmart Policy & Governance)
-**Offered:** Project review before submission
-**Value:** Methodology validation, scope check, multi-industry perspective
-
----
-
-## 📚 Documentation Standards
-
-All documents follow consistent structure:
-- Executive summaries for quick understanding
-- Evidence-based claims with interview citations
-- Cross-references between components
-- Tables for structured data
-- Professional academic/business tone
-- Transparent limitation acknowledgment
-
----
-
-**Project Status:** Evidence Pack Complete ✅ | PoC Development Starting 🔄
-**Last Updated:** October 2, 2025
-**Document Version:** 2.0
+**Project Status:** Product Specs Complete ✅ | Development Starting 🚧
+**Last Updated:** October 10, 2025
+**Document Version:** 3.0
