@@ -45,7 +45,7 @@ independent_study/
 │   ├── 04_PoC_Development/
 │   │   ├── product_brief/
 │   │   │   ├── product_brief_v3.2.md           # ✅ Current product spec (v3.2 - aligned with architecture)
-│   │   │   └── 3_operational_workflow.md       # ✅ Streamlined workflow with examples
+│   │   │   └── operational_workflow_v3.2.md    # ✅ Streamlined workflow (v3.2 - aligned with architecture)
 │   │   │
 │   │   ├── architecture/
 │   │   │   └── technical_architecture.md       # ✅ Complete architecture (20 sections, includes handoff patterns)
@@ -81,7 +81,7 @@ independent_study/
 
 ### Product Specifications (Current - Archetype 1)
 - **[Product Brief v3.2](docs/04_PoC_Development/product_brief/product_brief_v3.2.md)**: Category-level forecasting approach (Archetype 1), aligned with technical architecture - Ensemble Prophet+ARIMA, K-means clustering (7 features), Gap × Elasticity markdown
-- **[Operational Workflow v3](docs/04_PoC_Development/product_brief/3_operational_workflow.md)**: Streamlined workflow with concrete examples
+- **[Operational Workflow v3.2](docs/04_PoC_Development/product_brief/operational_workflow_v3.2.md)**: Streamlined workflow with concrete examples - Ensemble forecasting, K-means (7 features), simple replenishment, Gap × Elasticity markdown
 - **[Technical Architecture](docs/04_PoC_Development/architecture/technical_architecture.md)**: Complete backend architecture (20 sections) - OpenAI Agents SDK, Prophet+ARIMA, React+TypeScript, includes agent coordination workflow
 - **[Next Steps Plan](docs/04_PoC_Development/next_steps_plan.md)**: Document roadmap to implementation
 
