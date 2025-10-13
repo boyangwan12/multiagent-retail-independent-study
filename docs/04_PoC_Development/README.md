@@ -10,7 +10,9 @@
 ### 📁 Active Documents (Current Versions)
 
 #### Product Brief & Operational Workflow
-- **`product_brief/product_brief_v3.1.md`** ✅ - Current product brief (Archetype 1: Fashion Retail, 12 weeks)
+- **`product_brief/product_brief_v3.2.md`** ✅ - Current product brief (Archetype 1: Fashion Retail, 12 weeks, aligned with architecture)
+  - Ensemble Prophet+ARIMA (parallel, averaged), K-means (7 features), Gap × Elasticity markdown
+  - No confidence scoring (simplified MVP)
 - **`product_brief/3_operational_workflow.md`** ✅ - Streamlined operational guide with concrete examples
 - **Key Features**: Category-level forecasting (NOT store-by-week), hierarchical allocation, 3-agent system
 
@@ -55,7 +57,7 @@
 **Old versions moved to `archive/`** (for reference only):
 - `architecture_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
 - `prd_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
-- `product_brief_v1.1.md`, `product_brief_v2.1.md` - Superseded by v3.1
+- `product_brief_v1.1.md`, `product_brief_v2.1.md`, `product_brief_v3.1.md` - Superseded by v3.2
 - `2_key_parameter.md`, `2_operational_workflow.md` - Superseded by v3 documents
 
 **Important Note**: Archive documents focus on Archetype 2 (Stable Catalog Retail, Furniture, 26 weeks) which is NOT the current MVP focus. Current focus is Archetype 1 (Fashion Retail, Women's Dresses, 12 weeks).
@@ -120,9 +122,9 @@ Follow the plan in **`next_steps_plan.md`**:
 ## Progress Status
 
 **Completed:**
-- ✅ Product Brief v3.1 (Archetype 1: Fashion Retail)
+- ✅ Product Brief v3.2 (Archetype 1: Fashion Retail, aligned with architecture)
 - ✅ Operational Workflow v3
-- ✅ Technical Architecture (20 sections, implementation-ready)
+- ✅ Technical Architecture v1.0 (20 sections, implementation-ready)
 
 **Next Steps:**
 - 🎨 **UI/UX Design** - Talk to `*agent designer` for wireframes and dashboard layouts
