@@ -44,7 +44,7 @@ independent_study/
 │   │
 │   ├── 04_PoC_Development/
 │   │   ├── product_brief/
-│   │   │   ├── product_brief_v3.1.md           # ✅ Current product spec (Archetype 1)
+│   │   │   ├── product_brief_v3.2.md           # ✅ Current product spec (v3.2 - aligned with architecture)
 │   │   │   └── 3_operational_workflow.md       # ✅ Streamlined workflow with examples
 │   │   │
 │   │   ├── architecture/
@@ -80,7 +80,7 @@ independent_study/
 ## Key Documents
 
 ### Product Specifications (Current - Archetype 1)
-- **[Product Brief v3.1](docs/04_PoC_Development/product_brief/product_brief_v3.1.md)**: Category-level forecasting approach, Archetype 1 (Fashion Retail, 12 weeks)
+- **[Product Brief v3.2](docs/04_PoC_Development/product_brief/product_brief_v3.2.md)**: Category-level forecasting approach (Archetype 1), aligned with technical architecture - Ensemble Prophet+ARIMA, K-means clustering (7 features), Gap × Elasticity markdown
 - **[Operational Workflow v3](docs/04_PoC_Development/product_brief/3_operational_workflow.md)**: Streamlined workflow with concrete examples
 - **[Technical Architecture](docs/04_PoC_Development/architecture/technical_architecture.md)**: Complete backend architecture (20 sections) - OpenAI Agents SDK, Prophet+ARIMA, React+TypeScript, includes agent coordination workflow
 - **[Next Steps Plan](docs/04_PoC_Development/next_steps_plan.md)**: Document roadmap to implementation
@@ -159,13 +159,17 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 **Week 4 (October 12, 2025):**
 - ✅ Evidence Pack completed (6 components)
-- ✅ Product Brief v3.1 finalized (Archetype 1: Fashion Retail)
+- ✅ Product Brief v3.2 finalized (Archetype 1: Fashion Retail, aligned with architecture)
+  - Ensemble Prophet+ARIMA (parallel, averaged)
+  - K-means clustering (7 features: sales, size, income, tiers, format, region)
+  - Gap × Elasticity markdown (elasticity=2.0, 5% rounding, 40% cap)
+  - Simple replenishment formula (forecast - inventory)
+  - No confidence scoring (simplified MVP)
 - ✅ Operational Workflow v3 (streamlined with examples)
-- ✅ Technical Architecture complete (20 sections, implementation-ready)
-  - OpenAI Agents SDK + UV + FastAPI + React
-  - Prophet+ARIMA ensemble, K-means clustering
+- ✅ Technical Architecture v1.0 complete (20 sections, implementation-ready)
+  - OpenAI Agents SDK + UV + FastAPI + SQLite + React + TypeScript
   - Context-rich handoffs, dynamic re-forecast enabling
-  - WebSocket real-time updates, human-in-the-loop
+  - WebSocket real-time updates, human-in-the-loop (Modify/Accept)
 - 🎨 Next: UI/UX Design (talk to `*agent designer`)
 - 📋 Next: PRD for Archetype 1 (talk to `*agent pm`)
 - 📊 Next: Data Requirements (talk to `*agent data`)
