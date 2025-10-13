@@ -9,11 +9,11 @@
 
 ## Project Overview
 
-Building a **3-agent demand forecasting and inventory allocation system** for retail using LangChain and OpenAI APIs. The system predicts store-week granular demand and optimizes inventory decisions to address critical pain points: inaccurate forecasting, location-specific allocation failures, and late markdown decisions.
+Building a **3-agent demand forecasting and inventory allocation system** for retail using OpenAI Agents SDK. The system uses **category-level hierarchical forecasting** to predict demand and optimize inventory decisions, addressing critical pain points: inaccurate forecasting, location-specific allocation failures, and late markdown decisions.
 
-**Core Prediction:** `demand_by_store_by_week` matrix (50 stores × 26 weeks = 1,300 predictions per SKU)
+**Core Innovation:** "Forecast Once, Allocate with Math" - Category-level forecast (1 prediction) + hierarchical allocation (Category → Cluster → Store)
 
-**MVP Scope:** Archetype 2 - Stable Catalog Retail (furniture, 26-week season, 50 SKUs, 50 stores)
+**MVP Scope:** Archetype 1 - Fashion Retail (Women's Dresses, 12-week season, 50 stores, 3 clusters)
 
 ---
 
@@ -44,20 +44,21 @@ independent_study/
 │   │
 │   ├── 04_PoC_Development/
 │   │   ├── product_brief/
-│   │   │   ├── product_brief_v2.1.md           # Main product specification
-│   │   │   ├── 2_key_parameter.md              # Parameter-driven design (3 archetypes)
-│   │   │   └── 2_operational_workflow.md       # 5-phase seasonal workflow
+│   │   │   ├── product_brief_v3.1.md           # ✅ Current product spec (Archetype 1)
+│   │   │   └── 3_operational_workflow.md       # ✅ Streamlined workflow with examples
 │   │   │
-│   │   ├── prd/
-│   │   │   ├── prd_demand_forecasting_system.md        # Comprehensive PRD (600+ lines)
-│   │   │   ├── agent_coordination_workflow.md          # Multi-agent orchestration + flowcharts
-│   │   │   └── development_plan.md                     # 9-week implementation plan
+│   │   ├── architecture/
+│   │   │   └── technical_architecture.md       # ✅ Complete architecture (20 sections, includes handoff patterns)
 │   │   │
-│   │   ├── Architecture/
-│   │   │   └── architecture_v1.1.md            # System architecture design
+│   │   ├── Design/                             # 🎨 TODO: UI/UX design
+│   │   ├── Data/                               # 📊 TODO: Data requirements
+│   │   ├── prd/                                # 📋 TODO: New PRD for Archetype 1
 │   │   │
-│   │   └── Research/
-│   │       └── OpenAI_Agents_SDK_Retail_PoC_Research.md
+│   │   ├── Research/
+│   │   │   └── OpenAI_Agents_SDK_Retail_PoC_Research.md
+│   │   │
+│   │   ├── archive/                            # Old Archetype 2 documents
+│   │   └── next_steps_plan.md                  # Roadmap to implementation
 │   │
 │   └── 05_Progress_Reports/
 │       └── Weekly_Supervisor_Meetings/         # Weekly progress updates
@@ -78,11 +79,11 @@ independent_study/
 
 ## Key Documents
 
-### Product Specifications
-- **[Product Brief v2.1](docs/04_PoC_Development/product_brief/product_brief_v2.1.md)**: Problem definition, solution overview, evidence-based validation
-- **[PRD - Demand Forecasting System](docs/04_PoC_Development/prd/prd_demand_forecasting_system.md)**: Comprehensive requirements with ML methods, agentic features, user stories
-- **[Agent Coordination Workflow](docs/04_PoC_Development/prd/agent_coordination_workflow.md)**: Multi-agent orchestration with 7 Mermaid flowcharts
-- **[Development Plan](docs/04_PoC_Development/prd/development_plan.md)**: 9-week implementation timeline (Oct 10 - Dec 10, 2025)
+### Product Specifications (Current - Archetype 1)
+- **[Product Brief v3.1](docs/04_PoC_Development/product_brief/product_brief_v3.1.md)**: Category-level forecasting approach, Archetype 1 (Fashion Retail, 12 weeks)
+- **[Operational Workflow v3](docs/04_PoC_Development/product_brief/3_operational_workflow.md)**: Streamlined workflow with concrete examples
+- **[Technical Architecture](docs/04_PoC_Development/architecture/technical_architecture.md)**: Complete backend architecture (20 sections) - OpenAI Agents SDK, Prophet+ARIMA, React+TypeScript, includes agent coordination workflow
+- **[Next Steps Plan](docs/04_PoC_Development/next_steps_plan.md)**: Document roadmap to implementation
 
 ### Research & Validation
 - **[Evidence Pack](docs/03_Evidence_Pack/)**: 6 components validating problem-solution fit with 5 practitioner interviews
@@ -96,37 +97,37 @@ independent_study/
 
 | Agent | Responsibility | Key Output |
 |-------|---------------|-----------|
-| **Demand Agent** | Predict store-week demand using similar-item matching + time-series | `demand_by_store_by_week` matrix |
-| **Inventory Agent** | Calculate manufacturing orders, allocate inventory, plan replenishment | Manufacturing order, allocation plans |
-| **Pricing Agent** | Monitor sell-through, recommend markdowns | Markdown triggers, depth recommendations |
-| **Orchestrator** | Coordinate agents through 5-phase seasonal workflow | Agent execution sequence, performance metrics |
+| **Demand Agent** | Category-level forecasting (Prophet+ARIMA ensemble), K-means clustering, allocation factors | Total season demand, cluster distribution, allocation factors |
+| **Inventory Agent** | Manufacturing calculation (20% safety stock), 55/45 allocation, replenishment planning | Manufacturing order, store allocations, replenishment plans |
+| **Pricing Agent** | Week 6 markdown checkpoint (Gap × Elasticity formula), variance monitoring | Markdown recommendations (5-40%), re-forecast triggers |
+| **Orchestrator** | Sequential handoffs, context-rich object passing, dynamic re-forecast enabling | Workflow coordination, variance alerts (>20%) |
 
-### Agentic Features
-- **Autonomous decision-making**: LLM chooses forecasting methods (Prophet, ARIMA, hybrid)
-- **Reasoning & explanation**: Natural language explanations for all decisions
-- **Semantic understanding**: OpenAI embeddings for similar-item matching
-- **Adaptive behavior**: Method selection based on data availability and confidence
-- **Multi-agent collaboration**: Cascading decisions (Pricing → Demand → Inventory)
+### Agentic Features (OpenAI Agents SDK)
+- **Context-rich handoffs**: Pass forecast/allocation objects directly between agents (no database queries)
+- **Dynamic handoff enabling**: Re-forecast handoff enabled dynamically when variance >20%
+- **Human-in-the-loop**: Approval modals (Modify iterative + Accept, no Reject)
+- **Real-time updates**: WebSocket streaming of agent progress
+- **Guardrails**: Automatic output validation (fail-fast on errors)
+- **Sessions**: Automatic conversation history management
 
-### Technology Stack
-- **LLM API**: OpenAI SDK (gpt-4o-mini, text-embedding-3-small)
-- **Agent Framework**: LangChain
-- **Forecasting**: Prophet, statsmodels (ARIMA/SARIMA)
-- **Data Processing**: pandas, NumPy
-- **Storage**: SQLite, CSV/Parquet (local)
-- **Budget**: <$5 LLM costs (~$0.05 per season)
+### Technology Stack (Updated)
+- **LLM**: Azure OpenAI Service (gpt-4o-mini via Responses API)
+- **Agent Framework**: OpenAI Agents SDK (production-ready, v0.3.3+)
+- **Package Manager**: UV (10-100x faster than pip)
+- **Backend**: Python 3.11+ + FastAPI + SQLite
+- **Frontend**: React 18 + TypeScript + Vite + Shadcn/ui + TanStack Query
+- **ML/Forecasting**: Prophet, pmdarima (ARIMA), scikit-learn (K-means)
+- **Budget**: <$5 LLM costs
 
 ---
 
-## Development Timeline
+## Development Timeline (10-Week Plan)
 
-**Phase 1 (Weeks 1-2):** Environment setup, synthetic data generation
-**Phase 2 (Weeks 3-4):** Similar-item matching with embeddings
-**Phase 3 (Weeks 4-5):** Forecasting methods (Prophet, ARIMA, hybrid)
-**Phase 4 (Weeks 5-6):** Inventory agent (manufacturing, allocation, replenishment)
-**Phase 5 (Weeks 6-7):** Pricing agent + orchestrator
-**Phase 6 (Week 8):** Integration & validation (MAPE <20%)
-**Phase 7 (Week 9):** Documentation & final report
+**Phase 1 (Weeks 1-2):** Backend foundation (UV + FastAPI + database + ML functions)
+**Phase 2 (Weeks 3-4):** Agent implementation (Demand, Inventory, Pricing, Orchestrator)
+**Phase 3 (Weeks 5-6):** API & integration (REST + WebSocket + handoffs)
+**Phase 4 (Weeks 7-8):** Frontend (React dashboard + agent visualization + approval modals)
+**Phase 5 (Weeks 9-10):** Testing & validation (Unit + Integration + E2E, MAPE <20%)
 
 ---
 
@@ -141,28 +142,35 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 ---
 
-## Success Metrics (MVP)
+## Success Metrics (MVP - Archetype 1)
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| **MAPE (Store-Week)** | <20% | Hindcast on synthetic data |
+| **MAPE (Category-level)** | <20% | Hindcast on mock data (Women's Dresses, 12 weeks) |
 | **Bias** | ±5% | Over/under-forecasting check |
-| **Confidence Calibration** | 80%+ | Predicted confidence vs actual error |
-| **Runtime (Initial Forecast)** | <4 hours | 50 SKUs, local machine |
-| **Runtime (Bi-weekly Update)** | <30 min | Single update cycle |
-| **LLM Cost** | <$5 | Total for full season (26 weeks) |
+| **Workflow Runtime** | <60 seconds | Full 3-agent workflow (Demand → Inventory → Pricing) |
+| **Re-forecast Trigger Accuracy** | 90%+ | Correctly identify variance >20% |
+| **Human Approval Rate** | Track | % of manufacturing orders approved without modification |
+| **LLM Cost** | <$5 | Total for full MVP testing |
 
 ---
 
 ## Current Status
 
-**Week 4 (October 10, 2025):**
+**Week 4 (October 12, 2025):**
 - ✅ Evidence Pack completed (6 components)
-- ✅ Product Brief v2.1 finalized
-- ✅ Comprehensive PRD with ML methods and agentic features
-- ✅ Agent Coordination Workflow with 7 flowcharts
-- ✅ 9-week Development Plan
-- 🚧 Starting Phase 1: Environment Setup & Data Generation
+- ✅ Product Brief v3.1 finalized (Archetype 1: Fashion Retail)
+- ✅ Operational Workflow v3 (streamlined with examples)
+- ✅ Technical Architecture complete (20 sections, implementation-ready)
+  - OpenAI Agents SDK + UV + FastAPI + React
+  - Prophet+ARIMA ensemble, K-means clustering
+  - Context-rich handoffs, dynamic re-forecast enabling
+  - WebSocket real-time updates, human-in-the-loop
+- 🎨 Next: UI/UX Design (talk to `*agent designer`)
+- 📋 Next: PRD for Archetype 1 (talk to `*agent pm`)
+- 📊 Next: Data Requirements (talk to `*agent data`)
+
+**Progress:** 3/7 documents complete (43%)
 
 ---
 
