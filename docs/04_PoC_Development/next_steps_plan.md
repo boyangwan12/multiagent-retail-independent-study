@@ -1,174 +1,165 @@
 # Next Steps: From Product Brief to PoC Implementation
 
-**Status**: Product Brief Complete ✅ → Ready for Implementation Planning
+**Status**: Planning Documents Complete ✅ → Ready for Implementation
+
+**Last Updated**: 2025-10-13
 
 ---
 
-## Documents You Need
+## ✅ Completed Documents (All v3.2)
 
-### 1. **Technical Architecture Document** 🏗️
-**Owner**: `*agent architect` (System Architect Agent)
-**Purpose**: Define technical stack, system design, data models, API contracts
-**Key Sections**:
-- Tech stack (OpenAI Agents SDK, Python, React, database)
-- 3-Agent architecture (Demand/Inventory/Pricing agents)
-- Data pipeline (historical sales → forecasting → allocation)
-- Agent communication protocols
-- Infrastructure (local dev vs cloud deployment)
+| Document | Status | Owner | Output Path |
+|----------|--------|-------|-------------|
+| **Product Brief v3.2** | ✅ Complete | architect | `product_brief/product_brief_v3.2.md` |
+| **Operational Workflow v3.2** | ✅ Complete | architect | `product_brief/operational_workflow_v3.2.md` |
+| **Technical Architecture v3.2** | ✅ Complete | architect | `architecture/technical_architecture_v3.2.md` |
+| **Frontend UI/UX Spec v3.2** | ✅ Complete | designer | `design/front-end-spec_v3.2.md` |
 
-**Output**: `docs/04_PoC_Development/architecture/technical_architecture.md`
-
----
-
-### 2. **UI/UX Design Document** 🎨
-**Owner**: `*agent designer` (UX Designer Agent)
-**Purpose**: Define user flows, wireframes, and interface for retail merchandiser
-**Key Screens**:
-- Dashboard: Category forecast overview (8,000 dresses forecast)
-- Cluster view: Fashion_Forward 40% / Mainstream 35% / Value_Conscious 25%
-- Store allocation: Table showing Store_01: 176 dresses, Store_02: 160, etc.
-- Replenishment tracker: Weekly cycles, variance alerts
-- Markdown manager: Week 6 checkpoint, cluster-specific pricing
-- Performance metrics: MAPE, sell-through rate, business impact
-
-**Output**: `docs/04_PoC_Development/design/ux_design.md`
+**Key Achievements:**
+- ✅ All documents aligned (no contradictions)
+- ✅ Category auto-detection implemented
+- ✅ Linear Dark Theme design system defined
+- ✅ Complete API contracts + data models
+- ✅ All wireframes and user flows complete
 
 ---
 
-### 3. **PRD (Product Requirements Document)** 📋
-**Owner**: `*agent pm` (Product Manager Agent)
-**Purpose**: Functional requirements, user stories, acceptance criteria
-**Key User Stories**:
-- "As a merchandiser, I want to see category-level forecast so I can approve manufacturing orders"
-- "As a merchandiser, I want to see store allocations by cluster so I can validate distribution"
-- "As a merchandiser, I want to receive markdown recommendations at Week 6"
-- "As a system, I want to auto-trigger re-forecast when variance exceeds 20%"
+## Documents Still Needed
 
-**Output**: `docs/04_PoC_Development/prd/prd.md` (or use existing PRD structure)
-
----
-
-### 4. **Data Requirements & Sample Data** 📊
-**Owner**: `*agent data` or `*agent architect`
-**Purpose**: Define data schemas, sample datasets for testing
+### 1. **Mock Data Generation Script** 📊
+**Owner**: `*agent data` (Data Generator Agent)
+**Purpose**: Create realistic test datasets for development
 **What You Need**:
-- Historical sales data structure (2-3 years, category-level)
-- Store attributes (size, demographics, location, fashion tier)
-- Sample dataset: 50 stores × 12 weeks × Women's Dresses category
-- External factors (optional): weather, trends, seasonality
+- Python script to generate `historical_sales_2022_2024.csv` (~54,750 rows)
+- Python script to generate `store_attributes.csv` (50 rows)
+- Support 3 test scenarios (normal, high demand, low demand)
+- Categories: Women's Dresses, Men's Shirts, Accessories (mixed in one CSV)
 
-**Output**: `docs/04_PoC_Development/data/data_requirements.md`
+**Output**: `data/mock/generate_mock_data.py` + 2 CSV files
 
 ---
 
-### 5. **Agent Implementation Specs** 🤖
-**Owner**: `*agent architect` + `*agent dev`
-**Purpose**: OpenAI Agents SDK implementation details for 3 agents
-**Per Agent**:
-- **Demand Agent**: Time-series forecasting (ARIMA/Prophet), clustering (K-means), allocation factors
-- **Inventory Agent**: Manufacturing calculation, hierarchical allocation, replenishment logic
-- **Pricing Agent**: Sell-through tracking, markdown decision tree, re-forecast triggers
-- **Orchestrator**: Workflow coordination, variance monitoring, human-in-the-loop
+### 2. **Backend Implementation** 🔧
+**Owner**: `*agent dev` (Backend Developer Agent)
+**Purpose**: Implement 3-agent system using OpenAI Agents SDK
+**What You Need**:
+- Project structure setup (backend/ with agents/, api/, ml/ folders)
+- Demand Agent: Prophet + ARIMA ensemble, K-means clustering, allocation logic
+- Inventory Agent: Manufacturing calculation, hierarchical allocation, replenishment
+- Pricing Agent: Gap × Elasticity markdown, sell-through tracking
+- Orchestrator: Workflow coordination, variance monitoring (>20% threshold)
+- REST API + WebSocket implementation
 
-**Output**: `docs/04_PoC_Development/architecture/agent_specs.md`
+**Output**: `backend/` folder with working agent system
+
+---
+
+### 3. **Frontend Implementation** 🎨
+**Owner**: `*agent frontend` (Frontend Developer Agent)
+**Purpose**: Build single-page dashboard with Linear Dark Theme
+**What You Need**:
+- Project structure setup (frontend/ with React + TypeScript + Vite)
+- 7-section single-page dashboard (agent cards, forecast, clusters, weekly chart, replenishment, markdown, metrics)
+- WebSocket integration (line-by-line agent progress)
+- Linear Dark Theme (Shadcn/ui + Tailwind)
+- Report page (`/reports/spring-2025`)
+
+**Output**: `frontend/` folder with working UI
+
+---
+
+### 4. **Integration Testing** 🧪
+**Owner**: `*agent qa` (QA/Testing Agent)
+**Purpose**: Validate system accuracy and functionality
+**What You Need**:
+- Test 3 scenarios (normal season, high demand, low demand)
+- Validate MAPE < 20%
+- Test variance-triggered re-forecast (>20%)
+- Test Week 6 markdown logic
+- E2E testing (CSV upload → forecast → allocation → markdown)
+
+**Output**: Test results and bug reports
 
 ---
 
 ## Recommended Sequence
 
-### **Phase 1: Architecture & Design** (Week 1-2)
-1. **Talk to `*agent architect`**
-   - Define tech stack (Python + OpenAI Agents SDK + React + PostgreSQL?)
-   - Design 3-agent system architecture
-   - Define data models and API contracts
+### **Phase 1: Data Preparation** (First!)
+1. **Talk to `*agent data`**
+   - Generate mock CSV files
+   - Validate data structure matches specs
+   - Ensure 3 categories mixed in historical_sales.csv
 
-2. **Talk to `*agent designer`**
-   - Design UI screens for merchandiser persona
-   - Wireframes for forecast dashboard, allocation table, markdown manager
-   - Define interaction patterns (alerts, approvals, drill-downs)
+### **Phase 2: Backend Foundation** (Week 5-8)
+2. **Talk to `*agent dev`** (backend)
+   - Set up project structure (backend/ folders)
+   - Implement 3 agents (Demand, Inventory, Pricing)
+   - Implement Orchestrator + variance monitoring
+   - Build REST API + WebSocket
 
-### **Phase 2: Requirements & Planning** (Week 2-3)
-3. **Talk to `*agent pm`**
-   - Write PRD with user stories
-   - Define MVP scope (Archetype 1 only, single category)
-   - Acceptance criteria for each feature
+### **Phase 3: Frontend Development** (Week 9-12)
+3. **Talk to `*agent frontend`**
+   - Set up React + TypeScript + Vite
+   - Build 7-section dashboard
+   - Integrate WebSocket for real-time updates
+   - Implement Linear Dark Theme
 
-4. **Talk to `*agent data`** (or architect)
-   - Define data schemas
-   - Create sample dataset (or find public retail dataset)
-   - Data pipeline design (CSV → preprocessing → agents)
-
-### **Phase 3: Implementation** (Week 4-8)
-5. **Talk to `*agent dev`**
-   - Implement 3 agents using OpenAI Agents SDK
-   - Build forecasting pipeline (category-level)
-   - Build allocation logic (hierarchical)
-   - Build replenishment logic (weekly cycles)
-   - Build markdown logic (Week 6 checkpoint)
-
-6. **Build Frontend**
-   - React dashboard for merchandiser
-   - Connect to agent APIs
-   - Display forecasts, allocations, recommendations
-
-### **Phase 4: Testing & Validation** (Week 9-10)
-7. **Talk to `*agent qa`**
-   - Test with sample dataset
-   - Validate MAPE < 20%
-   - Test variance-triggered re-forecast
-   - Test markdown recommendations
-
-8. **Hindcast validation**: Use historical data (Spring 2024) to validate forecast accuracy
+### **Phase 4: Testing & Validation** (Week 13-14)
+4. **Talk to `*agent qa`**
+   - Run 3 test scenarios
+   - Validate forecast accuracy (MAPE)
+   - Test variance triggers and re-forecasts
+   - Bug fixes and polish
 
 ---
 
 ## Quick Start: Who to Talk to First
 
-**Option 1: Start with Architecture** (Recommended)
+**Option 1: Generate Mock Data** (Recommended)
 ```
-*agent architect
-→ "I need technical architecture for 3-agent retail forecasting system using OpenAI Agents SDK"
-```
-
-**Option 2: Start with Design**
-```
-*agent designer
-→ "I need UI/UX for retail merchandiser dashboard showing category forecasts and store allocations"
+*agent data
+→ "I need Python script to generate historical_sales_2022_2024.csv and store_attributes.csv with 3 categories (Women's Dresses, Men's Shirts, Accessories) mixed together"
 ```
 
-**Option 3: Start with Requirements**
+**Option 2: Start Backend**
 ```
-*agent pm
-→ "I need PRD for demand forecasting MVP based on my product brief"
+*agent dev
+→ "I need backend implementation of 3-agent retail forecasting system using OpenAI Agents SDK"
+```
+
+**Option 3: Start Frontend**
+```
+*agent frontend
+→ "I need React frontend for single-page dashboard with Linear Dark Theme based on front-end-spec_v3.2.md"
 ```
 
 ---
 
-## Summary: Documents Needed
+## Summary: What's Left to Build
 
-| Doc | Owner | Priority | Output Path |
-|-----|-------|----------|-------------|
-| **Technical Architecture** | architect | **HIGH** | `04_PoC_Development/architecture/technical_architecture.md` |
-| **UI/UX Design** | designer | **HIGH** | `04_PoC_Development/design/ux_design.md` |
-| **PRD** | pm | MEDIUM | `04_PoC_Development/prd/prd.md` |
-| **Data Requirements** | architect/data | HIGH | `04_PoC_Development/data/data_requirements.md` |
-| **Agent Specs** | architect/dev | HIGH | `04_PoC_Development/architecture/agent_specs.md` |
+| Task | Owner | Priority | Status |
+|------|-------|----------|--------|
+| **Mock Data Script** | data | **HIGH** | ⏳ Not Started |
+| **Backend (3 Agents + API)** | dev | **HIGH** | ⏳ Not Started |
+| **Frontend (Dashboard)** | frontend | **HIGH** | ⏳ Not Started |
+| **Testing & Validation** | qa | MEDIUM | ⏳ Not Started |
 
 ---
 
 ## Recommended First Step
 
-**Start with `*agent architect`** to define:
-1. Tech stack (OpenAI Agents SDK + Python + React + DB?)
-2. How 3 agents will be implemented
-3. Data models and APIs
-4. Deployment strategy (local vs cloud)
+**Start with `*agent data`** to generate mock datasets:
+1. Create Python script for CSV generation
+2. Generate `historical_sales_2022_2024.csv` (~54,750 rows, 3 categories)
+3. Generate `store_attributes.csv` (50 stores, 7 features)
+4. Validate data structure matches front-end-spec_v3.2.md Section 12
 
-Once architecture is clear, move to `*agent designer` for UI/UX, then `*agent pm` for detailed requirements.
+Once mock data is ready, move to `*agent dev` for backend, then `*agent frontend` for UI.
 
 ---
 
 **Ready?** Type:
-- `*agent architect` to start with technical architecture
-- `*agent designer` to start with UI/UX design
-- `*agent pm` to start with product requirements
+- `*agent data` to generate mock data (recommended first step)
+- `*agent dev` to start backend implementation
+- `*agent frontend` to start frontend implementation
+- `*agent qa` to plan testing strategy

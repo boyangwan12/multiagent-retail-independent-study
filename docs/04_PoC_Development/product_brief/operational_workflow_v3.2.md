@@ -186,7 +186,7 @@ Store_01 allocation = 3,200 × 5.50% = 176 dresses (season total)
 
 ```
 STEP 1: Forecast (Ensemble Prophet + ARIMA)
-    Category: Women's Dresses
+    Category: Women's Dresses (example - auto-detected from CSV)
     Prophet forecast: 8,200 units
     ARIMA forecast: 7,800 units
     Final forecast (averaged): 8,000 units ← ONLY FORECASTING HAPPENS HERE
