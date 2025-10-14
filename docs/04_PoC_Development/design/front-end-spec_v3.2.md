@@ -202,17 +202,69 @@ The dashboard is a **vertically scrollable single page** with 7 sections:
 
 **User Goal:** Monitor forecast vs. actuals, respond to variance alerts
 
-**Scenarios:**
+**Prerequisites:** Each week, user must upload actual sales data before variance analysis can occur.
+
+---
+
+#### **Flow 2A: Upload Weekly Actuals** (Required Every Monday)
+
+**User Goal:** Input actual sales data from completed week
+
+**Steps:**
+
+1. User logs in on Monday of Week 4
+2. Dashboard shows Section 4 with notice: "⚠️ Week 3 actuals pending upload"
+3. User clicks **[Upload Week 3 Actuals]** button
+4. **Upload Modal appears:**
+   ```
+   ┌─────────────────────────────────────────────┐
+   │ Upload Week 3 Actuals                  [X] │
+   ├─────────────────────────────────────────────┤
+   │ Week: 3 (2025-03-08 to 2025-03-14)         │
+   │                                             │
+   │ Expected format:                            │
+   │ • Columns: date, store_id, quantity_sold   │
+   │ • Date range: 7 days (Mon-Sun)             │
+   │ • Rows: ~350 (50 stores × 7 days)          │
+   │                                             │
+   │ [Choose CSV File]  actuals_week_3.csv      │
+   │                                             │
+   │ [Cancel]  [Upload & Calculate Variance]    │
+   └─────────────────────────────────────────────┘
+   ```
+5. User selects `actuals_week_3.csv` from computer
+6. Clicks **[Upload & Calculate Variance]**
+7. **System processing (5 seconds):**
+   - Validates date range matches Week 3
+   - Validates all 50 stores present
+   - Aggregates daily sales to weekly totals per store
+   - Calculates category-level variance
+   - Updates database
+8. **Upload success:**
+   - Toast: "✓ Week 3 actuals uploaded. Variance: 8%"
+   - Section 4 chart updates: Actual bar appears for Week 3 (green)
+   - Alert banner updates: "🟢 Variance 8% - Tracking well"
+   - Dashboard ready for next workflow step
+
+**Error Handling:**
+- Wrong date range → "❌ Date range mismatch. Expected 2025-03-08 to 2025-03-14"
+- Missing stores → "❌ Missing data for stores: S15, S22, S38"
+- Duplicate upload → "⚠️ Week 3 actuals already uploaded. Overwrite existing data?"
+- Invalid format → "❌ Missing required columns: date, store_id, quantity_sold"
+
+---
+
+#### **Flow 2B: Variance Analysis Scenarios** (After Actuals Uploaded)
 
 **Scenario A: Normal Week (🟢 Variance <10%)**
-1. User opens dashboard Week 3
-2. Views Section 4: Weekly chart
+1. User opens dashboard Week 3 (after uploading actuals via Flow 2A)
+2. Views Section 4: Weekly chart (now shows actual bar for Week 3)
 3. Alert banner: "🟢 Variance 8% - Tracking well"
 4. Scrolls to Section 5: Replenishment Queue
 5. Reviews 12 stores needing replenishment
 6. Clicks "Approve Replenishments"
 7. Rows show ✓ Shipped status
-8. Waits for next week
+8. Waits for next week (must upload Week 4 actuals next Monday)
 
 **Scenario B: Elevated Variance (🟡 10-20%)**
 1. Alert banner: "🟡 Variance elevated 15%"
