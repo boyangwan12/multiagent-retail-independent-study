@@ -1,142 +1,161 @@
 # PoC Development Documentation
 
-**Status**: Document Preparation Phase
-**Last Updated**: 2025-10-12
+**Status**: Planning Complete ✅ → Ready for Implementation
+**Last Updated**: 2025-10-13
 
 ---
 
 ## Current Documentation Structure
 
-### 📁 Active Documents (Current Versions)
+### ✅ Completed Documents (All v3.2)
 
 #### Product Brief & Operational Workflow
-- **`product_brief/product_brief_v3.2.md`** ✅ - Current product brief (Archetype 1: Fashion Retail, 12 weeks, aligned with architecture)
-  - Ensemble Prophet+ARIMA (parallel, averaged), K-means (7 features), Gap × Elasticity markdown
+- **`product_brief/product_brief_v3.2.md`** ✅ - Complete product specification (Archetype 1: Fashion Retail, 12 weeks)
+  - Ensemble Prophet+ARIMA forecasting, K-means clustering (7 features), Gap × Elasticity markdown
+  - Category auto-detection from CSV upload
+  - Hierarchical allocation: Category → Cluster → Store
   - No confidence scoring (simplified MVP)
-- **`product_brief/operational_workflow_v3.2.md`** ✅ - Streamlined operational guide with concrete examples (aligned with architecture)
-  - 5-phase workflow with ensemble forecasting, K-means (7 features), simple replenishment, Gap × Elasticity
-- **Key Features**: Category-level forecasting (NOT store-by-week), hierarchical allocation, 3-agent system
 
-#### Planning & Next Steps
-- **`next_steps_plan.md`** - Roadmap for moving from product brief to implementation
-  - Lists 5 required documents
-  - Recommended sequence: architect → designer → pm
-  - Phase breakdown (Architecture & Design, Requirements & Planning, Implementation, Testing)
+- **`product_brief/operational_workflow_v3.2.md`** ✅ - 5-phase operational guide with concrete examples
+  - Pre-season → Season Start → In-Season → Mid-Season → Post-Season
+  - Ensemble forecasting, K-means (7 features), simple replenishment, Gap × Elasticity
+  - Variance-triggered re-forecast (>20% threshold)
 
----
+#### Architecture & Design
+- **`architecture/technical_architecture_v3.2.md`** ✅ - Complete backend architecture (ready for implementation)
+  - Tech stack: Python + FastAPI + OpenAI Agents SDK + React + TypeScript + SQLite
+  - ML: Prophet+ARIMA ensemble, K-means clustering, Gap × Elasticity markdown
+  - API: REST + WebSocket for real-time agent progress
+  - Context-rich handoffs + dynamic enabling
 
-### 📁 Work-in-Progress Folders
+- **`design/front-end-spec_v3.2.md`** ✅ - Complete frontend UI/UX specification
+  - Single-page dashboard (7 sections)
+  - Linear Dark Theme (Shadcn/ui + Tailwind CSS)
+  - WebSocket line-by-line agent progress updates
+  - All wireframes, user flows, and component specs
 
-#### `architecture/` 🏗️
-- **`technical_architecture.md`** ✅ - Complete backend architecture (20 sections, ready for implementation)
-  - Tech stack: Python + FastAPI + OpenAI Agents SDK + React + TypeScript
-  - ML approach: Prophet+ARIMA ensemble, K-means clustering, markdown formula
-  - Agent handoffs: Context-rich + dynamic enabling
-  - Database: SQLite hybrid schema (normalized + JSON)
-  - API: REST + WebSocket for real-time updates
-  - Includes: Agent coordination workflow, handoff patterns, ML details
-- **TODO**: Create `agent_specs.md` (talk to `*agent architect` + `*agent dev`)
-
-#### `Design/` 🎨
-- **EMPTY** - Ready for UI/UX documents
-- **TODO**: Create `ux_design.md` (talk to `*agent designer`)
-- Planned content: Merchandiser dashboard, forecast views, allocation tables, markdown manager
-
-#### `Data/` 📊
-- **EMPTY** - Ready for data requirements
-- **TODO**: Create `data_requirements.md` (talk to `*agent data` or `*agent architect`)
-- Planned content: Historical sales schemas, store attributes, sample datasets
-
-#### `Research/` 🔍
-- **`OpenAI_Agents_SDK_Retail_PoC_Research.md`** - OpenAI Agents SDK implementation research
-- Contains: Core components, agent patterns, retail PoC recommendations
+#### Planning
+- **`next_steps_plan.md`** ✅ - Implementation roadmap
+  - Lists 4 remaining tasks (mock data, backend, frontend, testing)
+  - "Who to talk to" for each phase
+  - Recommended sequence: data → dev → frontend → qa
 
 ---
 
-### 📁 Archive
-
-**Old versions moved to `archive/`** (for reference only):
-- `architecture_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
-- `prd_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
-- `product_brief_v1.1.md`, `product_brief_v2.1.md`, `product_brief_v3.1.md` - Superseded by v3.2
-- `operational_workflow_v3.1.md` - Superseded by v3.2
-- `2_key_parameter.md`, `2_operational_workflow.md` - Superseded by v3.x documents
-
-**Important Note**: Archive documents focus on Archetype 2 (Stable Catalog Retail, Furniture, 26 weeks) which is NOT the current MVP focus. Current focus is Archetype 1 (Fashion Retail, Women's Dresses, 12 weeks).
-
----
-
-## Key Concepts (Current Approach)
+## Key Features (v3.2 System)
 
 ### Forecast Once, Allocate with Math
-- **Category-level forecast**: "Women's Dresses will sell 8,000 units over 12 weeks" (1 forecast)
-- **NOT store-by-week**: Avoids 600+ granular forecasts (50 stores × 12 weeks)
-- **Hierarchical allocation**: Category → Cluster → Store using historical patterns + store attributes
+- **Category-level forecast**: "Women's Dresses will sell 8,000 units over 12 weeks" (1 forecast, not 600!)
+- **Hierarchical allocation**: Category → Cluster → Store using K-means + historical patterns
+- **Category auto-detection**: System detects "Women's Dresses", "Men's Shirts", "Accessories" from CSV
 
-### 3-Agent System
-1. **Demand Agent**: Category forecasting, store clustering (K-means), allocation factors
-2. **Inventory Agent**: Manufacturing orders, hierarchical allocation, weekly replenishment
-3. **Pricing Agent**: Sell-through tracking, markdown decisions (Week 6 checkpoint), re-forecast triggers
+### 3-Agent System + Orchestrator
+1. **Demand Agent**: Ensemble forecasting (Prophet+ARIMA), K-means clustering (7 features), allocation factors
+2. **Inventory Agent**: Manufacturing orders, hierarchical allocation (55%/45%), weekly replenishment
+3. **Pricing Agent**: Sell-through tracking, Gap × Elasticity markdown (Week 6 checkpoint)
+4. **Orchestrator**: Variance monitoring (>20% trigger), re-forecast coordination
 
 ### Archetype 1 Parameters (Fashion Retail - MVP)
-- **Season**: 12 weeks
-- **Category**: Women's Dresses
+- **Season**: 12 weeks (Spring 2025)
+- **Categories**: Auto-detected from CSV (e.g., Women's Dresses, Men's Shirts, Accessories)
 - **Stores**: 50 stores, 3 clusters (Fashion_Forward, Mainstream, Value_Conscious)
 - **Allocation**: 55% initial, 45% holdback at DC
-- **Markdown checkpoint**: Week 6 (target: 60% sell-through)
-- **Re-forecast trigger**: >20% variance
+- **Markdown**: Week 6 checkpoint, Gap × Elasticity formula (elasticity=2.0), uniform across stores
+- **Re-forecast trigger**: Variance >20%
 
 ---
 
-## Next Steps (Document Prep Phase)
+## What's Left to Build
+
+| Task | Owner | Priority | Status | Output |
+|------|-------|----------|--------|--------|
+| **Mock Data Script** | `*agent data` | **HIGH** | ⏳ Not Started | `data/mock/generate_mock_data.py` + CSV files |
+| **Backend (3 Agents + API)** | `*agent dev` | **HIGH** | ⏳ Not Started | `backend/` folder |
+| **Frontend (Dashboard)** | `*agent frontend` | **HIGH** | ⏳ Not Started | `frontend/` folder |
+| **Testing & Validation** | `*agent qa` | MEDIUM | ⏳ Not Started | Test results + bug reports |
+
+---
+
+## Next Steps
 
 Follow the plan in **`next_steps_plan.md`**:
 
-### Phase 1: Architecture & Design (Week 1-2)
-1. ✅ **~~Talk to `*agent architect`~~** - COMPLETE! Technical architecture ready
-2. **Talk to `*agent designer`** - Design merchandiser UI, wireframes, interaction patterns
+### Phase 1: Data Preparation (First!)
+1. **Talk to `*agent data`** - Generate mock CSV files
+   - `historical_sales_2022_2024.csv` (~54,750 rows, 3 categories mixed)
+   - `store_attributes.csv` (50 stores, 7 features)
 
-### Phase 2: Requirements & Planning (Week 2-3)
-3. **Talk to `*agent pm`** - Write PRD with user stories, MVP scope, acceptance criteria
-4. **Talk to `*agent data`** - Define data schemas, create sample dataset
+### Phase 2: Backend Foundation
+2. **Talk to `*agent dev`** - Implement 3-agent system
+   - Demand Agent (Prophet+ARIMA+K-means)
+   - Inventory Agent (manufacturing+allocation+replenishment)
+   - Pricing Agent (markdown+sell-through)
+   - Orchestrator + REST API + WebSocket
 
-### Phase 3: Implementation (Week 4-8)
-5. **Talk to `*agent dev`** - Implement agents using OpenAI Agents SDK
-6. **Build Frontend** - React dashboard for merchandiser
+### Phase 3: Frontend Development
+3. **Talk to `*agent frontend`** - Build single-page dashboard
+   - 7-section layout (agent cards, forecast, clusters, weekly chart, replenishment, markdown, metrics)
+   - Linear Dark Theme (Shadcn/ui)
+   - WebSocket integration
 
-### Phase 4: Testing & Validation (Week 9-10)
-7. **Talk to `*agent qa`** - Test with sample data, validate MAPE <20%, hindcast validation
+### Phase 4: Testing & Validation
+4. **Talk to `*agent qa`** - Test accuracy and functionality
+   - Test 3 scenarios (normal, high demand, low demand)
+   - Validate MAPE <20%
+   - Test variance triggers and re-forecasts
 
 ---
 
-## Quick Reference
+## Archive
 
-| What You Need | Who to Talk To | Output Path |
-|---------------|----------------|-------------|
-| Technical Architecture | `*agent architect` | `Architecture/technical_architecture.md` |
-| UI/UX Design | `*agent designer` | `Design/ux_design.md` |
-| PRD | `*agent pm` | Create new PRD (current prd_v1.1 is Archetype 2) |
-| Data Requirements | `*agent data` or `*agent architect` | `Data/data_requirements.md` |
-| Agent Implementation Specs | `*agent architect` + `*agent dev` | `Architecture/agent_specs.md` |
+**Old versions moved to `archive/`** (for reference only):
+- `product_brief_v3.1.md`, `operational_workflow_v3.1.md` - Superseded by v3.2
+- `architecture_v1.1.md`, `prd_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
+- `2_key_parameter.md`, `2_operational_workflow.md` - Superseded
+
+**Important**: Archive documents focus on Archetype 2 (Furniture, 26 weeks). Current MVP is Archetype 1 (Fashion, 12 weeks).
 
 ---
 
 ## Progress Status
 
-**Completed:**
-- ✅ Product Brief v3.2 (Archetype 1: Fashion Retail, aligned with architecture)
-- ✅ Operational Workflow v3.2 (5-phase workflow, aligned with architecture)
-- ✅ Technical Architecture v1.0 (20 sections, implementation-ready)
+**Completed (4/4 Planning Documents):**
+- ✅ Product Brief v3.2
+- ✅ Operational Workflow v3.2
+- ✅ Technical Architecture v3.2
+- ✅ Frontend UI/UX Spec v3.2
 
-**Next Steps:**
-- 🎨 **UI/UX Design** - Talk to `*agent designer` for wireframes and dashboard layouts
-- 📋 **PRD** - Talk to `*agent pm` for user stories and acceptance criteria
-- 📊 **Data Requirements** - Talk to `*agent data` for schemas and sample datasets
-- 🤖 **Agent Specs** - Talk to `*agent dev` for detailed implementation specs
+**Key Achievements:**
+- ✅ All v3.2 documents aligned (no contradictions)
+- ✅ Category auto-detection implemented
+- ✅ Linear Dark Theme design system defined
+- ✅ Complete API contracts + data models
 
-**Progress:** 3/7 documents complete (43%)
+**Next: Implementation Phase (4 tasks remaining)**
+- 📊 Mock Data Generation
+- 🔧 Backend Implementation
+- 🎨 Frontend Implementation
+- 🧪 Testing & Validation
+
+**Progress:** 100% planning complete, ready to start building!
+
+---
+
+## Quick Reference
+
+**Talk to these agents:**
+- `*agent data` - Generate mock CSV files (recommended first step)
+- `*agent dev` - Build backend (3 agents + API)
+- `*agent frontend` - Build React dashboard
+- `*agent qa` - Test and validate
+
+**Key Documents:**
+- Product Brief v3.2 - System overview
+- Technical Architecture v3.2 - Implementation details
+- Frontend Spec v3.2 - Complete UI/UX design
+- Operational Workflow v3.2 - Agent behavior examples
 
 ---
 
 **Document Owner**: Independent Study Project
-**Related Git Status**: `development_plan.md` deleted (replaced by `next_steps_plan.md`)
+**Ready to implement!** 🚀

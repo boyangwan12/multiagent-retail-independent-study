@@ -508,7 +508,7 @@ for period in season:
 ### What's Included in MVP
 
 ✅ **Single Retail Archetype**: Seasonal Fashion Retail (12-week season)
-✅ **Single Category**: Women's Dresses
+✅ **Single Category**: Auto-detected from CSV upload (e.g., Women's Dresses, Men's Shirts, Accessories)
 ✅ **Single Season**: Spring 2025 (12 weeks)
 ✅ **50 Stores** across 3 clusters (K-means clustering)
 ✅ **Category-level forecasting** (not SKU-level)
@@ -557,9 +557,11 @@ for period in season:
    - Coverage: All categories across all stores
    - **NOTE**: Category-level data only (not individual SKUs)
 
-2. **Category Catalog**
-   - Fields: `category, sub_category, season_start, season_end, typical_season_length`
-   - Example: "Women's Dresses, Apparel, 2025-03-01, 2025-05-31, 12 weeks"
+2. **Category Selection**
+   - System auto-detects available categories from historical sales CSV
+   - User selects one category from dropdown (e.g., "Women's Dresses", "Men's Shirts", "Accessories")
+   - System extracts all historical data for selected category
+   - No predefined category catalog required
 
 3. **Store Attributes**
    - Fields: `store_id, location, region, size_sqft, median_income, location_tier, fashion_tier, store_format`
@@ -727,7 +729,7 @@ The **core architecture remains the same** across all retail models - only **par
 4. **Set up environment**: Python 3.11+, UV, OpenAI Agents SDK, FastAPI, React
 
 ### Short-Term (Week 3-6)
-1. **Build Demand Agent - Ensemble Forecasting**: Prophet + ARIMA implementation, validate on "Women's Dresses" category
+1. **Build Demand Agent - Ensemble Forecasting**: Prophet + ARIMA implementation, validate on auto-detected category (e.g., "Women's Dresses")
 2. **Build Demand Agent - K-means Clustering & Allocation**: Calculate cluster distribution + store factors
 3. **Generate first forecasts**: Run hierarchical forecasting end-to-end
 

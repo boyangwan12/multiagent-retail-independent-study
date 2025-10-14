@@ -55,7 +55,7 @@ This document defines the technical architecture for a **multi-agent demand fore
 ### Scope (MVP - Archetype 1)
 
 **In Scope:**
-- Single category: Women's Dresses
+- Single category: Auto-detected from CSV upload (e.g., Women's Dresses, Men's Shirts, Accessories)
 - 50 stores across 3 clusters (Fashion_Forward, Mainstream, Value_Conscious)
 - 12-week season (Spring 2025)
 - Mock dataset (CSV uploads)
@@ -1670,7 +1670,18 @@ inventory_agent = Agent(
 ### Data Management Endpoints
 
 #### GET /api/categories
-**Description:** List all categories
+**Description:** List all categories (auto-detected from uploaded historical sales CSV)
+
+**Response:**
+```json
+{
+  "categories": [
+    {"category_id": "womens_dresses", "category_name": "Women's Dresses", "row_count": 10243},
+    {"category_id": "mens_shirts", "category_name": "Men's Shirts", "row_count": 8912},
+    {"category_id": "accessories", "category_name": "Accessories", "row_count": 5421}
+  ]
+}
+```
 
 #### GET /api/stores
 **Description:** List all stores
@@ -1679,17 +1690,18 @@ inventory_agent = Agent(
 **Description:** List store clusters
 
 #### POST /api/data/upload-historical-sales
-**Description:** Upload historical sales CSV for training
+**Description:** Upload historical sales CSV for training. System automatically detects available categories.
 
 **Request:** `multipart/form-data`
-- `file`: CSV file with columns `[store_id, category_id, week_start_date, units_sold]`
+- `file`: CSV file with columns `[date, category, store_id, quantity_sold, revenue]`
 
 **Response:**
 ```json
 {
-  "rows_imported": 1560,
+  "rows_imported": 10243,
   "date_range": "2022-01-01 to 2024-12-31",
-  "message": "Historical sales data imported successfully"
+  "categories_detected": ["Women's Dresses", "Men's Shirts", "Accessories"],
+  "message": "Historical sales data imported successfully. 3 categories auto-detected."
 }
 ```
 
