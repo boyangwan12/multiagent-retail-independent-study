@@ -272,7 +272,7 @@ Run validation checks at milestones defined in implementation plan:
 
 **Planning Documents (v3.2):**
 - [Product Brief](../product_brief/product_brief_v3.2.md)
-- [Operational Workflow](../product_brief/operational_workflow_v3.2.md)
+- [Process Workflow](../process_workflow/process_workflow_v3.2.md)
 - [Technical Architecture](../architecture/technical_architecture_v3.2.md)
 - [Frontend Spec](../design/front-end-spec_v3.2.md)
 - [Data Specification](../data/data_specification_v3.2.md)

@@ -941,7 +941,7 @@ Use this checklist when implementing `generate_mock_data.py`:
 
 **Related Documents** (all v3.2, aligned):
 - `product_brief/product_brief_v3.2.md` - System overview
-- `product_brief/operational_workflow_v3.2.md` - Agent behavior examples
+- `process_workflow/process_workflow_v3.2.md` - Agent behavior examples
 - `architecture/technical_architecture_v3.2.md` - ML approach, API contracts
 - `design/front-end-spec_v3.2.md` - UI/UX, weekly actuals upload workflow
 

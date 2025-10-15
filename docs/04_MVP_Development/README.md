@@ -9,14 +9,14 @@
 
 ### ✅ Completed Documents (All v3.2)
 
-#### Product Brief & Operational Workflow
+#### Product Brief & Process Workflow
 - **`product_brief/product_brief_v3.2.md`** ✅ - Complete product specification (Archetype 1: Fashion Retail, 12 weeks)
   - Ensemble Prophet+ARIMA forecasting, K-means clustering (7 features), Gap × Elasticity markdown
   - Category auto-detection from CSV upload
   - Hierarchical allocation: Category → Cluster → Store
   - No confidence scoring (simplified MVP)
 
-- **`product_brief/operational_workflow_v3.2.md`** ✅ - 5-phase operational guide with concrete examples
+- **`process_workflow/process_workflow_v3.2.md`** ✅ - 5-phase operational guide with concrete examples
   - Pre-season → Season Start → In-Season → Mid-Season → Post-Season
   - Ensemble forecasting, K-means (7 features), simple replenishment, Gap × Elasticity
   - Variance-triggered re-forecast (>20% threshold)
@@ -109,9 +109,9 @@ Follow the plan in **`next_steps_plan.md`**:
 ## Archive
 
 **Old versions moved to `archive/`** (for reference only):
-- `product_brief_v3.1.md`, `operational_workflow_v3.1.md` - Superseded by v3.2
+- `product_brief_v3.1.md`, `process_workflow_v3.1.md` - Superseded by v3.2
 - `architecture_v1.1.md`, `prd_v1.1.md` - OLD (Archetype 2: Furniture, 26 weeks)
-- `2_key_parameter.md`, `2_operational_workflow.md` - Superseded
+- `2_key_parameter.md`, `2_process_workflow.md` - Superseded
 
 **Important**: Archive documents focus on Archetype 2 (Furniture, 26 weeks). Current MVP is Archetype 1 (Fashion, 12 weeks).
 
@@ -121,7 +121,7 @@ Follow the plan in **`next_steps_plan.md`**:
 
 **Completed (4/4 Planning Documents):**
 - ✅ Product Brief v3.2
-- ✅ Operational Workflow v3.2
+- ✅ Process Workflow v3.2
 - ✅ Technical Architecture v3.2
 - ✅ Frontend UI/UX Spec v3.2
 
@@ -153,7 +153,7 @@ Follow the plan in **`next_steps_plan.md`**:
 - Product Brief v3.2 - System overview
 - Technical Architecture v3.2 - Implementation details
 - Frontend Spec v3.2 - Complete UI/UX design
-- Operational Workflow v3.2 - Agent behavior examples
+- Process Workflow v3.2 - Agent behavior examples
 
 ---
 

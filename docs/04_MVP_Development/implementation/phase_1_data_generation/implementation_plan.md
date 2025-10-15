@@ -41,7 +41,7 @@ Generate 38 realistic CSV files (1 historical sales, 1 store attributes, 36 week
 
 **Secondary:**
 - [PRD v3.2](../../prd/prd_v3.2.md) - Acceptance criteria
-- [Operational Workflow v3.2](../../product_brief/operational_workflow_v3.2.md) - Expected behavior
+- [Process Workflow v3.2](../../process_workflow/process_workflow_v3.2.md) - Expected behavior
 
 ---
 
