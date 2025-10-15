@@ -140,7 +140,7 @@ LEGEND:
 
 ### Document #1: Product Brief
 **Agent**: `*agent analyst` (research) → `*agent pm` (writing)
-**Reference**: `00_doc_standards/planning/1_product_brief/product_brief_standard.md`
+**Reference**: `00_doc_standards/planning/1_product_brief_standard.md`
 
 **What to do**:
 1. Open the product_brief_standard.md
@@ -163,7 +163,7 @@ I need to create a product brief for a new project.
 
 ### Document #2: Process Workflow
 **Agent**: `*agent architect`
-**Reference**: `00_doc_standards/planning/2_process_workflow/process_workflow_standard.md`
+**Reference**: `00_doc_standards/planning/2_process_workflow_standard.md`
 
 **Prerequisites**: Product Brief must be complete
 
@@ -194,7 +194,7 @@ I need to create a process workflow document.
 
 ### Document #3: Technical Architecture
 **Agent**: `*agent architect`
-**Reference**: `00_doc_standards/planning/3_architecture/technical_architecture_standard.md`
+**Reference**: `00_doc_standards/planning/3_technical_architecture_standard.md`
 
 **Prerequisites**: Product Brief and Process Workflow must be complete
 
@@ -225,7 +225,7 @@ I need to create a comprehensive technical architecture document.
 
 ### Document #4: PRD (Product Requirements Document)
 **Agent**: `*agent pm`
-**Reference**: `00_doc_standards/planning/4_prd/prd_standard.md`
+**Reference**: `00_doc_standards/planning/4_prd_standard.md`
 
 **Prerequisites**: Product Brief, Process Workflow, and Technical Architecture must be complete
 
@@ -256,7 +256,7 @@ I need to create a comprehensive Product Requirements Document (PRD).
 
 ### Document #5: Frontend Spec (Design Spec)
 **Agent**: `*agent ux-expert`
-**Reference**: `00_doc_standards/planning/5_design/frontend_spec_standard.md`
+**Reference**: `00_doc_standards/planning/5_frontend_spec_standard.md`
 
 **Prerequisites**: Product Brief, PRD, and Technical Architecture must be complete
 
