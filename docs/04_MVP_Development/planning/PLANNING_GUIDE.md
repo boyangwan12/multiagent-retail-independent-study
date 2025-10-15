@@ -11,7 +11,7 @@
 | Document | Status | BMad Agent | Output Path |
 |----------|--------|------------|-------------|
 | **Product Brief v3.2** | ✅ Complete | `*agent architect` | `product_brief/product_brief_v3.2.md` |
-| **Operational Workflow v3.2** | ✅ Complete | `*agent architect` | `product_brief/operational_workflow_v3.2.md` |
+| **Process Workflow v3.2** | ✅ Complete | `*agent architect` | `process_workflow/process_workflow_v3.2.md` |
 | **Technical Architecture v3.2** | ✅ Complete | `*agent architect` | `architecture/technical_architecture_v3.2.md` |
 | **Frontend UI/UX Spec v3.2** | ✅ Complete | `*agent ux-expert` | `design/front-end-spec_v3.2.md` |
 | **Data Specification v3.2** | ✅ Complete | `*agent architect` | `data/data_specification_v3.2.md` |
@@ -132,7 +132,7 @@ Task: Build React dashboard with 7-section layout and Linear Dark Theme
 
 **Reference Documents**:
 - `data/data_specification_v3.2.md` (Section 7: Testing Workflow, expected MAPE ranges)
-- `product_brief/operational_workflow_v3.2.md` (expected behavior)
+- `process_workflow/process_workflow_v3.2.md` (expected behavior)
 
 **How to Start**:
 ```
@@ -150,7 +150,7 @@ Task: Test 3 scenarios and validate MAPE accuracy
 
 ✅ **Fewer Agent Switches** - Use `*agent dev` for data prep + backend + frontend (full-stack)
 ✅ **No Unnecessary Roles** - Removed Scrum Master, Product Owner (not needed for PoC)
-✅ **Comprehensive Planning** - 5 complete v3.2 docs cover all requirements (Product Brief, Operational Workflow, Technical Architecture, Frontend Spec, Data Spec)
+✅ **Comprehensive Planning** - 5 complete v3.2 docs cover all requirements (Product Brief, Process Workflow, Technical Architecture, Frontend Spec, Data Spec)
 ✅ **Agent Specialization** - Only switch agents when truly needed (`*agent pm` → `*agent dev` → `*agent qa`)
 ✅ **Formal PRD Required** - PRD v3.2 needed for formal requirements and acceptance criteria
 
@@ -175,7 +175,7 @@ Task: Test 3 scenarios and validate MAPE accuracy
 
 ### ✅ Planning & Documentation Phase (6/6 Complete!)
 - [x] Product Brief v3.2
-- [x] Operational Workflow v3.2
+- [x] Process Workflow v3.2
 - [x] Technical Architecture v3.2
 - [x] Frontend UI/UX Spec v3.2
 - [x] Data Specification v3.2
@@ -305,7 +305,7 @@ Reference Documents:
 - docs/04_PoC_Development/architecture/technical_architecture_v3.2.md (primary implementation guide)
 - docs/04_PoC_Development/prd/prd_v3.2.md (acceptance criteria)
 - docs/04_PoC_Development/data/data_specification_v3.2.md (data models, CSV formats)
-- docs/04_PoC_Development/product_brief/operational_workflow_v3.2.md (agent behavior examples)
+- docs/04_PoC_Development/process_workflow/process_workflow_v3.2.md (agent behavior examples)
 
 Key Requirements:
 1. Demand Agent: Prophet+ARIMA ensemble, K-means clustering (7 features), hierarchical allocation
@@ -386,7 +386,7 @@ Task: Test 3 scenarios and validate system accuracy
 Reference Documents:
 - docs/04_PoC_Development/data/data_specification_v3.2.md (Section 7: Testing Workflow, expected MAPE ranges)
 - docs/04_PoC_Development/prd/prd_v3.2.md (acceptance criteria)
-- docs/04_PoC_Development/product_brief/operational_workflow_v3.2.md (expected system behavior)
+- docs/04_PoC_Development/process_workflow/process_workflow_v3.2.md (expected system behavior)
 
 Test Scenarios:
 1. Normal Season: MAPE 12-15%, Week 5 variance ~25% (viral TikTok trend)

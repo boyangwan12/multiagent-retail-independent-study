@@ -906,7 +906,7 @@ The **core architecture remains the same** across all retail models - only **par
 **Last Updated**: 2025-10-12
 **Version**: 3.2
 **Related Documents**:
-- [Operational Workflow v3](3_operational_workflow.md)
+- [Process Workflow v3](../process_workflow/process_workflow_v3.2.md)
 - [Technical Architecture v1.0](../architecture/technical_architecture.md)
 - [Next Steps Plan](../next_steps_plan.md)
 

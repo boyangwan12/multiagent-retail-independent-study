@@ -1865,8 +1865,8 @@ markdown_depth = min(markdown_rounded, 0.40)  # Cap at 40%
 - `docs/04_PoC_Development/product_brief/product_brief_v3.2.md`
 - System overview, business value, agent responsibilities, MVP scope
 
-**Operational Workflow v3.2:**
-- `docs/04_PoC_Development/product_brief/operational_workflow_v3.2.md`
+**Process Workflow v3.2:**
+- `docs/04_PoC_Development/process_workflow/process_workflow_v3.2.md`
 - 5-phase workflow, concrete examples, scenario walkthroughs
 
 **Technical Architecture v3.2:**

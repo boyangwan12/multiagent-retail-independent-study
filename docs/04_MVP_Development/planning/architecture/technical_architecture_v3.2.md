@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Last Updated:** 2025-10-12
 **Status:** Architecture Complete - Ready for Implementation
-**Source Documents:** Product Brief v3.1, Operational Workflow v3
+**Source Documents:** Product Brief v3.1, Process Workflow v3
 
 ---
 
@@ -3185,7 +3185,7 @@ azure_client = AzureOpenAI(
 
 **Source Documents:**
 - Product Brief v3.1 (`docs/04_PoC_Development/product_brief/product_brief_v3.1.md`)
-- Operational Workflow v3 (`docs/04_PoC_Development/product_brief/3_operational_workflow.md`)
+- Process Workflow v3 (`docs/04_PoC_Development/process_workflow/process_workflow_v3.2.md`)
 
 **Related Documents:**
 - Next Steps Plan (`docs/04_PoC_Development/next_steps_plan.md`)
