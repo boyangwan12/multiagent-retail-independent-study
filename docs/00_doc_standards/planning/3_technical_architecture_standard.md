@@ -91,7 +91,7 @@ After completing the Technical Architecture, update the PLANNING_GUIDE.md to tra
 
 ```bash
 # Open the planning guide
-# File: docs/00_doc_standards/planning/PLANNING_GUIDE.md
+# File: docs/00_doc_standards/planning/0_PLANNING_GUIDE.md
 
 # Update Document #3 status:
 - Change status from ❌ Not Started to ✅ Complete

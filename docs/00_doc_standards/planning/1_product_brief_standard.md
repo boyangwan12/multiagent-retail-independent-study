@@ -65,7 +65,7 @@ After completing the Product Brief, update the PLANNING_GUIDE.md to track your p
 
 ```bash
 # Open the planning guide
-# File: docs/00_doc_standards/planning/PLANNING_GUIDE.md
+# File: docs/00_doc_standards/planning/0_PLANNING_GUIDE.md
 
 # Update Document #1 status:
 - Change status from ❌ Not Started to ✅ Complete
