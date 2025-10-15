@@ -22,6 +22,120 @@
 
 ---
 
+## Document Creation Flow with Consistency Checks
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          PLANNING DOCUMENT WORKFLOW                         │
+│                      (with backward consistency updates)                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+START
+  │
+  ▼
+┌──────────────────────┐
+│  1. Product Brief    │
+│  (*agent analyst →   │
+│   *agent pm)         │
+│                      │
+│  Time: 1-2 hours     │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 2. Process Workflow  │
+│ (*agent architect)   │
+│                      │
+│ Time: 1-2 hours      │
+└──────────┬───────────┘
+           │
+           │ Consistency Check ─────────────────┐
+           │ (compares with #1)                 │
+           │                                    │
+           │                      Updates #1 if needed
+           │                                    ▼
+           │                          ┌─────────────────┐
+           │                          │ 1. Product Brief│
+           │                          │       v1.1      │
+           │                          └─────────────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 3. Tech Architecture │
+│ (*agent architect)   │
+│                      │
+│ Time: 2-3 hours      │
+└──────────┬───────────┘
+           │
+           │ Consistency Check ────┬────────────────┐
+           │ (compares with #1, #2)│                │
+           │                       │                │
+           │               Updates │1 if needed     │ Updates #2 if needed
+           │                       ▼                ▼
+           │              ┌────────────────┐ ┌─────────────────┐
+           │              │ 1. Product     │ │ 2. Process      │
+           │              │    Brief v1.1  │ │    Workflow v1.1│
+           │              └────────────────┘ └─────────────────┘
+           │
+           ▼
+┌──────────────────────┐
+│    4. PRD            │
+│  (*agent pm)         │
+│                      │
+│  Time: 2-4 hours     │
+└──────────┬───────────┘
+           │
+           │ Consistency Check ────┬────────────┬──────────────┐
+           │ (compares with        │            │              │
+           │  #1, #2, #3)          │            │              │
+           │                       │            │              │
+           │           Updates #1  │ Updates #2 │ Updates #3   │
+           │           if needed   │ if needed  │ if needed    │
+           │                       ▼            ▼              ▼
+           │              ┌─────────────┐ ┌──────────┐ ┌────────────┐
+           │              │ 1. Product  │ │ 2. Process│ │ 3. Tech    │
+           │              │    Brief    │ │   Workflow│ │   Arch     │
+           │              └─────────────┘ └──────────┘ └────────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 5. Frontend Spec     │
+│ (*agent ux-expert)   │
+│                      │
+│ Time: 2-3 hours      │
+└──────────┬───────────┘
+           │
+           │ Consistency Check ────┬───────────┬──────────┬──────────┐
+           │ (compares with        │           │          │          │
+           │  #1, #2, #3, #4)      │           │          │          │
+           │                       │           │          │          │
+           │          Updates #1   │Updates #2 │Updates #3│Updates #4│
+           │          if needed    │if needed  │if needed │if needed │
+           │                       ▼           ▼          ▼          ▼
+           │              ┌───────────┐ ┌─────────┐ ┌────────┐ ┌─────┐
+           │              │ 1. Product│ │2. Process│ │3. Tech │ │4.PRD│
+           │              │    Brief  │ │ Workflow │ │  Arch  │ │     │
+           │              └───────────┘ └─────────┘ └────────┘ └─────┘
+           │
+           ▼
+       ┌───────┐
+       │  END  │ ← All 5 documents complete, all contradictions resolved
+       └───────┘
+
+LEGEND:
+  ┌────┐
+  │    │  = Document creation step
+  └────┘
+
+  │     = Forward flow (create next document)
+  ▼
+
+  Each consistency check can update ANY prior document (shown with arrows pointing
+  back to specific documents). Updates only happen with user approval.
+```
+
+---
+
 ## Order of Document Creation
 
 ### Document #1: Product Brief
