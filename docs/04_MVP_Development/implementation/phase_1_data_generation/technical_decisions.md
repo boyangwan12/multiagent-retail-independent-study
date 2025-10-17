@@ -1,82 +1,78 @@
-# Phase 1: Mock Data Generation - Technical Decisions
+# Phase 1: Data Generation - Technical Decisions
 
-**Phase:** Phase 1
+**Phase:** 1 of 8
 **Agent:** `*agent dev`
-**Last Updated:** 2025-10-14
-
----
-
-## Overview
-
-This document records all significant technical decisions made during Phase 1 implementation. Each decision includes context, alternatives considered, and rationale.
+**Purpose:** Record all technical decisions made during Phase 1 implementation
 
 ---
 
 ## Decision Log
 
-*Decisions will be added as implementation progresses. Document each significant choice during coding, not after.*
+### Decision 1: [Title]
+**Date:** [YYYY-MM-DD]
+**Context:** [What problem were you solving?]
+
+**Options Considered:**
+1. **Option A:** [Description]
+   - Pros: [List]
+   - Cons: [List]
+
+2. **Option B:** [Description]
+   - Pros: [List]
+   - Cons: [List]
+
+**Decision:** [Chosen option]
+
+**Rationale:** [Why this option was chosen]
+
+**Implementation Notes:** [How it was implemented]
 
 ---
 
-## Technology Stack
+### Decision 2: [Title]
+**Date:** [YYYY-MM-DD]
+**Context:** [What problem were you solving?]
 
-### Chosen Technologies
+**Options Considered:**
+1. **Option A:** [Description]
+2. **Option B:** [Description]
 
-| Component | Technology | Version | Rationale |
-|-----------|-----------|---------|-----------|
-| Language | Python | 3.11+ | Project standard, required for Phase 2 backend |
-| Data Processing | pandas | Latest | Efficient CSV handling, DataFrame operations |
-| Numerical | numpy | Latest | Random number generation, vectorized operations |
+**Decision:** [Chosen option]
 
-### Rejected Technologies
+**Rationale:** [Why this option was chosen]
 
-| Technology | Reason for Rejection |
-|-----------|---------------------|
-| Faker library | Not needed - custom logic simpler for retail domain |
-| Prophet | Too heavy for mock data generation, use in Phase 2 only |
+**Implementation Notes:** [How it was implemented]
 
 ---
 
-## Code Standards
+## Future Enhancements
 
-### Naming Conventions
-- Functions: `snake_case`
-- Constants: `UPPER_SNAKE_CASE`
-- Classes: `PascalCase` (if needed)
-
-### File Structure
-```
-data/mock/
-├── generate_mock_data.py       # Main script
-├── training/                   # Historical data
-│   ├── historical_sales_2022_2024.csv
-│   └── store_attributes.csv
-├── scenarios/                  # Test scenarios
-│   ├── normal_season/         # 12 weekly CSVs
-│   ├── high_demand/           # 12 weekly CSVs
-│   └── low_demand/            # 12 weekly CSVs
-└── README.md                   # Usage guide
-```
-
-### Testing Approach
-- Validation suite covers 6 check types
-- MAPE validation ensures realistic accuracy
-- Manual testing with 3 scenarios
+### Enhancement 1: [Title]
+**Description:** [What could be improved]
+**Benefit:** [Why it would be valuable]
+**Effort:** [Low/Medium/High]
+**Priority:** [Low/Medium/High]
 
 ---
 
-## Open Questions
+## Questions & Clarifications
 
-*Questions will be added as they arise. Update with resolutions.*
-
----
-
-## References
-
-**Planning Documents:**
-- [Data Specification v3.2](../../data/data_specification_v3.2.md)
-- [Technical Architecture v3.2](../../architecture/technical_architecture_v3.2.md)
+### Question 1: [Topic]
+**Asked:** [Date]
+**Question:** [Full question text]
+**Answer:** [Resolution]
+**Impact:** [What changed as a result]
 
 ---
 
-**Last Updated:** 2025-10-14
+## Notes
+
+- Document decisions as you make them, not at the end of the phase
+- Include rationale for future reference
+- If requirements are unclear, reference planning docs or ask user
+- Log future enhancements but don't implement during this phase
+
+---
+
+**Created:** [Date]
+**Last Updated:** [Date]
