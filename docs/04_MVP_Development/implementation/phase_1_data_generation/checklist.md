@@ -1,176 +1,119 @@
-# Phase 1: Mock Data Generation - Implementation Checklist
+# Phase 1: Data Generation - Checklist
 
-**Phase:** Phase 1
+**Phase:** 1 of 8
 **Agent:** `*agent dev`
-**Last Updated:** 2025-10-14
-**Progress:** 0/12 tasks complete (0%)
+**Status:** ⏳ Not Started
+**Progress:** 0/9 tasks complete
 
 ---
 
-## Checklist Overview
+## Task Checklist
 
-This checklist tracks all tasks from `implementation_plan.md`. Update immediately after completing each task.
+### Task 1: Environment Setup
+- [ ] Install required libraries (pandas, numpy, scipy, faker)
+- [ ] Create project directory structure
+- [ ] Set random seed for reproducibility
+**Status:** ⏳ Not Started
 
-**Status Legend:**
-- ✅ Complete
-- 🟡 In Progress
-- ⏳ Not Started
-- 🔴 Blocked
+### Task 2: Historical Sales Data Generation
+- [ ] Implement base sales generator with seasonality
+- [ ] Add category-specific patterns (Women's Dresses, Men's Shirts, Accessories)
+- [ ] Implement holiday events (Valentine's, Mother's Day, Black Friday, Christmas)
+- [ ] Add weekly patterns (weekend peaks)
+- [ ] Apply ±10-15% noise
+- [ ] Generate 54,750 rows
+- [ ] Export to `historical_sales_2022_2024.csv`
+**Status:** ⏳ Not Started
 
----
-
-## Task Tracking
-
-### ⏳ Task 1: Project Setup & Environment
-**Estimated:** 0.5h | **Actual:** ___ h
-- [ ] Create `data/mock/` folder structure
-- [ ] Create `generate_mock_data.py` file
-- [ ] Install numpy + pandas
-- [ ] Verify imports work
-
----
-
-### ⏳ Task 2: Implement Core Functions
-**Estimated:** 3h | **Actual:** ___ h
-- [ ] Implement `calculate_seasonality()`
-- [ ] Implement `apply_holiday_spike()`
-- [ ] Implement `calculate_store_sales_multiplier()`
-- [ ] Implement `inject_black_swan_event()`
-- [ ] Add type hints to all functions
-- [ ] Write docstrings
-
----
-
-### ⏳ Task 3: Generate Store Attributes CSV
-**Estimated:** 1h | **Actual:** ___ h
+### Task 3: Store Attributes Generation
 - [ ] Generate 50 stores with 7 features
-- [ ] Save to `training/store_attributes.csv`
-- [ ] Validate K-means silhouette >0.4
+- [ ] Implement correlation formula for sales multiplier
+- [ ] Ensure 3 distinguishable clusters
+- [ ] Export to `store_attributes.csv`
+**Status:** ⏳ Not Started
 
----
+### Task 4: Weekly Actuals Generation (Normal Scenario)
+- [ ] Implement baseline weekly actuals generator
+- [ ] Add viral TikTok event (+30% Week 5)
+- [ ] Apply ±20-25% noise
+- [ ] Generate 12 CSV files
+- [ ] Validate Week 5 variance >20%
+**Status:** ⏳ Not Started
 
-### ⏳ Task 4: Generate Historical Sales CSV
-**Estimated:** 4h | **Actual:** ___ h
-- [ ] Generate 3 years of daily data
-- [ ] Apply seasonality patterns
-- [ ] Apply holiday spikes
-- [ ] Apply store multipliers
-- [ ] Add variable pricing
-- [ ] Save to `training/historical_sales_2022_2024.csv`
+### Task 5: Weekly Actuals Generation (High Demand Scenario)
+- [ ] Copy normal scenario baseline
+- [ ] Apply +25% to all categories
+- [ ] Add competitor bankruptcy event (+40% Week 5)
+- [ ] Generate 12 CSV files
+- [ ] Validate Week 5 variance >20%
+**Status:** ⏳ Not Started
 
----
+### Task 6: Weekly Actuals Generation (Low Demand Scenario)
+- [ ] Copy normal scenario baseline
+- [ ] Apply -20% to all categories
+- [ ] Add supply chain disruption (-25% Week 5)
+- [ ] Generate 12 CSV files
+- [ ] Validate Week 5 variance >20%
+**Status:** ⏳ Not Started
 
-### ⏳ Task 5: Generate Scenario 1 - Normal Season
-**Estimated:** 2h | **Actual:** ___ h
-- [ ] Generate 12 weekly CSVs
-- [ ] Apply baseline seasonality
-- [ ] Inject Week 5 black swan (+30% Dresses)
-- [ ] Add noise (±20-25%)
+### Task 7: Validation Suite Implementation
+- [ ] Implement Completeness validation
+- [ ] Implement Quality validation
+- [ ] Implement Format validation
+- [ ] Implement Statistical validation
+- [ ] Implement Pattern validation
+- [ ] Implement Weekly Actuals validation
+- [ ] Run all validations and generate report
+**Status:** ⏳ Not Started
 
----
+### Task 8: MAPE Validation
+- [ ] Implement simple forecast baseline
+- [ ] Calculate MAPE for all 3 scenarios
+- [ ] Validate MAPE 12-18% target
+- [ ] Document results
+**Status:** ⏳ Not Started
 
-### ⏳ Task 6: Generate Scenario 2 - High Demand
-**Estimated:** 1.5h | **Actual:** ___ h
-- [ ] Generate 12 weekly CSVs
-- [ ] Apply +25% baseline boost
-- [ ] Inject Week 5 black swan (+40% all categories)
-
----
-
-### ⏳ Task 7: Generate Scenario 3 - Low Demand
-**Estimated:** 1.5h | **Actual:** ___ h
-- [ ] Generate 12 weekly CSVs
-- [ ] Apply -20% baseline reduction
-- [ ] Inject Week 5 black swan (-25% all categories)
-
----
-
-### ⏳ Task 8: Implement Validation Suite
-**Estimated:** 2h | **Actual:** ___ h
-- [ ] Validation Type 1: Completeness
-- [ ] Validation Type 2: Data Quality
-- [ ] Validation Type 3: Format
-- [ ] Validation Type 4: Statistical
-- [ ] Validation Type 5: Pattern
-- [ ] Validation Type 6: Weekly Actuals
-- [ ] Add `--validate` flag
-
----
-
-### ⏳ Task 9: Implement MAPE Validation
-**Estimated:** 2h | **Actual:** ___ h
-- [ ] Implement baseline forecast
-- [ ] Calculate MAPE per scenario
-- [ ] Verify MAPE 12-18% for all
-- [ ] Add warnings for out-of-range MAPE
-
----
-
-### ⏳ Task 10: Create README.md
-**Estimated:** 1h | **Actual:** ___ h
-- [ ] Write Quick Start section
-- [ ] Document file structure
-- [ ] Add data dictionary
-- [ ] Add testing instructions
-
----
-
-### ⏳ Task 11: Test Generation
-**Estimated:** 0.5h | **Actual:** ___ h
-- [ ] Run with fixed seed
-- [ ] Verify 38 files created
-- [ ] Test --regenerate flag
-- [ ] Verify generation time <60s
-
----
-
-### ⏳ Task 12: Final Cleanup
-**Estimated:** 1h | **Actual:** ___ h
-- [ ] Format code
-- [ ] Complete type hints
-- [ ] Update technical_decisions.md
-- [ ] Draft retrospective.md
+### Task 9: Documentation
+- [ ] Write README.md with data dictionary
+- [ ] Document generation methodology
+- [ ] Include validation results
+- [ ] Add usage examples
+**Status:** ⏳ Not Started
 
 ---
 
 ## Validation Checkpoints
 
-### Checkpoint 1: Foundation ⏳
-- [ ] 50 store attributes generated
-- [ ] K-means silhouette >0.4
+### Checkpoint 1: Mid-Phase (50% complete)
+- [ ] Historical data looks realistic
+- [ ] Store attributes show 3 clusters
+- [ ] Normal scenario generated successfully
+**Status:** ⏳ Not Reached
 
----
-
-### Checkpoint 2: Historical Data ⏳
-- [ ] 54,750 rows generated
-- [ ] Seasonality visible
-
----
-
-### Checkpoint 3: Validation Pass ⏳
+### Checkpoint 2: Pre-Completion
+- [ ] All 38 CSV files generated
 - [ ] All 6 validation types pass
-- [ ] MAPE 12-18% for all scenarios
+- [ ] MAPE 12-18% confirmed
+- [ ] Week 5 variance >20% in all scenarios
+**Status:** ⏳ Not Reached
+
+### Checkpoint 3: Final
+- [ ] README.md complete
+- [ ] All files committed to git
+- [ ] Ready for handoff to Phase 2
+**Status:** ⏳ Not Reached
 
 ---
 
-## Time Tracking
+## Notes
 
-| Task | Estimated | Actual | Variance |
-|------|-----------|--------|----------|
-| Task 1 | 0.5h | | |
-| Task 2 | 3h | | |
-| Task 3 | 1h | | |
-| Task 4 | 4h | | |
-| Task 5 | 2h | | |
-| Task 6 | 1.5h | | |
-| Task 7 | 1.5h | | |
-| Task 8 | 2h | | |
-| Task 9 | 2h | | |
-| Task 10 | 1h | | |
-| Task 11 | 0.5h | | |
-| Task 12 | 1h | | |
-| **Total** | **20h** | | |
+- Update this checklist in real-time as tasks complete
+- Mark subtasks with ✅ when done
+- Update task status: ⏳ Not Started → 🔄 In Progress → ✅ Complete
+- Do not mark task complete until ALL subtasks are done
 
 ---
 
-**Last Updated:** 2025-10-14
+**Created:** [Date]
+**Last Updated:** [Date]
+**Progress:** 0/9 tasks (0%)
