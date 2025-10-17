@@ -9,11 +9,13 @@
 
 ## Project Overview
 
-Building a **3-agent demand forecasting and inventory allocation system** for retail using OpenAI Agents SDK. The system uses **category-level hierarchical forecasting** to predict demand and optimize inventory decisions, addressing critical pain points: inaccurate forecasting, location-specific allocation failures, and late markdown decisions.
+Building a **parameter-driven 3-agent demand forecasting and inventory allocation system** for retail using OpenAI Agents SDK. The system uses **category-level hierarchical forecasting** to predict demand and optimize inventory decisions, addressing critical pain points: inaccurate forecasting, location-specific allocation failures, and late markdown decisions.
 
 **Core Innovation:** "Forecast Once, Allocate with Math" - Category-level forecast (1 prediction) + hierarchical allocation (Category → Cluster → Store)
 
-**MVP Scope:** Archetype 1 - Fashion Retail (Women's Dresses, 12-week season, 50 stores, 3 clusters)
+**Strategic Pivot (v3.3):** Parameter-driven architecture adapts to diverse retail workflows through LLM-gathered configuration (allocation %, season length, markdown timing, etc.)
+
+**MVP Scope:** Generic retail planning solution emphasizing agentic coordination
 
 ---
 
@@ -42,30 +44,32 @@ independent_study/
 │   │       ├── Quote_Library.md                # Key practitioner quotes
 │   │       └── Requirements_Extract.md         # Functional requirements
 │   │
-│   ├── 04_PoC_Development/
-│   │   ├── product_brief/
-│   │   │   ├── product_brief_v3.2.md           # ✅ Current product spec (v3.2 - aligned with architecture)
-│   │   │   └── operational_workflow_v3.2.md    # ✅ Streamlined workflow (v3.2 - aligned with architecture)
+│   ├── 04_MVP_Development/
+│   │   ├── planning/
+│   │   │   ├── 0_PLANNING_GUIDE.md             # ✅ Navigation & standards
+│   │   │   ├── 1_product_brief_v3.3.md         # ✅ Parameter-driven product spec
+│   │   │   ├── 2_process_workflow_v3.3.md      # ✅ 5-phase workflow with examples
+│   │   │   ├── 3_technical_architecture_v3.3.md # ✅ Complete architecture
+│   │   │   ├── 4_prd_v3.3.md                   # ✅ Product requirements
+│   │   │   ├── 5_front-end-spec_v3.3.md        # ✅ Frontend UI/UX specification
+│   │   │   └── 6_data_specification_v3.2.md    # ✅ Data structures & validation
 │   │   │
-│   │   ├── architecture/
-│   │   │   └── technical_architecture.md       # ✅ Complete architecture (20 sections, includes handoff patterns)
+│   │   ├── archive/
+│   │   │   ├── v1.1/                           # Architecture v1.1
+│   │   │   ├── v2.1/                           # Product Brief v2.1
+│   │   │   ├── v3.1/                           # Workflow v3.1
+│   │   │   └── v3.2/                           # Original v3.2 documents
 │   │   │
-│   │   ├── Design/                             # 🎨 TODO: UI/UX design
-│   │   ├── Data/                               # 📊 TODO: Data requirements
-│   │   ├── prd/                                # 📋 TODO: New PRD for Archetype 1
-│   │   │
-│   │   ├── Research/
-│   │   │   └── OpenAI_Agents_SDK_Retail_PoC_Research.md
-│   │   │
-│   │   ├── archive/                            # Old Archetype 2 documents
-│   │   └── next_steps_plan.md                  # Roadmap to implementation
+│   │   └── README.md                           # Planning documentation guide
 │   │
 │   └── 05_Progress_Reports/
 │       └── Weekly_Supervisor_Meetings/         # Weekly progress updates
 │           ├── Week_01_Updates.md
 │           ├── Week_02_Updates.md
 │           ├── Week_03_Updates.md
-│           └── Week_04_Updates.md
+│           ├── Week_04_Updates.md
+│           ├── Week_05_Updates.md              # v3.1 → v3.3 evolution
+│           └── Week_05_Updates.html            # Visual presentation
 │
 └── src/                                        # (To be created in Phase 1)
     ├── agents/                                 # Demand, Inventory, Pricing, Orchestrator
@@ -79,11 +83,14 @@ independent_study/
 
 ## Key Documents
 
-### Product Specifications (Current - Archetype 1)
-- **[Product Brief v3.2](docs/04_PoC_Development/product_brief/product_brief_v3.2.md)**: Category-level forecasting approach (Archetype 1), aligned with technical architecture - Ensemble Prophet+ARIMA, K-means clustering (7 features), Gap × Elasticity markdown
-- **[Operational Workflow v3.2](docs/04_PoC_Development/product_brief/operational_workflow_v3.2.md)**: Streamlined workflow with concrete examples - Ensemble forecasting, K-means (7 features), simple replenishment, Gap × Elasticity markdown
-- **[Technical Architecture](docs/04_PoC_Development/architecture/technical_architecture.md)**: Complete backend architecture (20 sections) - OpenAI Agents SDK, Prophet+ARIMA, React+TypeScript, includes agent coordination workflow
-- **[Next Steps Plan](docs/04_PoC_Development/next_steps_plan.md)**: Document roadmap to implementation
+### Product Specifications (Current - v3.3)
+- **[Planning Guide](docs/04_MVP_Development/planning/0_PLANNING_GUIDE.md)**: Documentation navigation, standards, and workflow
+- **[Product Brief v3.3](docs/04_MVP_Development/planning/1_product_brief_v3.3.md)**: Parameter-driven system design with LLM configuration gathering
+- **[Process Workflow v3.3](docs/04_MVP_Development/planning/2_process_workflow_v3.3.md)**: 5-phase workflow with concrete examples
+- **[Technical Architecture v3.3](docs/04_MVP_Development/planning/3_technical_architecture_v3.3.md)**: Complete backend architecture - OpenAI Agents SDK, parameter-driven design
+- **[PRD v3.3](docs/04_MVP_Development/planning/4_prd_v3.3.md)**: Product requirements document
+- **[Frontend Spec v3.3](docs/04_MVP_Development/planning/5_front-end-spec_v3.3.md)**: Complete UI/UX specification
+- **[Data Specification v3.2](docs/04_MVP_Development/planning/6_data_specification_v3.2.md)**: Data structures and validation rules
 
 ### Research & Validation
 - **[Evidence Pack](docs/03_Evidence_Pack/)**: 6 components validating problem-solution fit with 5 practitioner interviews
@@ -157,24 +164,25 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 ## Current Status
 
-**Week 4 (October 12, 2025):**
-- ✅ Evidence Pack completed (6 components)
-- ✅ Product Brief v3.2 finalized (Archetype 1: Fashion Retail, aligned with architecture)
-  - Ensemble Prophet+ARIMA (parallel, averaged)
-  - K-means clustering (7 features: sales, size, income, tiers, format, region)
-  - Gap × Elasticity markdown (elasticity=2.0, 5% rounding, 40% cap)
-  - Simple replenishment formula (forecast - inventory)
-  - No confidence scoring (simplified MVP)
-- ✅ Operational Workflow v3 (streamlined with examples)
-- ✅ Technical Architecture v1.0 complete (20 sections, implementation-ready)
-  - OpenAI Agents SDK + UV + FastAPI + SQLite + React + TypeScript
-  - Context-rich handoffs, dynamic re-forecast enabling
-  - WebSocket real-time updates, human-in-the-loop (Modify/Accept)
-- 🎨 Next: UI/UX Design (talk to `*agent designer`)
-- 📋 Next: PRD for Archetype 1 (talk to `*agent pm`)
-- 📊 Next: Data Requirements (talk to `*agent data`)
+**Week 5 (October 17, 2025):**
+- ✅ All v3.3 planning documents complete (7/7)
+  - Planning Guide with documentation standards
+  - Product Brief v3.3 (parameter-driven architecture)
+  - Process Workflow v3.3 (5-phase with examples)
+  - Technical Architecture v3.3 (implementation-ready)
+  - PRD v3.3 (complete requirements)
+  - Frontend Spec v3.3 (full UI/UX design)
+  - Data Specification v3.2 (structures & validation)
+- ✅ Strategic pivot from hardcoded to parameter-driven design
+  - LLM gathers key parameters (allocation %, season length, markdown timing)
+  - Adapts to diverse retail workflows (fast fashion, premium, etc.)
+  - Emphasizes agentic coordination over deep-dive forecasting
+- ✅ Documentation restructured (flattened, numeric prefixes)
+- 📊 Next: Mock data generation
+- 🎨 Next: Frontend mockup
+- 🔧 Next: Backend architecture implementation
 
-**Progress:** 3/7 documents complete (43%)
+**Progress:** Planning phase 100% complete, ready for implementation
 
 ---
 

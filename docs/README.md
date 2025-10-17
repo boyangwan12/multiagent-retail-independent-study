@@ -3,7 +3,7 @@
 
 **Project:** Independent Study - Multi-Agent System for Retail Demand Forecasting
 **Timeline:** September 1 - December 10, 2025
-**Status:** Evidence Pack Complete ✅ | Product Specs Complete ✅ | Development Starting 🚧
+**Status:** Planning Complete ✅ (v3.3 Parameter-Driven) | Implementation Starting 🚧
 
 ---
 
@@ -96,63 +96,54 @@ User research: 5 interviews across 4 retail segments
 
 ---
 
-### 💻 04_PoC_Development/
-**✅ COMPLETE** - Product specifications, PRD, and development plan finalized
+### 💻 04_MVP_Development/
+**✅ COMPLETE** - v3.3 parameter-driven planning documents finalized
 
-#### Product Brief (`product_brief/`)
-- **`product_brief_v2.1.md`** - Main product specification (Archetype 2: Stable Catalog Retail)
-  - 3-agent system (Demand, Inventory, Pricing + Orchestrator)
-  - Core prediction: `demand_by_store_by_week` matrix (50 stores × 26 weeks)
-  - Evidence-based problem validation (PP-001, PP-002, PP-015, PP-016, PP-028)
-  - MVP scope: 50 SKUs, 50 stores, 26-week furniture retail season
+#### Planning Documents (`planning/`)
+- **`0_PLANNING_GUIDE.md`** - Documentation navigation, standards, and workflow
+  - Document status table with all v3.3 planning docs
+  - Documentation standards and versioning guidelines
+  - Planning workflow with backward consistency checks
 
-- **`2_key_parameter.md`** - Parameter-driven system design
-  - 3 retail archetypes (Fashion, Stable Catalog, Continuous Replenishment)
-  - MVP validates on Archetype 2
-  - Configurable parameters: season length, replenishment cadence, markdown timing, DC holdback
+- **`1_product_brief_v3.3.md`** - Parameter-driven product specification
+  - LLM-based parameter gathering (allocation %, season length, markdown timing)
+  - Generic retail planning solution emphasizing agentic coordination
+  - Adapts to diverse workflows (fast fashion, premium retail, etc.)
+  - Category-level forecasting with hierarchical allocation
 
-- **`2_operational_workflow.md`** - 5-phase seasonal workflow
-  - Phase 1: Pre-season planning (Week -12)
-  - Phase 2: Initial allocation (Week 0)
-  - Phase 3: In-season operations (bi-weekly, Weeks 2-10)
-  - Phase 4: Mid-season pricing (Week 12 markdown checkpoint)
-  - Phase 5: Season end analytics (Week 26)
+- **`2_process_workflow_v3.3.md`** - 5-phase operational workflow with examples
+  - Pre-season → Season Start → In-Season → Mid-Season → Post-Season
+  - Ensemble Prophet+ARIMA forecasting
+  - K-means clustering (7 features)
+  - Variance-triggered re-forecast (>20% threshold)
 
-- **`2_simplified_three_agent_mvp.md`** - Streamlined MVP specification
-  - Adaptive forecasting methods (similar-item matching, time-series)
-  - Inventory optimization approach
-  - Pricing logic and markdown triggers
+- **`3_technical_architecture_v3.3.md`** - Complete backend architecture
+  - Tech stack: Python + FastAPI + OpenAI Agents SDK + React + TypeScript
+  - Parameter-driven design with LLM configuration
+  - Context-rich handoffs + dynamic enabling
+  - REST + WebSocket for real-time updates
 
-#### PRD (`prd/`)
-- **`prd_demand_forecasting_system.md`** - Comprehensive Product Requirements Document (600+ lines)
-  - Functional requirements for all 4 agents with plain language explanations
-  - ML/forecasting methods (OpenAI embeddings, Prophet, ARIMA, rule-based pricing)
-  - Agentic features (autonomous decision-making, LLM reasoning, semantic understanding, multi-agent collaboration)
-  - Non-functional requirements (zero-cost MVP, <$5 LLM budget)
-  - User stories, data requirements, 12-week timeline
-  - Technology stack (LangChain, OpenAI SDK, Prophet, statsmodels)
+- **`4_prd_v3.3.md`** - Product requirements document
+  - Functional requirements with parameter flexibility
+  - User stories and acceptance criteria
+  - System constraints and boundaries
 
-- **`agent_coordination_workflow.md`** - Multi-agent orchestration specification
-  - 7 Mermaid flowcharts (season workflow, phase coordination, decision trees, sequence diagrams)
-  - Phase-by-phase coordination (5 phases)
-  - Event-based triggers (variance >15%, confidence <70%)
-  - Message passing protocol and state management
-  - Performance metrics (~$0.05 LLM cost per season)
+- **`5_front-end-spec_v3.3.md`** - Complete frontend UI/UX specification
+  - Single-page dashboard (7 sections)
+  - Linear Dark Theme (Shadcn/ui + Tailwind CSS)
+  - WebSocket line-by-line agent progress updates
+  - Wireframes and component specifications
 
-- **`development_plan.md`** - 9-week implementation plan (Oct 10 - Dec 10, 2025)
-  - Phase 1-2: Environment setup & data generation (Weeks 1-2)
-  - Phase 3-4: Similar-item matching with embeddings (Weeks 3-4)
-  - Phase 4-5: Forecasting methods (Prophet, ARIMA, hybrid) (Weeks 4-5)
-  - Phase 5-6: Inventory agent (Weeks 5-6)
-  - Phase 6-7: Pricing agent & orchestrator (Weeks 6-7)
-  - Phase 8: Integration & validation (Week 8, MAPE <20%)
-  - Phase 9: Documentation & final report (Week 9)
+- **`6_data_specification_v3.2.md`** - Data structures and validation
+  - CSV formats for historical sales and store attributes
+  - Validation rules and constraints
+  - Mock data generation specifications
 
-#### Architecture (`Architecture/`)
-- **`architecture_v1.1.md`** - System architecture design
-
-#### Research (`Research/`)
-- **`OpenAI_Agents_SDK_Retail_PoC_Research.md`** - OpenAI SDK evaluation for retail demand forecasting
+#### Archive (`archive/`)
+- **`v1.1/`** - Architecture v1.1, PRD v1.1, Product Brief v1.1
+- **`v2.1/`** - Product Brief v2.1, Key Parameters, Operational Workflow
+- **`v3.1/`** - Operational Workflow v3.1, Product Brief v3.1
+- **`v3.2/`** - Original v3.2 documents (hardcoded parameters)
 
 ---
 
@@ -163,13 +154,12 @@ Project status tracking and supervisor updates
 - **`Week_01_Updates.md`** - Initial project setup and planning
 - **`Week_02_Updates.md`** - Interview completions (INT-001, INT-002, INT-003) and key findings
 - **`Week_03_Updates.md`** - Evidence pack progress and remaining interviews
-- **`Week_04_Updates.md`** - Product specs completion (7 major deliverables)
-  - Product Brief v2.1
-  - Operational Workflow Document
-  - Key Parameters Document
-  - Simplified Three-Agent MVP Specification
-  - Comprehensive PRD (600+ lines)
-  - Agent Coordination Workflow (7 flowcharts)
+- **`Week_04_Updates.md`** - Product specs completion (v3.2 hardcoded approach)
+- **`Week_05_Updates.md`** - Architecture evolution: v3.1 → v3.3
+  - Granularity adjustment (category-level forecasting)
+  - Strategic pivot to parameter-driven architecture
+  - LLM-gathered configuration for diverse retail workflows
+- **`Week_05_Updates.html`** - Visual presentation (black & white design)
 
 ---
 
@@ -187,12 +177,13 @@ Project status tracking and supervisor updates
 | **Requirements** | `03_Evidence_Pack/03_Requirements_Constraints.md` | 41 requirements with traceability |
 | **Success Metrics** | `03_Evidence_Pack/05_Success_Metrics.md` | Measurable criteria + baselines |
 | **Pain Points List** | `03_Evidence_Pack/_extraction/Pain_Point_Inventory.md` | 33 pain points with details |
-| **Product Brief** | `04_PoC_Development/product_brief/product_brief_v2.1.md` | Main product specification |
-| **PRD** | `04_PoC_Development/prd/prd_demand_forecasting_system.md` | Comprehensive requirements (600+ lines) |
-| **Agent Coordination** | `04_PoC_Development/prd/agent_coordination_workflow.md` | Multi-agent orchestration + flowcharts |
-| **Development Plan** | `04_PoC_Development/prd/development_plan.md` | 9-week implementation plan |
-| **Operational Workflow** | `04_PoC_Development/product_brief/2_operational_workflow.md` | 5-phase seasonal workflow |
-| **System Architecture** | `04_PoC_Development/Architecture/architecture_v1.1.md` | Technical architecture |
+| **Planning Guide** | `04_MVP_Development/planning/0_PLANNING_GUIDE.md` | Documentation navigation & standards |
+| **Product Brief v3.3** | `04_MVP_Development/planning/1_product_brief_v3.3.md` | Parameter-driven product spec |
+| **Process Workflow v3.3** | `04_MVP_Development/planning/2_process_workflow_v3.3.md` | 5-phase workflow with examples |
+| **Technical Architecture v3.3** | `04_MVP_Development/planning/3_technical_architecture_v3.3.md` | Complete backend architecture |
+| **PRD v3.3** | `04_MVP_Development/planning/4_prd_v3.3.md` | Product requirements |
+| **Frontend Spec v3.3** | `04_MVP_Development/planning/5_front-end-spec_v3.3.md` | Complete UI/UX specification |
+| **Data Specification v3.2** | `04_MVP_Development/planning/6_data_specification_v3.2.md` | Data structures & validation |
 
 ---
 
@@ -218,27 +209,24 @@ Project status tracking and supervisor updates
 - 3 extraction files (pain points, quotes, requirements)
 - Problem validated, requirements defined, direction confirmed
 
-### ✅ Phase 4: Product Specifications (COMPLETE)
+### ✅ Phase 4: Product Specifications (COMPLETE - Week 8)
 **Duration:** Weeks 6-8
 **Deliverables:**
-- Product Brief v2.1 (Archetype 2: Stable Catalog Retail)
-- Operational Workflow (5-phase seasonal workflow)
-- Key Parameters (3 retail archetypes, parameter-driven design)
-- Comprehensive PRD (600+ lines with ML methods, agentic features)
-- Agent Coordination Workflow (7 Mermaid flowcharts)
-- 9-week Development Plan (Oct 10 - Dec 10)
+- v3.3 parameter-driven planning documents (7 documents)
+- Strategic pivot from hardcoded to flexible architecture
+- LLM-based parameter gathering system
+- Flattened documentation structure with numeric prefixes
+- Complete frontend UI/UX specification
+- Data structures and validation rules
 
-### 🚧 Phase 5: PoC Development (STARTING - Week 8)
-**Duration:** Weeks 8-16 (October 10 - December 10, 2025)
-**Current Status:** Starting Phase 1 (Environment Setup & Data Generation)
-**Planned:**
-- Week 1-2: Environment setup, synthetic data generation (50 SKUs, 50 stores, 2 years)
-- Week 3-4: Similar-item matching with OpenAI embeddings
-- Week 4-5: Forecasting methods (Prophet, ARIMA, hybrid)
-- Week 5-6: Inventory agent (manufacturing, allocation, replenishment)
-- Week 6-7: Pricing agent + orchestrator (5-phase workflow)
-- Week 8: Integration & validation (MAPE <20%, cost <$5)
-- Week 9: Documentation & final report
+### 🚧 Phase 5: MVP Development (STARTING - Week 9)
+**Duration:** Weeks 9-16 (October 17 - December 10, 2025)
+**Current Status:** Planning complete, starting implementation
+**Next Steps:**
+- Mock data generation (data spec ready)
+- Frontend mockup development
+- Backend architecture implementation (3 agents + orchestrator)
+- Integration & validation (MAPE <20%, cost <$5)
 
 ### ⏳ Phase 6: Validation & Delivery (UPCOMING)
 **Duration:** Weeks 16-17
@@ -340,16 +328,20 @@ Project status tracking and supervisor updates
 
 ## 📌 Current Status
 
-**Week 4 (October 10, 2025):**
+**Week 5 (October 17, 2025):**
 - ✅ Evidence Pack completed (6 components, 150+ pages)
-- ✅ Product specifications completed (7 major deliverables)
-- ✅ 9-week Development Plan finalized
-- 🚧 Starting Phase 1: Environment Setup & Data Generation
+- ✅ v3.3 Planning documents completed (7 documents, parameter-driven)
+- ✅ Strategic pivot: hardcoded → parameter-driven architecture
+- ✅ Documentation restructured (flattened, numeric prefixes)
+- 🚧 Starting Implementation Phase
 
-**Next Milestone:** Week 2 - Data & Environment Ready (synthetic data for 50 SKUs, 50 stores, 2 years)
+**Next Milestones:**
+1. Mock data generation
+2. Frontend mockup
+3. Backend implementation (3 agents + orchestrator)
 
 ---
 
-**Project Status:** Product Specs Complete ✅ | Development Starting 🚧
-**Last Updated:** October 10, 2025
-**Document Version:** 3.0
+**Project Status:** Planning Complete ✅ (v3.3) | Implementation Starting 🚧
+**Last Updated:** October 17, 2025
+**Document Version:** 4.0
