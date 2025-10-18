@@ -52,6 +52,31 @@ data/mock/
 
 ---
 
+## Data Dictionary
+
+### historical_sales_2022_2024.csv
+
+Training data for Prophet+ARIMA forecasting models (2022-01-01 to 2024-12-31).
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `date` | DATE | Sales date (YYYY-MM-DD) | `2022-01-01` |
+| `store_id` | STRING | Store identifier (S001-S050) | `S023` |
+| `category` | STRING | Product category | `Women's Dresses` |
+| `quantity_sold` | INT | Units sold on that date | `47` |
+| `revenue` | FLOAT | Total revenue (quantity × price) | `2585.50` |
+
+**Rows**: 164,400 (1,096 days × 50 stores × 3 categories)
+**Date Range**: 2022-01-01 to 2024-12-31 (includes leap year 2024)
+**Noise Level**: ±10-15% (cleaner for model training)
+
+**Categories**:
+- **Women's Dresses**: Peak Spring/Summer (Mar-Aug), Base price $55 ± $5.50
+- **Men's Shirts**: Steady year-round, Base price $35 ± $3.50
+- **Accessories**: Peak Holiday season (Nov-Dec), Base price $25 ± $2.50
+
+---
+
 ### store_attributes.csv
 
 Features for K-means clustering (K=3) to create store segments.
@@ -292,6 +317,84 @@ python generate_mock_data.py --regenerate --validate
 ```
 
 This uses a time-based seed instead of fixed seed (42), generating statistically similar but numerically different data.
+
+---
+
+## Data Generation Methodology
+
+### Realism Strategies (Target MAPE 12-18%)
+
+To avoid "too perfect" synthetic data (MAPE <5%), we implemented 6 techniques:
+
+1. **Noise Differential**
+   - Historical data: ±10-15% noise (clean for training)
+   - Testing data: ±20-25% noise (messy reality)
+
+2. **Unpredictable Events**
+   - Store renovations (Week 3: S007, S019 limited operations)
+   - Local festivals (Week 3: S025 traffic boost)
+   - Competitor flash sales
+
+3. **Trend Breaks**
+   - Historical: Women's Dresses +8% CAGR
+   - 2025 Reality: +2% growth (economic slowdown)
+
+4. **Black Swan Events** (Week 5)
+   - Normal: Viral TikTok trend (+30%)
+   - High Demand: Competitor bankruptcy (+40%)
+   - Low Demand: Supply chain crisis (-25%)
+
+5. **Store Heterogeneity**
+   - 10-15 stores deviate from cluster patterns
+   - Example: S023 (Mainstream) performs like Fashion_Forward
+
+6. **Seasonality Shifts**
+   - Historical: Dresses peak in May
+   - 2025: Peak shifts to April (weather, trends)
+
+---
+
+## Technical Details
+
+### Seasonality Formulas
+
+**Women's Dresses** (Fashion-driven, Spring/Summer peak):
+```python
+monthly_multipliers = {
+    "Jan": 0.6, "Feb": 0.7, "Mar": 1.2, "Apr": 1.4, "May": 1.5,
+    "Jun": 1.3, "Jul": 1.2, "Aug": 1.1, "Sep": 0.9, "Oct": 0.8,
+    "Nov": 0.7, "Dec": 0.8
+}
+```
+
+**Men's Shirts** (Basic staples, steady year-round):
+```python
+monthly_multipliers = {
+    "Jan": 0.9, ..., "Aug": 1.2, ...  # Aug spike for Back to School
+}
+```
+
+**Accessories** (Gift-driven, Holiday peak):
+```python
+monthly_multipliers = {
+    "Jan": 0.6, ..., "Nov": 1.6, "Dec": 1.8  # Massive Q4 surge
+}
+```
+
+### Store Sales Correlation Formula
+
+```python
+sales_multiplier = (
+    0.30 × (size_sqft / 10,000) +
+    0.25 × (income_level / 100,000) +
+    0.20 × (foot_traffic / 2,000) +
+    0.10 × (1 - online_penetration) +
+    0.10 × (population_density / 10,000) +
+    0.05 × mall_location
+) × (1 ± 20% noise)
+
+# Constrained to 0.5x - 2.0x range
+```
 
 ---
 
