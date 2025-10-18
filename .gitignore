@@ -51,5 +51,8 @@ dist/
 build/
 *.egg-info/
 
+# Team collaboration folder (internal drafts, not for version control)
+docs/05_Progress_Reports/team_colab/
+
 # Keep docs folder visible - this contains your project documentation
 # All other folders starting with . are ignored above
