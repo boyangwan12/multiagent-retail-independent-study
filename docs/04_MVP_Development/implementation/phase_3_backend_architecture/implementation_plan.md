@@ -3,9 +3,9 @@
 **Phase:** 3 of 8
 **Goal:** Set up FastAPI backend with database, REST API, parameter extraction, and agent scaffolding
 **Agent:** `*agent architect`
-**Duration Estimate:** 5-7 days
+**Duration Estimate:** 5-7 days (46 hours)
 **Actual Duration:** TBD
-**Status:** Not Started
+**Status:** ✅ Planning Complete - All Stories Ready for Implementation
 
 ---
 
@@ -80,11 +80,12 @@
 
 ## Task Breakdown
 
-### Task 1: Project Setup & UV Configuration
+### Task 1: Project Setup & UV Configuration ✅ STORY READY
+**Story:** `PHASE3-001-project-setup-uv-configuration.md`
 **Estimate:** 2 hours
 **Actual:** TBD
 **Dependencies:** None
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Install UV package manager (`pip install uv`)
@@ -127,11 +128,12 @@ dev = [
 ]
 ```
 
-### Task 2: Database Schema & Models
+### Task 2: Database Schema & Models ✅ STORY READY
+**Story:** `PHASE3-002-database-schema-models.md`
 **Estimate:** 4 hours
 **Actual:** TBD
 **Dependencies:** Task 1
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Install SQLAlchemy + Alembic
@@ -153,11 +155,12 @@ dev = [
 - Normalized tables: categories, stores, store_clusters, season_parameters
 - JSON columns: weekly_demand_curve (list), store_allocations (list), cluster_distribution (list)
 
-### Task 3: Pydantic Models (DTOs)
+### Task 3: Pydantic Models (DTOs) ✅ STORY READY
+**Story:** `PHASE3-003-pydantic-schemas-dtos.md`
 **Estimate:** 3 hours
 **Actual:** TBD
 **Dependencies:** Task 2
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/schemas/` folder
@@ -173,11 +176,12 @@ dev = [
 - [ ] Implement `schemas/workflow.py` (WorkflowRequest, AgentStatus, WorkflowResponse)
 - [ ] Add validation and examples to all models
 
-### Task 4: FastAPI Application Setup
+### Task 4: FastAPI Application Setup ✅ STORY READY
+**Story:** `PHASE3-004-fastapi-application-setup.md`
 **Estimate:** 3 hours
 **Actual:** TBD
 **Dependencies:** Task 1
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/main.py` (FastAPI app instance)
@@ -206,11 +210,12 @@ PORT=8000
 DEBUG=true
 ```
 
-### Task 5: Parameter Extraction API
+### Task 5: Parameter Extraction API ✅ STORY READY
+**Story:** `PHASE3-005-parameter-extraction-api.md`
 **Estimate:** 4 hours
 **Actual:** TBD
 **Dependencies:** Task 3, Task 4
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/services/parameter_extractor.py`
@@ -237,11 +242,12 @@ User Input: "{user_input}"
 Return JSON only.
 ```
 
-### Task 6: Data Seeding & CSV Utilities
+### Task 6: Data Seeding & CSV Utilities ✅ STORY READY
+**Story:** `PHASE3-006-data-seeding-csv-utilities.md`
 **Estimate:** 2 hours
 **Actual:** TBD
 **Dependencies:** Task 2
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/utils/csv_parser.py` (CSV parsing utilities)
@@ -254,11 +260,12 @@ Return JSON only.
 
 **Note:** Actual CSV upload endpoints (with multipart/form-data) are implemented in Task 14. This task focuses on seeding the database with Phase 1 CSV data for development/testing.
 
-### Task 7: Workflow Orchestration API
+### Task 7: Workflow Orchestration API ✅ STORY READY
+**Story:** `PHASE3-007-workflow-orchestration-api.md`
 **Estimate:** 4 hours
 **Actual:** TBD
 **Dependencies:** Task 4, Task 5
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `POST /api/workflows/forecast` endpoint (start pre-season forecast)
@@ -271,11 +278,12 @@ Return JSON only.
 - [ ] Create `GET /api/workflows/{id}` endpoint (status check via polling)
 - [ ] Create `GET /api/workflows/{id}/results` endpoint (final results)
 
-### Task 8: WebSocket Server
+### Task 8: WebSocket Server ✅ STORY READY
+**Story:** `PHASE3-008-websocket-server.md`
 **Estimate:** 4 hours
 **Actual:** TBD
 **Dependencies:** Task 4
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/websocket/manager.py` (connection manager)
@@ -317,11 +325,12 @@ Return JSON only.
 }
 ```
 
-### Task 9: OpenAI Agents SDK Integration
+### Task 9: OpenAI Agents SDK Integration ✅ STORY READY
+**Story:** `PHASE3-009-openai-agents-sdk-integration.md`
 **Estimate:** 4 hours
 **Actual:** TBD
 **Dependencies:** Task 4, Task 5
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/agents/` folder
@@ -351,11 +360,12 @@ orchestrator = Agent(
 )
 ```
 
-### Task 10: Approval Endpoints
+### Task 10: Approval Endpoints ✅ STORY READY
+**Story:** `PHASE3-010-approval-endpoints.md`
 **Estimate:** 2 hours
 **Actual:** TBD
 **Dependencies:** Task 4, Task 7
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `POST /api/approvals/manufacturing` endpoint
@@ -365,11 +375,12 @@ orchestrator = Agent(
 - [ ] Update workflow status in database
 - [ ] Trigger agent continuation via WebSocket
 
-### Task 11: ML Pipeline Scaffolding
+### Task 11: ML Pipeline Scaffolding ✅ STORY READY
+**Story:** `PHASE3-011-ml-pipeline-scaffolding.md`
 **Estimate:** 3 hours
 **Actual:** TBD
 **Dependencies:** Task 2
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `backend/app/ml/` folder
@@ -382,11 +393,12 @@ orchestrator = Agent(
 
 **Note:** Actual ML implementation happens in Phase 5. This task just creates the structure.
 
-### Task 12: Configuration & Environment Setup
+### Task 12: Configuration & Environment Setup ✅ STORY READY
+**Story:** `PHASE3-012-configuration-environment-setup.md`
 **Estimate:** 2 hours
 **Actual:** TBD
 **Dependencies:** Task 4
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `.env.example` with all required variables
@@ -397,11 +409,12 @@ orchestrator = Agent(
 - [ ] Add request/response validation
 - [ ] Create development startup script (`scripts/dev.sh`)
 
-### Task 13: Testing & Documentation
+### Task 13: Testing & Documentation ✅ STORY READY
+**Story:** `PHASE3-013-testing-documentation.md`
 **Estimate:** 3 hours
 **Actual:** TBD
 **Dependencies:** Task 1-12, Task 14
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Install pytest + pytest-asyncio
@@ -414,11 +427,12 @@ orchestrator = Agent(
 - [ ] Write backend README.md with setup instructions
 - [ ] Document all environment variables
 
-### Task 14: Resource & Data Management Endpoints ⭐ NEW
+### Task 14: Resource & Data Management Endpoints ✅ STORY READY
+**Story:** `PHASE3-014-resource-data-management-endpoints.md`
 **Estimate:** 6 hours
 **Actual:** TBD
 **Dependencies:** Task 2, Task 3, Task 4
-**Status:** Not Started
+**Status:** ✅ Story Ready for Implementation
 
 **Subtasks:**
 - [ ] Create `GET /api/forecasts` endpoint (list all forecasts)
@@ -530,5 +544,7 @@ orchestrator = Agent(
 ---
 
 **Created:** 2025-10-17
-**Last Updated:** 2025-10-17
-**Status:** Not Started
+**Last Updated:** 2025-10-19
+**Status:** ✅ Planning Complete - All Stories Ready for Implementation
+**Stories Location:** `stories/PHASE3-001.md` through `stories/PHASE3-014.md`
+**Total Story Count:** 14/14 (100%)
