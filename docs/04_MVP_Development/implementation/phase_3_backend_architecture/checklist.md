@@ -2,8 +2,8 @@
 
 **Phase:** 3 of 8
 **Agent:** `*agent architect`
-**Status:** Not Started
-**Progress:** 0/14 tasks complete
+**Status:** ✅ Planning Complete - All Stories Ready for Implementation
+**Progress:** 14/14 stories documented (100%)
 
 ---
 
@@ -18,176 +18,144 @@
 - [ ] Create `backend/.env.example` with required variables
 **Status:** Not Started
 
-### Task 2: Database Schema & Models
-- [ ] Install SQLAlchemy + Alembic
-- [ ] Create `backend/app/db/base.py` (database connection)
-- [ ] Create SQLAlchemy models (8 models: category, store, store_cluster, parameters, forecast, allocation, markdown, actuals)
-- [ ] Initialize Alembic (`alembic init migrations`)
-- [ ] Generate initial migration (`alembic revision --autogenerate`)
-- [ ] Run migration (`alembic upgrade head`)
-**Status:** Not Started
+### Task 2: Database Schema & Models ✅ STORY READY
+**Story:** `PHASE3-002-database-schema-models.md`
+- [x] Complete SQLAlchemy model templates (8 models)
+- [x] Hybrid schema design documented (normalized + JSON)
+- [x] Alembic configuration and migration steps
+- [x] Database relationship diagrams included
+**Status:** ✅ Story Ready for Implementation
 
-### Task 3: Pydantic Models (DTOs)
-- [ ] Create `backend/app/schemas/` folder
-- [ ] Implement `schemas/parameters.py` (SeasonParameters, ParameterExtractionRequest/Response)
-- [ ] Implement `schemas/category.py` (Category model)
-- [ ] Implement `schemas/store.py` (Store, StoreCluster models)
-- [ ] Implement `schemas/forecast.py` (Forecast, WeeklyDemand, ClusterDistribution)
-- [ ] Implement `schemas/allocation.py` (AllocationPlan, StoreAllocation)
-- [ ] Implement `schemas/markdown.py` (MarkdownDecision)
-- [ ] Implement `schemas/workflow.py` (WorkflowRequest, AgentStatus, WorkflowResponse)
-**Status:** Not Started
+### Task 3: Pydantic Models (DTOs) ✅ STORY READY
+**Story:** `PHASE3-003-pydantic-schemas-dtos.md`
+- [x] Complete Pydantic schema templates (15+ models)
+- [x] Validation rules and examples included
+- [x] SeasonParameters with 5 key parameters
+- [x] All request/response DTOs documented
+**Status:** ✅ Story Ready for Implementation
 
-### Task 4: FastAPI Application Setup
-- [ ] Create `backend/app/main.py` (FastAPI app instance)
-- [ ] Configure CORS middleware (allow frontend origin)
-- [ ] Add logging middleware (request/response logging)
-- [ ] Add error handling middleware (500 errors → JSON)
-- [ ] Create `backend/app/core/config.py` (Pydantic Settings)
-- [ ] Load environment variables (.env)
-- [ ] Create health check endpoint (`GET /api/health`)
-- [ ] Set up API router structure (`backend/app/api/`)
-**Status:** Not Started
+### Task 4: FastAPI Application Setup ✅ STORY READY
+**Story:** `PHASE3-004-fastapi-application-setup.md`
+- [x] Complete main.py template with middleware
+- [x] CORS configuration for frontend integration
+- [x] Logging and error handling middleware
+- [x] Health check endpoint template
+- [x] API router structure defined
+**Status:** ✅ Story Ready for Implementation
 
-### Task 5: Parameter Extraction API
-- [ ] Create `backend/app/services/parameter_extractor.py`
-- [ ] Implement LLM prompt for parameter extraction
-- [ ] Create `POST /api/parameters/extract` endpoint
-- [ ] Parse natural language input and call Azure OpenAI
-- [ ] Extract 5 parameters to `SeasonParameters` object
-- [ ] Add confidence scoring (high/medium/low)
-- [ ] Implement fallback logic (default to 12 weeks if unclear)
-- [ ] Return JSON response with parameters + reasoning
-**Status:** Not Started
+### Task 5: Parameter Extraction API ✅ STORY READY
+**Story:** `PHASE3-005-parameter-extraction-api.md`
+- [x] Complete LLM prompt template for extraction
+- [x] ParameterExtractorService with Azure OpenAI integration
+- [x] Confidence scoring logic documented
+- [x] Fallback and validation strategies
+- [x] Complete endpoint implementation template
+**Status:** ✅ Story Ready for Implementation
 
-### Task 6: Data Seeding & CSV Utilities
-- [ ] Create `backend/app/utils/csv_parser.py` (CSV parsing utilities)
-- [ ] Implement CSV validation functions (check required columns, data types)
-- [ ] Create seed data script to load Phase 1 CSVs into database
-- [ ] Load store_attributes.csv → stores table (50 stores)
-- [ ] Load historical_sales_2022_2024.csv → historical_sales table
-- [ ] Create database backup utility
-- [ ] Document CSV format requirements
-**Status:** Not Started
+### Task 6: Data Seeding & CSV Utilities ✅ STORY READY
+**Story:** `PHASE3-006-data-seeding-csv-utilities.md`
+- [x] CSV parsing utility templates
+- [x] Validation functions for all CSV formats
+- [x] Seed data scripts for Phase 1 CSVs
+- [x] Database backup/restore utilities
+- [x] Complete CSV format documentation
+**Status:** ✅ Story Ready for Implementation
 
-### Task 7: Workflow Orchestration API
-- [ ] Create `POST /api/workflows/forecast` endpoint (start pre-season forecast)
-- [ ] Accept `SeasonParameters` in request body
-- [ ] Create workflow session in database
-- [ ] Initialize Orchestrator agent (placeholder)
-- [ ] Return workflow_id and WebSocket URL
-- [ ] Create `POST /api/workflows/reforecast` endpoint (variance-triggered or manual re-forecast)
-- [ ] Accept forecast_id, actual_sales_week_1_to_n, remaining_weeks
-- [ ] Create `GET /api/workflows/{id}` endpoint (status check via polling)
-- [ ] Create `GET /api/workflows/{id}/results` endpoint (final results)
-**Status:** Not Started
+### Task 7: Workflow Orchestration API ✅ STORY READY
+**Story:** `PHASE3-007-workflow-orchestration-api.md`
+- [x] Complete workflow service implementation
+- [x] 4 workflow endpoints with full templates
+- [x] Workflow state machine documented
+- [x] Database session management
+- [x] WebSocket URL generation logic
+**Status:** ✅ Story Ready for Implementation
 
-### Task 8: WebSocket Server
-- [ ] Create `backend/app/websocket/manager.py` (connection manager)
-- [ ] Implement WebSocket endpoint (`WS /api/workflows/{workflow_id}/stream`)
-- [ ] Handle connection lifecycle (connect, disconnect, heartbeat)
-- [ ] Implement message broadcasting (agent status updates)
-- [ ] Create `backend/app/schemas/websocket.py` with 6 message type schemas
-- [ ] Implement `agent_started` message type (agent name, timestamp)
-- [ ] Implement `agent_progress` message type (agent name, message, progress_pct, timestamp)
-- [ ] Implement `agent_completed` message type (agent name, duration_seconds, result, timestamp)
-- [ ] Implement `human_input_required` message type (agent name, action, data, options, timestamp)
-- [ ] Implement `workflow_complete` message type (workflow_id, duration_seconds, result, timestamp)
-- [ ] Implement `error` message type (agent name, error_message, timestamp)
-- [ ] Test with frontend WebSocket client
-**Status:** Not Started
+### Task 8: WebSocket Server ✅ STORY READY
+**Story:** `PHASE3-008-websocket-server.md`
+- [x] Complete ConnectionManager implementation
+- [x] 6 WebSocket message type schemas
+- [x] Heartbeat mechanism (30-second ping/pong)
+- [x] Connection lifecycle management
+- [x] Message broadcasting logic
+**Status:** ✅ Story Ready for Implementation
 
-### Task 9: OpenAI Agents SDK Integration
-- [ ] Create `backend/app/agents/` folder
-- [ ] Implement `agents/orchestrator.py` (Orchestrator Agent)
-- [ ] Implement `agents/demand.py` (Demand Agent placeholder)
-- [ ] Implement `agents/inventory.py` (Inventory Agent placeholder)
-- [ ] Implement `agents/pricing.py` (Pricing Agent placeholder)
-- [ ] Configure agent handoffs (Orchestrator → Demand → Inventory → Pricing)
-- [ ] Pass `SeasonParameters` in handoff context
-- [ ] Add LLM reasoning prompts (how parameters affect decisions)
-- [ ] Test agent handoff flow with mock data
-**Status:** Not Started
+### Task 9: OpenAI Agents SDK Integration ✅ STORY READY
+**Story:** `PHASE3-009-openai-agents-sdk-integration.md`
+- [x] 4 complete agent scaffolds with instructions
+- [x] Agent handoff configuration templates
+- [x] Parameter-aware reasoning prompts
+- [x] AgentFactory for agent instantiation
+- [x] Tool placeholders for each agent
+**Status:** ✅ Story Ready for Implementation
 
-### Task 10: Approval Endpoints
-- [ ] Create `POST /api/approvals/manufacturing` endpoint
-- [ ] Accept manufacturing quantity, return confirmation
-- [ ] Create `POST /api/approvals/markdown` endpoint
-- [ ] Accept markdown %, return confirmation
-- [ ] Update workflow status in database
-- [ ] Trigger agent continuation via WebSocket
-**Status:** Not Started
+### Task 10: Approval Endpoints ✅ STORY READY
+**Story:** `PHASE3-010-approval-endpoints.md`
+- [x] Manufacturing approval endpoint with modify/accept pattern
+- [x] Markdown approval endpoint with Gap × Elasticity formula
+- [x] ApprovalService business logic templates
+- [x] Workflow state updates documented
+- [x] Complete test suite templates
+**Status:** ✅ Story Ready for Implementation
 
-### Task 11: ML Pipeline Scaffolding
-- [ ] Create `backend/app/ml/` folder
-- [ ] Implement `ml/prophet_model.py` (placeholder - returns mock forecast)
-- [ ] Implement `ml/arima_model.py` (placeholder - returns mock forecast)
-- [ ] Implement `ml/clustering.py` (placeholder - returns 3 mock clusters)
-- [ ] Create `ml/ensemble.py` (combine Prophet + ARIMA)
-- [ ] Add data preprocessing utilities
-- [ ] Document interfaces for Phase 5 (Demand Agent) implementation
-**Status:** Not Started
+### Task 11: ML Pipeline Scaffolding ✅ STORY READY
+**Story:** `PHASE3-011-ml-pipeline-scaffolding.md`
+- [x] Prophet placeholder (mock: 8000 units)
+- [x] ARIMA placeholder (mock: 7500 units)
+- [x] K-means clustering (3 hardcoded clusters)
+- [x] Ensemble forecasting (simple average)
+- [x] Data preprocessing utilities
+- [x] Complete ML README for Phase 5
+**Status:** ✅ Story Ready for Implementation
 
-### Task 12: Configuration & Environment Setup
-- [ ] Create `.env.example` with all required variables
-- [ ] Configure Azure OpenAI API client
-- [ ] Test API connection (list models)
-- [ ] Set up logging (file + console)
-- [ ] Configure CORS for frontend origin
-- [ ] Add request/response validation
-- [ ] Create development startup script (`scripts/dev.sh`)
-**Status:** Not Started
+### Task 12: Configuration & Environment Setup ✅ STORY READY
+**Story:** `PHASE3-012-configuration-environment-setup.md`
+- [x] Complete .env.example (40+ variables)
+- [x] Pydantic Settings with validation
+- [x] Azure OpenAI client wrapper
+- [x] Logging configuration (console + file with rotation)
+- [x] Development scripts (Linux/Mac/Windows)
+**Status:** ✅ Story Ready for Implementation
 
-### Task 13: Testing & Documentation
-- [ ] Install pytest + pytest-asyncio
-- [ ] Write tests for parameter extraction endpoint
-- [ ] Write tests for data upload endpoints
-- [ ] Write tests for workflow creation endpoint
-- [ ] Write tests for WebSocket connection
-- [ ] Write tests for resource endpoints (forecasts, allocations, markdowns, variance)
-- [ ] Create API documentation (OpenAPI/Swagger)
-- [ ] Write backend README.md with setup instructions
-- [ ] Document all environment variables
-**Status:** Not Started
+### Task 13: Testing & Documentation ✅ STORY READY
+**Story:** `PHASE3-013-testing-documentation.md`
+- [x] Complete pytest configuration (pytest.ini)
+- [x] Test fixtures (client, db_session, mock data)
+- [x] 10 test files with comprehensive coverage
+- [x] OpenAPI customization templates
+- [x] Complete backend README (300 lines)
+**Status:** ✅ Story Ready for Implementation
 
-### Task 14: Resource & Data Management Endpoints ⭐ NEW
-- [ ] Create `GET /api/forecasts` endpoint (list all forecasts)
-- [ ] Create `GET /api/forecasts/{forecast_id}` endpoint (detailed forecast)
-- [ ] Create `GET /api/allocations/{forecast_id}` endpoint (allocation plan)
-- [ ] Create `GET /api/markdowns/{forecast_id}` endpoint (markdown recommendations)
-- [ ] Create `GET /api/variance/{forecast_id}/week/{week_number}` endpoint (variance analysis)
-- [ ] Create `GET /api/categories` endpoint (list all categories auto-detected from CSV)
-- [ ] Create `GET /api/stores` endpoint (list all 50 stores with attributes)
-- [ ] Create `GET /api/stores/clusters` endpoint (list 3 clusters with store assignments)
-- [ ] Create `POST /api/data/upload-historical-sales` endpoint (CSV import with multipart/form-data)
-- [ ] Create `POST /api/data/upload-weekly-sales` endpoint (actual sales for variance, auto-triggers re-forecast if threshold exceeded)
-- [ ] Create `POST /api/agents/demand/forecast` endpoint (direct Demand Agent call - optional for debugging)
-- [ ] Create `POST /api/agents/inventory/allocate` endpoint (direct Inventory Agent call - optional)
-- [ ] Create `POST /api/agents/pricing/analyze` endpoint (direct Pricing Agent call - optional)
-**Status:** Not Started
+### Task 14: Resource & Data Management Endpoints ✅ STORY READY
+**Story:** `PHASE3-014-resource-data-management-endpoints.md`
+- [x] 11 resource and data endpoints (5 GET, 2 POST, 3 debug)
+- [x] Complete router templates (7 router files)
+- [x] 15+ Pydantic response schemas
+- [x] Variance check service with auto-trigger
+- [x] CSV upload with validation and auto-detect
+**Status:** ✅ Story Ready for Implementation
 
 ---
 
 ## Validation Checkpoints
 
-### Checkpoint 1: Mid-Phase (40% complete)
+### Checkpoint 1: Mid-Phase (40% complete) - TO BE VERIFIED DURING IMPLEMENTATION
 - [ ] FastAPI server runs without errors
 - [ ] Database tables created successfully (all 10 tables from planning spec)
 - [ ] Parameter extraction endpoint works (test with Zara-style input)
 - [ ] Health check endpoint returns 200 OK
 - [ ] Environment variables loaded correctly
 - [ ] Azure OpenAI connection working
-**Status:** Not Started
+**Status:** Awaiting Implementation
 
-### Checkpoint 2: Pre-Completion (80% complete)
+### Checkpoint 2: Pre-Completion (80% complete) - TO BE VERIFIED DURING IMPLEMENTATION
 - [ ] Core workflow endpoints functional (POST /api/workflows/forecast, POST /api/workflows/reforecast)
 - [ ] WebSocket connection established with 6 message types broadcasting correctly
 - [ ] Agent scaffolding created (4 agents with handoff configuration)
 - [ ] Data seeding works (Phase 1 CSVs loaded into SQLite)
 - [ ] Workflow creation returns workflow_id and WebSocket URL
-**Status:** Not Started
+**Status:** Awaiting Implementation
 
-### Checkpoint 3: Final
+### Checkpoint 3: Final - TO BE VERIFIED DURING IMPLEMENTATION
 - [ ] All 18 REST API endpoints functional (workflow, resource, data management)
 - [ ] All tests passing (pytest with resource endpoint coverage)
 - [ ] OpenAPI docs accessible at /docs with all endpoints documented
@@ -196,7 +164,7 @@
 - [ ] CSV upload endpoints working (historical sales, weekly actuals)
 - [ ] Variance auto-triggers re-forecast when threshold exceeded
 - [ ] Ready for handoff to Phase 4 (Orchestrator Agent implementation)
-**Status:** Not Started
+**Status:** Awaiting Implementation
 
 ---
 
@@ -212,6 +180,53 @@
 ---
 
 **Created:** 2025-10-17
-**Last Updated:** 2025-10-17
-**Progress:** 0/14 tasks (0%)
+**Last Updated:** 2025-10-19
+**Progress:** 14/14 stories complete (100%)
+**Implementation Stories:** All 14 stories created and ready in `stories/` folder
 **Time Estimate:** 46 hours (6-8 days at 6-8h/day)
+
+---
+
+## ✅ Story Creation Summary
+
+All 14 implementation stories have been created with comprehensive documentation:
+
+### Stories Created:
+1. ✅ PHASE3-001: Project Setup & UV Configuration (2h) - Complete template with pyproject.toml
+2. ✅ PHASE3-002: Database Schema & Models (4h) - SQLAlchemy models + Alembic setup
+3. ✅ PHASE3-003: Pydantic Schemas (DTOs) (3h) - All schemas with validation
+4. ✅ PHASE3-004: FastAPI Application Setup (3h) - Main app, CORS, logging
+5. ✅ PHASE3-005: Parameter Extraction API (4h) - LLM-powered parameter extraction
+6. ✅ PHASE3-006: Data Seeding & CSV Utilities (2h) - CSV parsing + seed scripts
+7. ✅ PHASE3-007: Workflow Orchestration API (4h) - Workflow endpoints + service
+8. ✅ PHASE3-008: WebSocket Server (4h) - Connection manager + 6 message types
+9. ✅ PHASE3-009: OpenAI Agents SDK Integration (4h) - 4 agent scaffolds with handoffs
+10. ✅ PHASE3-010: Approval Endpoints (2h) - Manufacturing + markdown approvals
+11. ✅ PHASE3-011: ML Pipeline Scaffolding (3h) - Prophet, ARIMA, K-means placeholders
+12. ✅ PHASE3-012: Configuration & Environment Setup (2h) - .env, logging, Azure client
+13. ✅ PHASE3-013: Testing & Documentation (3h) - pytest suite + README
+14. ✅ PHASE3-014: Resource & Data Management Endpoints (6h) - 11 resource endpoints
+
+**Total Estimated Implementation Time:** 46 hours
+**Stories Location:** `stories/PHASE3-001.md` through `stories/PHASE3-014.md`
+
+---
+
+## Implementation Checklist
+
+### ✅ Story Documentation Complete
+All tasks below are now fully documented in detailed implementation stories.
+Each story includes:
+- Complete code templates
+- Acceptance criteria
+- Testing strategies
+- Dev notes and best practices
+
+### Task 1: Project Setup & UV Configuration ✅ STORY READY
+**Story:** `PHASE3-001-project-setup-uv-configuration.md`
+- [x] Full pyproject.toml template provided
+- [x] UV installation and initialization documented
+- [x] Monorepo structure defined
+- [x] .gitignore configuration included
+- [x] .env.example template complete
+**Status:** ✅ Story Ready for Implementation
