@@ -1,0 +1,121 @@
+{
+  "cards": [
+    {
+      "title": "Forecast Accuracy",
+      "metrics": [
+        {
+          "label": "MAPE",
+          "value": "12%",
+          "target": "<20%",
+          "status": "success"
+        },
+        {
+          "label": "Bias",
+          "value": "+2%",
+          "target": "±5%",
+          "status": "success"
+        },
+        {
+          "label": "Re-forecast Trigger",
+          "value": "92%",
+          "target": ">90%",
+          "status": "success"
+        }
+      ]
+    },
+    {
+      "title": "Business Impact",
+      "metrics": [
+        {
+          "label": "Stockouts",
+          "value": "3",
+          "target": "<5",
+          "status": "success"
+        },
+        {
+          "label": "Overstock",
+          "value": "1,800 units",
+          "target": "<2,000",
+          "status": "success"
+        },
+        {
+          "label": "Markdown Costs",
+          "value": "$24K",
+          "target": "<$30K",
+          "status": "success"
+        },
+        {
+          "label": "Inventory Turnover",
+          "value": "+8%",
+          "target": ">+5%",
+          "status": "success"
+        }
+      ]
+    },
+    {
+      "title": "System Performance",
+      "metrics": [
+        {
+          "label": "Runtime",
+          "value": "58s",
+          "target": "<60s",
+          "status": "success"
+        },
+        {
+          "label": "Approval Rate",
+          "value": "85%",
+          "target": ">80%",
+          "status": "success"
+        },
+        {
+          "label": "Uptime",
+          "value": "99.2%",
+          "target": ">99%",
+          "status": "success"
+        }
+      ]
+    }
+  ],
+  "historical": [
+    {
+      "quarter": "Q1 2024",
+      "mape": 18.5,
+      "bias": 3.2
+    },
+    {
+      "quarter": "Q2 2024",
+      "mape": 15.2,
+      "bias": 2.8
+    },
+    {
+      "quarter": "Q3 2024",
+      "mape": 13.7,
+      "bias": 2.3
+    },
+    {
+      "quarter": "Q4 2024",
+      "mape": 12.0,
+      "bias": 2.0
+    }
+  ],
+  "agentContributions": [
+    {
+      "name": "Demand Agent",
+      "percentage": 40,
+      "color": "#5B8DEF",
+      "trend": [35, 37, 38, 39, 40]
+    },
+    {
+      "name": "Inventory Agent",
+      "percentage": 35,
+      "color": "#00D084",
+      "trend": [32, 33, 34, 35, 35]
+    },
+    {
+      "name": "Pricing Agent",
+      "percentage": 25,
+      "color": "#F5A623",
+      "trend": [28, 27, 26, 25, 25]
+    }
+  ]
+}
