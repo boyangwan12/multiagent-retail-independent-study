@@ -1,0 +1,13 @@
+{
+  "id": "MD-SPRING-2025",
+  "product_category": "Women's Dresses - Spring Collection",
+  "recommended_markdown": 15,
+  "confidence": "High",
+  "current_stock": 1250,
+  "forecast_demand": 980,
+  "excess_stock": 270,
+  "estimated_revenue_loss": 12500,
+  "estimated_excess_reduction": 230,
+  "applied": false,
+  "rejected": false
+}

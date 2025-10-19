@@ -1,0 +1,26 @@
+[
+  {
+    "cluster_id": "premium",
+    "cluster_name": "Premium Stores",
+    "fashion_tier": "PREMIUM",
+    "store_count": 15,
+    "total_units": 3200,
+    "allocation_percentage": 40.0
+  },
+  {
+    "cluster_id": "mainstream",
+    "cluster_name": "Mainstream Stores",
+    "fashion_tier": "MAINSTREAM",
+    "store_count": 20,
+    "total_units": 2880,
+    "allocation_percentage": 36.0
+  },
+  {
+    "cluster_id": "value",
+    "cluster_name": "Value Stores",
+    "fashion_tier": "VALUE",
+    "store_count": 15,
+    "total_units": 1920,
+    "allocation_percentage": 24.0
+  }
+]
