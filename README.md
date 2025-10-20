@@ -188,8 +188,8 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 ## Contact
 
-**Student:** [Your Name]
-**Supervisor:** [Supervisor Name]
+**Students:** Boyang Wang, Jintao Li, Yina Liang Li, Jaeyoon Lee, and Henry Tang.
+**Supervisor:** Fatih Nayebi
 **Institution:** McGill University
 **Program:** MMA
 
