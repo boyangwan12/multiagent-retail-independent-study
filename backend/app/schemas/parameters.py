@@ -13,9 +13,7 @@ class SeasonParameters(BaseModel):
             "replenishment_strategy": "none",
             "dc_holdback_percentage": 0.0,
             "markdown_checkpoint_week": 6,
-            "markdown_threshold": 0.60,
-            "extraction_confidence": "high",
-            "extraction_reasoning": "User explicitly specified all 5 parameters"
+            "markdown_threshold": 0.60
         }
     })
 
@@ -64,16 +62,6 @@ class SeasonParameters(BaseModel):
         le=1.0
     )
 
-    # Extraction metadata
-    extraction_confidence: str = Field(
-        default="medium",
-        description="LLM confidence in extraction (high/medium/low)"
-    )
-    extraction_reasoning: str = Field(
-        default="",
-        description="LLM explanation of how parameters were extracted"
-    )
-
 
 class ParameterExtractionRequest(BaseModel):
     """Request for natural language parameter extraction"""
@@ -94,5 +82,6 @@ class ParameterExtractionRequest(BaseModel):
 class ParameterExtractionResponse(BaseModel):
     """Response from parameter extraction"""
     parameters: SeasonParameters = Field(..., description="Extracted parameters")
-    success: bool = Field(..., description="Whether extraction succeeded")
-    error_message: Optional[str] = Field(None, description="Error if extraction failed")
+    confidence: str = Field(..., description="Extraction confidence (high/medium/low)")
+    reasoning: str = Field(..., description="LLM explanation of extraction logic")
+    raw_llm_output: Optional[str] = Field(None, description="Raw JSON output from LLM")
