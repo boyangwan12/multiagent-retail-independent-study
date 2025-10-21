@@ -30,7 +30,7 @@ So that I have a production-ready API server foundation that can handle requests
 3. ✅ Logging middleware captures all HTTP requests/responses with timestamps, status codes, duration
 4. ✅ Error handling middleware catches exceptions and returns JSON error responses (no HTML)
 5. ✅ Pydantic Settings class created in `backend/app/core/config.py` for environment variables
-6. ✅ Environment variables loaded from `.env` file (Azure OpenAI, database, server config)
+6. ✅ Environment variables loaded from `.env` file (OpenAI API, database, server config)
 7. ✅ Health check endpoint `GET /api/health` returns JSON with status, version, timestamp
 8. ✅ API router structure created in `backend/app/api/` with versioned routing (`/api/v1`)
 9. ✅ Dev server runs without errors (`uvicorn backend.app.main:app --reload`)
@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
     logger.info(f"Database: {settings.DATABASE_URL}")
-    logger.info(f"Azure OpenAI endpoint: {settings.AZURE_OPENAI_ENDPOINT}")
+    logger.info(f"OpenAI model: {settings.OPENAI_MODEL}")
 
     yield
 
@@ -183,16 +183,11 @@ class Settings(BaseSettings):
         description="Allowed CORS origins"
     )
 
-    # Azure OpenAI (Required)
-    AZURE_OPENAI_ENDPOINT: str = Field(..., description="Azure OpenAI endpoint URL")
-    AZURE_OPENAI_API_KEY: str = Field(..., description="Azure OpenAI API key")
-    AZURE_OPENAI_DEPLOYMENT: str = Field(
+    # OpenAI (Required)
+    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
+    OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
-        description="Azure OpenAI deployment name"
-    )
-    AZURE_OPENAI_API_VERSION: str = Field(
-        default="2024-10-21",
-        description="Azure OpenAI API version"
+        description="OpenAI model name"
     )
 
     # Database
@@ -215,15 +210,6 @@ class Settings(BaseSettings):
         description="Variance threshold for auto re-forecast (20%)"
     )
 
-    @field_validator("AZURE_OPENAI_ENDPOINT")
-    @classmethod
-    def validate_azure_endpoint(cls, v: str) -> str:
-        """Ensure Azure OpenAI endpoint is a valid HTTPS URL"""
-        if not v.startswith("https://"):
-            raise ValueError("Azure OpenAI endpoint must start with https://")
-        if not v.endswith(".openai.azure.com/"):
-            raise ValueError("Azure OpenAI endpoint must end with .openai.azure.com/")
-        return v
 
     @field_validator("VARIANCE_THRESHOLD_PCT")
     @classmethod
@@ -604,11 +590,11 @@ settings = Settings()
 
 # Import anywhere in the app
 from backend.app.core.config import settings
-print(settings.AZURE_OPENAI_ENDPOINT)
+print(settings.OPENAI_API_KEY)
 ```
 
 **Environment Variable Naming:**
-- `AZURE_OPENAI_*` - Azure-specific config
+- `OPENAI_*` - OpenAI API config
 - `DATABASE_*` - Database config
 - `AGENT_*` - Agent-specific config
 - `WORKFLOW_*` - Workflow-specific config
@@ -922,7 +908,7 @@ All 8 tasks completed successfully. FastAPI application is fully functional with
 
 **Notes:**
 - All dependencies installed successfully (fastapi, uvicorn, pydantic, pydantic-settings, sqlalchemy)
-- .env file created with placeholder Azure OpenAI values (passes validation)
+- .env file created with placeholder OpenAI API values (passes validation)
 - Placeholder endpoint files created for future stories (workflows, forecasts, allocations, markdowns, data, agents)
 - Database health check works with existing SQLite setup from PHASE3-001
 

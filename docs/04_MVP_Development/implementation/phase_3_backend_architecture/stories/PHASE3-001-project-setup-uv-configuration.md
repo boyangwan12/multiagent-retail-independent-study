@@ -30,7 +30,7 @@ So that I have a production-ready Python backend foundation for implementing the
 3. ✅ `pyproject.toml` configured with all required dependencies
 4. ✅ Monorepo structure created (`backend/` and `frontend/` folders)
 5. ✅ `.gitignore` configured for Python and Node.js
-6. ✅ `backend/.env.example` created with required Azure OpenAI variables
+6. ✅ `backend/.env.example` created with required OpenAI API variables
 7. ✅ FastAPI minimal project runs successfully
 8. ✅ Backend folder structure created per architecture spec
 
@@ -216,11 +216,9 @@ backend/
 
 ### Task 7: Create .env.example Template
 - [x] Create `backend/.env.example` file
-- [x] Add Azure OpenAI configuration variables:
-  - `AZURE_OPENAI_ENDPOINT`
-  - `AZURE_OPENAI_API_KEY`
-  - `AZURE_OPENAI_DEPLOYMENT`
-  - `AZURE_OPENAI_API_VERSION`
+- [x] Add OpenAI API configuration variables:
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
 - [x] Add database configuration:
   - `DATABASE_URL`
 - [x] Add server configuration:
@@ -231,11 +229,9 @@ backend/
 
 **.env.example Template:**
 ```bash
-# Azure OpenAI Configuration
-AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com/
-AZURE_OPENAI_API_KEY=your_api_key_here
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-10-21
+# OpenAI Configuration
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-4o-mini
 
 # Database Configuration
 DATABASE_URL=sqlite:///./fashion_forecast.db
@@ -355,7 +351,7 @@ Parameter-Driven Multi-Agent Demand Forecasting & Inventory Allocation System
 3. Configure environment:
    ```bash
    cp .env.example .env
-   # Edit .env with your Azure OpenAI credentials
+   # Edit .env with your OpenAI API credentials
    ```
 
 ## Running the Server
@@ -452,10 +448,8 @@ backend/
 **Critical Variables:**
 | Variable | Purpose | Example |
 |----------|---------|---------|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource URL | `https://YOUR_RESOURCE.openai.azure.com/` |
-| `AZURE_OPENAI_API_KEY` | API authentication key | `your_api_key_here` |
-| `AZURE_OPENAI_DEPLOYMENT` | Model deployment name | `gpt-4o-mini` |
-| `AZURE_OPENAI_API_VERSION` | API version | `2024-10-21` |
+| `OPENAI_API_KEY` | OpenAI API authentication key | `your_api_key_here` |
+| `OPENAI_MODEL` | Model name | `gpt-4o-mini` |
 | `DATABASE_URL` | SQLite database path | `sqlite:///./fashion_forecast.db` |
 | `HOST` | Server host | `0.0.0.0` |
 | `PORT` | Server port | `8000` |
@@ -477,7 +471,7 @@ backend/
 
 **Agent Framework:**
 - `openai-agents-sdk`: Multi-agent orchestration
-- `openai`: Azure OpenAI API client
+- `openai`: OpenAI API client
 
 **Database:**
 - `sqlalchemy`: ORM for SQLite
@@ -627,7 +621,7 @@ Successfully completed PHASE3-001 project setup:
 1. Install Python 3.11+ if not already installed
 2. Install UV package manager: `pip install uv`
 3. Navigate to backend folder and install dependencies: `uv pip install -e ".[dev]"`
-4. Copy .env.example to .env and configure Azure OpenAI credentials
+4. Copy .env.example to .env and configure OpenAI API credentials
 5. Run server: `uvicorn app.main:app --reload`
 
 ### File List

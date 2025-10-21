@@ -39,7 +39,7 @@ So that the backend is reliable, maintainable, and easy for other developers to 
 9. ✅ Test coverage ≥70% for core endpoints
 10. ✅ OpenAPI docs accessible at `/docs` with all endpoints documented
 11. ✅ Backend README.md includes setup instructions, environment variables, and API examples
-12. ✅ Test fixtures for mock database and Azure OpenAI client
+12. ✅ Test fixtures for mock database and OpenAI client
 13. ✅ Tests use FastAPI TestClient (no actual network calls)
 14. ✅ Environment variables documented in README
 
@@ -119,7 +119,7 @@ from app.core.config import settings
 # Override settings for testing
 settings.database_url = "sqlite:///:memory:"
 settings.use_mock_llm = True
-settings.azure_openai_api_key = "test_key"
+settings.openai_api_key = "test_key"
 
 
 @pytest.fixture(scope="function")
@@ -773,7 +773,7 @@ def test_health_check_structure(client):
     for key in expected_keys:
         assert key in data
 
-    # Verify Azure OpenAI status
+    # Verify OpenAI status
     assert data["azure_openai"]["status"] in ["connected", "failed"]
 ```
 
@@ -877,7 +877,7 @@ Multi-Agent Retail Forecasting System - FastAPI Backend
 
 - Python 3.11+
 - [UV package manager](https://github.com/astral-sh/uv) (10-100x faster than pip)
-- Azure OpenAI API access
+- OpenAI API access
 
 ### Installation
 
@@ -889,7 +889,7 @@ Multi-Agent Retail Forecasting System - FastAPI Backend
 2. **Configure environment variables:**
    ```bash
    cp .env.example .env
-   # Edit .env with your Azure OpenAI credentials
+   # Edit .env with your OpenAI credentials
    ```
 
 3. **Run database migrations:**
@@ -996,8 +996,8 @@ uv run pytest -m "not slow"     # Skip slow tests
 See `.env.example` for all available configuration options.
 
 **Required:**
-- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI endpoint URL
-- `AZURE_OPENAI_API_KEY` - Azure OpenAI API key
+- `AZURE_OPENAI_ENDPOINT` - OpenAI endpoint URL
+- `AZURE_OPENAI_API_KEY` - OpenAI API key
 - `AZURE_OPENAI_DEPLOYMENT` - Deployment name (e.g., gpt-4o-mini)
 
 **Optional:**
@@ -1060,7 +1060,7 @@ LOG_LEVEL=DEBUG uv run uvicorn app.main:app --reload
 tail -f logs/fashion_forecast.log
 ```
 
-### Test Azure OpenAI connection:
+### Test OpenAI connection:
 ```bash
 uv run python -c "from app.core.azure_client import azure_client; print(azure_client.test_connection())"
 ```
@@ -1125,7 +1125,7 @@ MIT License - see LICENSE file for details
 - Overall: ≥70%
 
 **Mocking Strategy:**
-- Mock Azure OpenAI calls (`use_mock_llm = True`)
+- Mock OpenAI calls (`use_mock_llm = True`)
 - Use in-memory SQLite for database tests
 - Mock external dependencies (no network calls in tests)
 

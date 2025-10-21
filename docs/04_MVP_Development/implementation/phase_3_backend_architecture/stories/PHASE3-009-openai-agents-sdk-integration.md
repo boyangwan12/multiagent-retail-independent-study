@@ -36,7 +36,7 @@ So that Phase 8 (Orchestrator Agent) can integrate seamlessly with the existing 
 
 ### Quality Requirements
 
-9. ✅ All agents use gpt-4o-mini model (Azure OpenAI)
+9. ✅ All agents use gpt-4o-mini model (Standard OpenAI)
 10. ✅ Agent instructions are clear and parameter-aware
 11. ✅ Tool output validation with guardrails
 12. ✅ Logging shows agent handoff events
@@ -60,11 +60,9 @@ from pydantic import Field
 class AgentConfig(BaseSettings):
     """Configuration for OpenAI Agents SDK."""
 
-    # Azure OpenAI settings (loaded from .env)
-    azure_openai_endpoint: str = Field(..., env="AZURE_OPENAI_ENDPOINT")
-    azure_openai_api_key: str = Field(..., env="AZURE_OPENAI_API_KEY")
-    azure_openai_deployment: str = Field("gpt-4o-mini", env="AZURE_OPENAI_DEPLOYMENT")
-    azure_openai_api_version: str = Field("2024-10-21", env="AZURE_OPENAI_API_VERSION")
+    # Standard OpenAI settings (loaded from .env)
+    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
+    openai_model: str = Field("gpt-4o-mini", env="OPENAI_MODEL")
 
     # Agent settings
     agent_model: str = "gpt-4o-mini"
@@ -80,7 +78,7 @@ agent_config = AgentConfig()
 ```
 
 **Expected Output:**
-- AgentConfig class with Azure OpenAI settings
+- AgentConfig class with standard OpenAI settings
 - Environment variable loading
 - Global configuration instance
 
@@ -93,7 +91,7 @@ Create Orchestrator agent with handoff configuration.
 **File:** `backend/app/agents/orchestrator.py`
 
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from typing import Dict, Any
 import logging
 
@@ -114,8 +112,8 @@ class OrchestratorAgent:
     - Broadcast workflow status via WebSocket
     """
 
-    def __init__(self, azure_client: AzureOpenAI):
-        self.client = azure_client
+    def __init__(self, openai_client: OpenAI):
+        self.client = openai_client
         self.name = "Orchestrator"
         self.model = "gpt-4o-mini"
 
@@ -214,9 +212,9 @@ class OrchestratorAgent:
         }
 
 
-def get_orchestrator_agent(azure_client: AzureOpenAI) -> OrchestratorAgent:
+def get_orchestrator_agent(openai_client: OpenAI) -> OrchestratorAgent:
     """Factory function for Orchestrator agent (dependency injection)."""
-    return OrchestratorAgent(azure_client)
+    return OrchestratorAgent(openai_client)
 ```
 
 **Expected Output:**
@@ -234,7 +232,7 @@ Create Demand agent with placeholder tools.
 **File:** `backend/app/agents/demand.py`
 
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from typing import Dict, Any, List
 import logging
 
@@ -258,8 +256,8 @@ class DemandAgent:
     - calculate_store_allocations: Distribute forecast to stores
     """
 
-    def __init__(self, azure_client: AzureOpenAI):
-        self.client = azure_client
+    def __init__(self, openai_client: OpenAI):
+        self.client = openai_client
         self.name = "Demand Agent"
         self.model = "gpt-4o-mini"
 
@@ -414,9 +412,9 @@ class DemandAgent:
         ]
 
 
-def get_demand_agent(azure_client: AzureOpenAI) -> DemandAgent:
+def get_demand_agent(openai_client: OpenAI) -> DemandAgent:
     """Factory function for Demand agent."""
-    return DemandAgent(azure_client)
+    return DemandAgent(openai_client)
 ```
 
 **Expected Output:**
@@ -434,7 +432,7 @@ Create Inventory agent with placeholder tools.
 **File:** `backend/app/agents/inventory.py`
 
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from typing import Dict, Any, List
 import logging
 
@@ -457,8 +455,8 @@ class InventoryAgent:
     - plan_weekly_replenishment: Calculate replenishment needs (conditional)
     """
 
-    def __init__(self, azure_client: AzureOpenAI):
-        self.client = azure_client
+    def __init__(self, openai_client: OpenAI):
+        self.client = openai_client
         self.name = "Inventory Agent"
         self.model = "gpt-4o-mini"
 
@@ -593,9 +591,9 @@ class InventoryAgent:
         }
 
 
-def get_inventory_agent(azure_client: AzureOpenAI) -> InventoryAgent:
+def get_inventory_agent(openai_client: OpenAI) -> InventoryAgent:
     """Factory function for Inventory agent."""
-    return InventoryAgent(azure_client)
+    return InventoryAgent(openai_client)
 ```
 
 **Expected Output:**
@@ -613,7 +611,7 @@ Create Pricing agent with placeholder tools.
 **File:** `backend/app/agents/pricing.py`
 
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from typing import Dict, Any, List
 import logging
 
@@ -634,8 +632,8 @@ class PricingAgent:
     - calculate_markdown_recommendation: Compute markdown depth based on sell-through
     """
 
-    def __init__(self, azure_client: AzureOpenAI):
-        self.client = azure_client
+    def __init__(self, openai_client: OpenAI):
+        self.client = openai_client
         self.name = "Pricing Agent"
         self.model = "gpt-4o-mini"
 
@@ -741,9 +739,9 @@ class PricingAgent:
         }
 
 
-def get_pricing_agent(azure_client: AzureOpenAI) -> PricingAgent:
+def get_pricing_agent(openai_client: OpenAI) -> PricingAgent:
     """Factory function for Pricing agent."""
-    return PricingAgent(azure_client)
+    return PricingAgent(openai_client)
 ```
 
 **Expected Output:**
@@ -761,7 +759,7 @@ Create factory module to initialize all agents with dependency injection.
 **File:** `backend/app/agents/factory.py`
 
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from .config import agent_config
 from .orchestrator import get_orchestrator_agent, OrchestratorAgent
 from .demand import get_demand_agent, DemandAgent
@@ -776,33 +774,31 @@ class AgentFactory:
     """
     Factory for creating agent instances with dependency injection.
 
-    Ensures all agents share the same Azure OpenAI client instance.
+    Ensures all agents share the same OpenAI client instance.
     """
 
     def __init__(self):
-        # Initialize Azure OpenAI client
-        self.azure_client = AzureOpenAI(
-            azure_endpoint=agent_config.azure_openai_endpoint,
-            api_key=agent_config.azure_openai_api_key,
-            api_version=agent_config.azure_openai_api_version
+        # Initialize standard OpenAI client
+        self.openai_client = OpenAI(
+            api_key=agent_config.openai_api_key
         )
-        logger.info("Agent factory initialized with Azure OpenAI client")
+        logger.info("Agent factory initialized with standard OpenAI client")
 
     def create_orchestrator(self) -> OrchestratorAgent:
         """Create Orchestrator agent instance."""
-        return get_orchestrator_agent(self.azure_client)
+        return get_orchestrator_agent(self.openai_client)
 
     def create_demand_agent(self) -> DemandAgent:
         """Create Demand agent instance."""
-        return get_demand_agent(self.azure_client)
+        return get_demand_agent(self.openai_client)
 
     def create_inventory_agent(self) -> InventoryAgent:
         """Create Inventory agent instance."""
-        return get_inventory_agent(self.azure_client)
+        return get_inventory_agent(self.openai_client)
 
     def create_pricing_agent(self) -> PricingAgent:
         """Create Pricing agent instance."""
-        return get_pricing_agent(self.azure_client)
+        return get_pricing_agent(self.openai_client)
 
     def create_all_agents(self) -> dict:
         """Create all agents and return as dictionary."""
@@ -820,7 +816,7 @@ agent_factory = AgentFactory()
 
 **Expected Output:**
 - AgentFactory class with dependency injection
-- Shared Azure OpenAI client instance
+- Shared standard OpenAI client instance
 - Factory methods for each agent
 - Global factory instance
 
@@ -1144,8 +1140,8 @@ uv run pytest tests/test_agents.py -v
 # Check agent initialization in logs
 tail -f logs/backend.log | grep "Agent"
 
-# Verify Azure OpenAI client configuration
-python -c "from app.agents.config import agent_config; print(agent_config.azure_openai_endpoint)"
+# Verify standard OpenAI client configuration
+python -c "from app.agents.config import agent_config; print(agent_config.openai_model)"
 
 # Test workflow service with agents
 uv run uvicorn app.main:app --reload
@@ -1156,7 +1152,7 @@ uv run uvicorn app.main:app --reload
 ## File List
 
 **Files to Create:**
-- `backend/app/agents/config.py` (AgentConfig class with Azure OpenAI settings)
+- `backend/app/agents/config.py` (AgentConfig class with standard OpenAI settings)
 - `backend/app/agents/orchestrator.py` (OrchestratorAgent class with handoff configuration)
 - `backend/app/agents/demand.py` (DemandAgent class with 3 tools)
 - `backend/app/agents/inventory.py` (InventoryAgent class with 3 tools)
@@ -1192,7 +1188,7 @@ _Dev Agent notes completion details here_
 
 ## Definition of Done
 
-- [ ] AgentConfig class created with Azure OpenAI settings
+- [ ] AgentConfig class created with standard OpenAI settings
 - [ ] OrchestratorAgent class with parameter-aware instructions
 - [ ] Orchestrator handoff configuration to 3 specialist agents
 - [ ] DemandAgent class with 3 tool definitions
