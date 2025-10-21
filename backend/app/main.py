@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
     logger.info(f"Database: {settings.DATABASE_URL}")
-    logger.info(f"Azure OpenAI endpoint: {settings.AZURE_OPENAI_ENDPOINT}")
+    logger.info(f"OpenAI model: {settings.OPENAI_MODEL}")
 
     yield
 

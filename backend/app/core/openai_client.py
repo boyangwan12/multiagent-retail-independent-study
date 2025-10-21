@@ -1,12 +1,12 @@
-from openai import AzureOpenAI
+from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
 from app.core.config import settings
 
 logger = logging.getLogger("fashion_forecast")
 
-class AzureOpenAIClient:
-    """Singleton Azure OpenAI client with retry logic"""
+class OpenAIClient:
+    """Singleton OpenAI client with retry logic"""
 
     _instance = None
     _client = None
@@ -18,18 +18,16 @@ class AzureOpenAIClient:
 
     def __init__(self):
         if self._client is None:
-            logger.info("Initializing Azure OpenAI client...")
-            self._client = AzureOpenAI(
-                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-                api_key=settings.AZURE_OPENAI_API_KEY,
-                api_version=settings.AZURE_OPENAI_API_VERSION,
+            logger.info("Initializing OpenAI client...")
+            self._client = OpenAI(
+                api_key=settings.OPENAI_API_KEY,
                 timeout=10.0,  # 10 second timeout
             )
-            logger.info("✓ Azure OpenAI client initialized")
+            logger.info("✓ OpenAI client initialized")
 
     @property
-    def client(self) -> AzureOpenAI:
-        """Get the Azure OpenAI client instance"""
+    def client(self) -> OpenAI:
+        """Get the OpenAI client instance"""
         return self._client
 
     @retry(
@@ -52,10 +50,10 @@ class AzureOpenAIClient:
             openai.APIError: If API call fails after retries
         """
         try:
-            logger.debug(f"Calling Azure OpenAI with {len(messages)} messages")
+            logger.debug(f"Calling OpenAI with {len(messages)} messages")
 
             response = self._client.chat.completions.create(
-                model=settings.AZURE_OPENAI_DEPLOYMENT,
+                model=settings.OPENAI_MODEL,
                 messages=messages,
                 **kwargs
             )
@@ -66,8 +64,8 @@ class AzureOpenAIClient:
             return content
 
         except Exception as e:
-            logger.error(f"Azure OpenAI API error: {e}")
+            logger.error(f"OpenAI API error: {e}")
             raise
 
 # Singleton instance
-azure_client = AzureOpenAIClient()
+openai_client = OpenAIClient()

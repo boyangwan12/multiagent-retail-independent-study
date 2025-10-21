@@ -20,16 +20,11 @@ class Settings(BaseSettings):
         description="Allowed CORS origins"
     )
 
-    # Azure OpenAI (Required)
-    AZURE_OPENAI_ENDPOINT: str = Field(..., description="Azure OpenAI endpoint URL")
-    AZURE_OPENAI_API_KEY: str = Field(..., description="Azure OpenAI API key")
-    AZURE_OPENAI_DEPLOYMENT: str = Field(
+    # OpenAI (Required)
+    OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
+    OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
-        description="Azure OpenAI deployment name"
-    )
-    AZURE_OPENAI_API_VERSION: str = Field(
-        default="2024-10-21",
-        description="Azure OpenAI API version"
+        description="OpenAI model name (e.g., gpt-4o-mini, gpt-4o, gpt-3.5-turbo)"
     )
 
     # Database
@@ -51,16 +46,6 @@ class Settings(BaseSettings):
         default=0.20,
         description="Variance threshold for auto re-forecast (20%)"
     )
-
-    @field_validator("AZURE_OPENAI_ENDPOINT")
-    @classmethod
-    def validate_azure_endpoint(cls, v: str) -> str:
-        """Ensure Azure OpenAI endpoint is a valid HTTPS URL"""
-        if not v.startswith("https://"):
-            raise ValueError("Azure OpenAI endpoint must start with https://")
-        if not v.endswith(".openai.azure.com/"):
-            raise ValueError("Azure OpenAI endpoint must end with .openai.azure.com/")
-        return v
 
     @field_validator("VARIANCE_THRESHOLD_PCT")
     @classmethod

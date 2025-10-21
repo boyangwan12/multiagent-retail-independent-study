@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from typing import Tuple, Optional
 from pydantic import ValidationError
 
-from app.core.azure_client import azure_client
+from app.core.openai_client import openai_client
 from app.schemas.parameters import (
     SeasonParameters,
     ParameterExtractionRequest,
@@ -15,7 +15,7 @@ from app.schemas.parameters import (
 logger = logging.getLogger("fashion_forecast")
 
 class ParameterExtractor:
-    """Extract season parameters from natural language using Azure OpenAI"""
+    """Extract season parameters from natural language using OpenAI"""
 
     EXTRACTION_PROMPT_TEMPLATE = """You are a retail season planning assistant. Extract 5 key parameters from the user's description.
 
@@ -111,8 +111,8 @@ Return ONLY the JSON object, no markdown formatting or extra text."""
         logger.info(f"Extracting parameters from: '{request.user_input[:100]}...'")
 
         try:
-            # Call Azure OpenAI
-            response_text = azure_client.chat_completion(
+            # Call OpenAI
+            response_text = openai_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,  # Deterministic extraction
                 max_tokens=500,
