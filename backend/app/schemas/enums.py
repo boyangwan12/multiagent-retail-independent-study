@@ -46,7 +46,8 @@ class MarkdownStatus(str, Enum):
 
 class WorkflowStatus(str, Enum):
     """Workflow execution status"""
-    STARTED = "started"
+    PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    AWAITING_APPROVAL = "awaiting_approval"

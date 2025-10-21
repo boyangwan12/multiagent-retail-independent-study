@@ -7,6 +7,7 @@ from app.models.allocation import Allocation
 from app.models.markdown import Markdown
 from app.models.historical_sales import HistoricalSales
 from app.models.actual_sales import ActualSales
+from app.models.workflow import Workflow, WorkflowStatus
 from app.models.workflow_log import WorkflowLog
 from app.models.season_parameters import SeasonParameters
 
@@ -20,6 +21,8 @@ __all__ = [
     "Markdown",
     "HistoricalSales",
     "ActualSales",
+    "Workflow",
+    "WorkflowStatus",
     "WorkflowLog",
     "SeasonParameters",
 ]

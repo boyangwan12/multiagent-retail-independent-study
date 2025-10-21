@@ -21,11 +21,11 @@ from app.schemas.forecast import Forecast, ForecastCreate, WeeklyDemand, Cluster
 from app.schemas.allocation import AllocationPlan, AllocationCreate, StoreAllocation
 from app.schemas.markdown import MarkdownDecision, MarkdownCreate, MarkdownRequest
 from app.schemas.workflow import (
-    WorkflowRequest,
+    WorkflowCreateRequest,
+    ReforecastRequest,
     WorkflowResponse,
     WorkflowStatusResponse,
-    WorkflowResultResponse,
-    AgentStatus
+    WorkflowResultsResponse
 )
 
 __all__ = [
@@ -64,9 +64,9 @@ __all__ = [
     "MarkdownCreate",
     "MarkdownRequest",
     # Workflow
-    "WorkflowRequest",
+    "WorkflowCreateRequest",
+    "ReforecastRequest",
     "WorkflowResponse",
     "WorkflowStatusResponse",
-    "WorkflowResultResponse",
-    "AgentStatus",
+    "WorkflowResultsResponse",
 ]

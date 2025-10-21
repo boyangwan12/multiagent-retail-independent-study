@@ -1,60 +1,129 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Literal
 from app.schemas.enums import WorkflowStatus
 from app.schemas.parameters import SeasonParameters
 
-class AgentStatus(BaseModel):
-    """Status update from an agent"""
-    agent_name: str = Field(..., description="Agent name (e.g., 'Demand Agent')")
-    status: WorkflowStatus = Field(..., description="Current status")
-    message: str = Field(..., description="Status message")
-    progress_pct: Optional[float] = Field(None, description="Progress percentage (0-100)", ge=0, le=100)
-    timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp")
 
-class WorkflowRequest(BaseModel):
-    """Request to start a workflow"""
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "category_id": "CAT_DRESS",
-            "parameters": {
-                "forecast_horizon_weeks": 12,
-                "season_start_date": "2025-03-01",
-                "season_end_date": "2025-05-23",
-                "replenishment_strategy": "none",
-                "dc_holdback_percentage": 0.0,
-                "markdown_checkpoint_week": 6,
-                "markdown_threshold": 0.60
+class WorkflowCreateRequest(BaseModel):
+    """Request to create new pre-season forecast workflow."""
+
+    category_id: str = Field(..., description="Category to forecast (e.g., 'womens_dresses')")
+    parameters: SeasonParameters = Field(..., description="Extracted season parameters")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "category_id": "womens_dresses",
+                "parameters": {
+                    "forecast_horizon_weeks": 12,
+                    "season_start_date": "2025-03-01",
+                    "season_end_date": "2025-05-23",
+                    "replenishment_strategy": "none",
+                    "dc_holdback_percentage": 0.0,
+                    "markdown_checkpoint_week": 6,
+                    "markdown_threshold": 0.60
+                }
             }
         }
-    })
+    )
 
-    category_id: str = Field(..., description="Category to forecast")
-    parameters: SeasonParameters = Field(..., description="Season parameters")
+
+class ReforecastRequest(BaseModel):
+    """Request to re-forecast remaining weeks due to variance."""
+
+    forecast_id: str = Field(..., description="Original forecast ID to re-forecast")
+    actual_sales_week_1_to_n: int = Field(..., description="Actual sales through week N")
+    forecasted_week_1_to_n: int = Field(..., description="Original forecast through week N")
+    remaining_weeks: int = Field(..., ge=1, le=12, description="Weeks remaining in season")
+    variance_pct: float = Field(..., description="Variance percentage (e.g., 0.255 = 25.5%)")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "forecast_id": "f_spring_2025",
+                "actual_sales_week_1_to_n": 3200,
+                "forecasted_week_1_to_n": 2550,
+                "remaining_weeks": 8,
+                "variance_pct": 0.255
+            }
+        }
+    )
+
 
 class WorkflowResponse(BaseModel):
-    """Response from workflow creation"""
-    workflow_id: str = Field(..., description="Unique workflow ID")
-    status: WorkflowStatus = Field(..., description="Initial status")
+    """Response after workflow creation."""
+
+    workflow_id: str = Field(..., description="Unique workflow identifier")
+    status: Literal["pending", "running", "completed", "failed", "awaiting_approval"]
     websocket_url: str = Field(..., description="WebSocket URL for real-time updates")
-    created_at: datetime = Field(default_factory=datetime.now, description="Creation timestamp")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workflow_id": "wf_abc123",
+                "status": "pending",
+                "websocket_url": "ws://localhost:8000/api/workflows/wf_abc123/stream"
+            }
+        }
+    )
+
 
 class WorkflowStatusResponse(BaseModel):
-    """Response for workflow status check"""
-    workflow_id: str
-    status: WorkflowStatus
-    current_agent: Optional[str] = Field(None, description="Currently executing agent")
-    progress_pct: Optional[float] = Field(None, description="Overall progress", ge=0, le=100)
-    forecast_id: Optional[str] = Field(None, description="Generated forecast ID if complete")
-    error_message: Optional[str] = Field(None, description="Error message if failed")
-    started_at: datetime
-    completed_at: Optional[datetime] = None
+    """Response for workflow status polling."""
 
-class WorkflowResultResponse(BaseModel):
-    """Final workflow results"""
     workflow_id: str
-    forecast_id: str = Field(..., description="Generated forecast ID")
-    allocation_id: str = Field(..., description="Generated allocation ID")
-    markdown_id: Optional[str] = Field(None, description="Markdown decision ID if applicable")
-    duration_seconds: float = Field(..., description="Total execution time")
-    agents_executed: list[str] = Field(..., description="List of agents that ran")
+    workflow_type: Literal["forecast", "reforecast"]
+    status: Literal["pending", "running", "completed", "failed", "awaiting_approval"]
+    current_agent: Optional[str] = None
+    progress_pct: int = Field(0, ge=0, le=100)
+    started_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workflow_id": "wf_abc123",
+                "workflow_type": "forecast",
+                "status": "running",
+                "current_agent": "Inventory Agent",
+                "progress_pct": 66,
+                "started_at": "2025-10-12T10:30:00Z",
+                "updated_at": "2025-10-12T10:30:45Z",
+                "completed_at": None,
+                "error_message": None
+            }
+        }
+    )
+
+
+class WorkflowResultsResponse(BaseModel):
+    """Response for completed workflow results."""
+
+    workflow_id: str
+    status: Literal["completed", "failed"]
+    forecast_id: Optional[str] = None
+    allocation_id: Optional[str] = None
+    markdown_id: Optional[str] = None
+    output_data: Optional[dict] = None
+    error_message: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workflow_id": "wf_abc123",
+                "status": "completed",
+                "forecast_id": "f_spring_2025",
+                "allocation_id": "a_spring_2025",
+                "markdown_id": None,
+                "output_data": {
+                    "total_season_demand": 8000,
+                    "manufacturing_qty": 9600,
+                    "workflow_duration_seconds": 58
+                },
+                "error_message": None
+            }
+        }
+    )
