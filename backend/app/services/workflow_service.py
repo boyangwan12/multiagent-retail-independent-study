@@ -7,6 +7,7 @@ from app.schemas.workflow import (
     WorkflowStatusResponse,
     WorkflowResultsResponse
 )
+from app.agents import get_orchestrator
 from datetime import datetime
 import uuid
 import logging
@@ -19,6 +20,7 @@ class WorkflowService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.orchestrator = get_orchestrator()
 
     def create_forecast_workflow(
         self,
@@ -67,10 +69,24 @@ class WorkflowService:
         # Construct WebSocket URL
         websocket_url = f"ws://{host}/api/workflows/{workflow_id}/stream"
 
-        # TODO (Phase 8): Initialize Orchestrator agent here
-        # orchestrator = get_orchestrator_agent()
-        # session = Session()
-        # result = session.run(orchestrator, input=request.model_dump())
+        # TODO (Phase 8): Execute orchestrator workflow with OpenAI Agents SDK
+        # This will be implemented in Phase 8 with:
+        # 1. Background task execution (asyncio/celery)
+        # 2. WebSocket streaming for progress updates
+        # 3. Database updates as agents complete
+        #
+        # Example implementation:
+        # async with workflow_session():
+        #     result = await self.orchestrator.run_forecast_workflow(
+        #         category_id=request.category_id,
+        #         parameters=request.parameters,
+        #         workflow_id=workflow_id
+        #     )
+        #     # Update workflow with results
+        #     workflow.forecast_id = result["forecast_id"]
+        #     workflow.output_data = result
+        #     workflow.status = WorkflowStatus.completed
+        #     self.db.commit()
 
         return WorkflowResponse(
             workflow_id=workflow_id,
@@ -129,9 +145,26 @@ class WorkflowService:
         # Construct WebSocket URL
         websocket_url = f"ws://{host}/api/workflows/{workflow_id}/stream"
 
-        # TODO (Phase 8): Enable re-forecast handoff dynamically
-        # orchestrator.enable_handoff("reforecast")
-        # orchestrator.handoff(demand_agent, input=reforecast_context)
+        # TODO (Phase 8): Execute re-forecast workflow with dynamic handoff
+        # This will be implemented in Phase 8 with:
+        # 1. Dynamic handoff enabling for re-forecast
+        # 2. Pass actual sales context to Demand Agent
+        # 3. Re-allocation and re-markdown execution
+        #
+        # Example implementation:
+        # async with workflow_session():
+        #     result = await self.orchestrator.run_reforecast_workflow(
+        #         forecast_id=request.forecast_id,
+        #         actual_sales=request.actual_sales_week_1_to_n,
+        #         forecasted_sales=request.forecasted_week_1_to_n,
+        #         remaining_weeks=request.remaining_weeks,
+        #         variance_pct=request.variance_pct,
+        #         workflow_id=workflow_id
+        #     )
+        #     # Update workflow with results
+        #     workflow.output_data = result
+        #     workflow.status = WorkflowStatus.completed
+        #     self.db.commit()
 
         return WorkflowResponse(
             workflow_id=workflow_id,
