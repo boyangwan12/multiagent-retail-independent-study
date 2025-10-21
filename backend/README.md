@@ -1,269 +1,468 @@
 # Fashion Forecast Backend
 
-Parameter-Driven Multi-Agent Demand Forecasting & Inventory Allocation System
+Multi-Agent Retail Forecasting System - FastAPI Backend
 
-## Prerequisites
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Python 3.11+
-- UV package manager
+- Azure OpenAI API access (or use dummy credentials for development)
 
-## Setup
+### Installation
 
-### 1. Install Python 3.11+
+1. **Install dependencies:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   # Or if you have uv: uv sync
+   ```
 
-**Windows:**
+2. **Configure environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Azure OpenAI credentials (or use dummy values for testing)
+   ```
+
+3. **Seed database with mock data:**
+   ```bash
+   python scripts/seed_db.py --data-dir ../data/mock/training
+   ```
+
+4. **Start development server:**
+   ```bash
+   ./scripts/dev.sh  # Linux/Mac
+   # OR
+   .\scripts\dev.bat  # Windows
+   # OR manually:
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+5. **Verify installation:**
+   - Health check: http://localhost:8000/api/v1/health
+   - API docs: http://localhost:8000/docs
+   - ReDoc: http://localhost:8000/redoc
+
+## 📚 API Documentation
+
+### Interactive Docs
+
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+- **OpenAPI JSON:** http://localhost:8000/openapi.json
+
+### Core Endpoints
+
+**Health Check:**
 ```bash
-# Download Python 3.11+ from python.org
-# Or use winget:
-winget install Python.Python.3.11
+GET /api/v1/health
 ```
 
-**Mac:**
+**Parameter Extraction:**
 ```bash
-brew install python@3.11
+POST /api/v1/parameters/extract
+Content-Type: application/json
+
+{
+  "user_input": "12-week Spring 2025 season starting March 3rd with weekly replenishment",
+  "category_id": "womens_blouses"
+}
 ```
 
-**Linux:**
+**Category Management:**
 ```bash
-sudo apt update
-sudo apt install python3.11 python3.11-venv python3.11-dev
+GET  /api/v1/categories           # List all categories
+POST /api/v1/categories           # Create new category
+GET  /api/v1/categories/{id}      # Get category details
+PUT  /api/v1/categories/{id}      # Update category
+DELETE /api/v1/categories/{id}    # Delete category
 ```
 
-### 2. Install UV Package Manager
-
+**Store Management:**
 ```bash
-pip install uv
+GET /api/v1/stores                # List all stores
+GET /api/v1/stores/{id}           # Get store details
+GET /api/v1/stores/clusters       # List store clusters
 ```
 
-or
-
+**Historical Sales:**
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+GET /api/v1/historical-sales                    # List sales data
+GET /api/v1/historical-sales/{store_id}         # Sales by store
+GET /api/v1/historical-sales/{store_id}/{category_id}  # Sales by store + category
 ```
 
-### 3. Install Dependencies
+## 🧪 Testing
 
+### Run all tests:
 ```bash
-cd backend
-uv pip install -e ".[dev]"
+python -m pytest
 ```
 
-### 4. Configure Environment
-
+### Run specific test file:
 ```bash
-cp .env.example .env
-# Edit .env with your Azure OpenAI credentials
+python -m pytest tests/test_health.py -v
 ```
 
-## Running the Server
-
-### Development Mode (with auto-reload)
-
+### Run tests with coverage:
 ```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m pytest --cov=app --cov-report=html
+open htmlcov/index.html
 ```
 
-### Production Mode
-
+### Test markers:
 ```bash
-cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m pytest -m unit           # Unit tests only
+python -m pytest -m integration    # Integration tests only
+python -m pytest -m "not slow"     # Skip slow tests
 ```
 
-## Development Commands
+## 🔧 Configuration
 
-- **Run server:** `uvicorn app.main:app --reload`
-- **Run tests:** `pytest`
-- **Run tests with coverage:** `pytest --cov=app tests/`
-- **Type check:** `mypy app/`
-- **Lint:** `ruff check .`
-- **Format:** `ruff format .`
+### Environment Variables
 
-## API Documentation
+See `.env.example` for all available configuration options.
 
-Once the server is running, visit:
-- **Swagger UI:** `http://localhost:8000/docs`
-- **ReDoc:** `http://localhost:8000/redoc`
+**Required:**
+- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI endpoint URL (format: https://YOUR_RESOURCE.openai.azure.com/)
+- `AZURE_OPENAI_API_KEY` - Azure OpenAI API key
+- `AZURE_OPENAI_DEPLOYMENT` - Deployment name (e.g., gpt-4o-mini)
+- `AZURE_OPENAI_API_VERSION` - API version (e.g., 2024-10-21)
 
-## Project Structure
+**Optional:**
+- `DATABASE_URL` - Database connection URL (default: sqlite:///./fashion_forecast.db)
+- `HOST` - Server host (default: 0.0.0.0)
+- `PORT` - Server port (default: 8000)
+- `DEBUG` - Enable debug mode (default: true)
+- `ENVIRONMENT` - Environment name (default: development)
+- `LOG_LEVEL` - Logging level (default: INFO)
+- `LOG_FILE` - Log file path (default: logs/fashion_forecast.log)
+- `CORS_ORIGINS` - Allowed frontend origins (default: http://localhost:5173,http://localhost:3000)
+
+### Database Management
+
+**Create tables (if not using seed script):**
+```python
+from app.database.db import Base, engine
+Base.metadata.create_all(engine)
+```
+
+**Seed with mock data:**
+```bash
+python scripts/seed_db.py --data-dir ../data/mock/training
+```
+
+**Backup database:**
+```bash
+python scripts/backup_db.py
+# Creates timestamped backup in backups/ directory
+```
+
+## 📁 Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application entry point
-│   ├── agents/              # OpenAI Agents SDK implementations
+│   ├── api/
+│   │   └── v1/
+│   │       ├── endpoints/        # API route handlers
+│   │       │   ├── health.py     # Health check endpoint
+│   │       │   ├── parameters.py # Parameter extraction
+│   │       │   ├── categories.py # Category CRUD
+│   │       │   ├── stores.py     # Store management
+│   │       │   └── historical_sales.py  # Sales data
+│   │       └── router.py         # Main API router
+│   ├── core/
+│   │   ├── config.py             # Pydantic settings
+│   │   ├── logging.py            # Logging configuration
+│   │   └── azure_client.py       # Azure OpenAI client
+│   ├── database/
+│   │   └── db.py                 # SQLAlchemy setup
+│   ├── models/                   # SQLAlchemy models
 │   │   ├── __init__.py
-│   │   ├── orchestrator.py  # Orchestrator agent
-│   │   ├── demand.py        # Demand forecasting agent
-│   │   ├── inventory.py     # Inventory allocation agent
-│   │   └── pricing.py       # Pricing/markdown agent
-│   ├── api/                 # REST API endpoints
+│   │   ├── store.py              # Store, StoreCluster
+│   │   ├── category.py           # Category
+│   │   └── historical_sales.py   # HistoricalSales
+│   ├── schemas/                  # Pydantic schemas (DTOs)
 │   │   ├── __init__.py
-│   │   └── routes/
-│   │       ├── __init__.py
-│   │       ├── parameters.py   # Parameter extraction
-│   │       ├── workflows.py    # Workflow orchestration
-│   │       ├── websockets.py   # WebSocket connections
-│   │       ├── forecasts.py    # Forecast resources
-│   │       ├── allocations.py  # Allocation resources
-│   │       ├── markdowns.py    # Markdown resources
-│   │       └── data.py         # Data management
-│   ├── models/              # SQLAlchemy database models
-│   │   ├── __init__.py
-│   │   ├── category.py
 │   │   ├── store.py
-│   │   ├── forecast.py
-│   │   ├── allocation.py
-│   │   └── markdown.py
-│   ├── schemas/             # Pydantic schemas (DTOs)
-│   │   ├── __init__.py
-│   │   ├── parameters.py
-│   │   ├── forecast.py
-│   │   ├── allocation.py
-│   │   └── workflow.py
-│   ├── services/            # Business logic services
-│   │   ├── __init__.py
-│   │   ├── parameter_extractor.py
-│   │   └── workflow_service.py
-│   ├── database/            # Database configuration
-│   │   ├── __init__.py
-│   │   └── base.py
-│   ├── ml/                  # Machine learning models
-│   │   ├── __init__.py
-│   │   ├── prophet_model.py
-│   │   ├── arima_model.py
-│   │   └── clustering.py
-│   ├── websocket/           # WebSocket connection manager
-│   │   ├── __init__.py
-│   │   └── manager.py
-│   └── utils/               # Shared utilities
-│       ├── __init__.py
-│       └── csv_parser.py
-├── tests/                   # Test suite
+│   │   ├── category.py
+│   │   ├── historical_sales.py
+│   │   └── parameter.py
+│   ├── services/                 # Business logic
+│   │   └── parameter_extractor.py  # LLM parameter extraction
+│   ├── utils/                    # Utilities
+│   │   └── csv_parser.py         # CSV validation and parsing
+│   └── main.py                   # FastAPI application entry point
+├── tests/                        # pytest test suite
 │   ├── __init__.py
-│   ├── test_parameters.py
-│   ├── test_workflows.py
-│   └── test_agents.py
-├── pyproject.toml           # UV package configuration
-├── .env.example             # Environment variable template
-└── README.md                # This file
+│   ├── conftest.py               # Shared fixtures
+│   ├── test_health.py            # Health check tests
+│   └── test_csv_parser.py        # CSV utility tests
+├── scripts/                      # Development and utility scripts
+│   ├── dev.sh                    # Start dev server (Linux/Mac)
+│   ├── dev.bat                   # Start dev server (Windows)
+│   ├── seed_db.py                # Database seeding script
+│   └── backup_db.py              # Database backup utility
+├── logs/                         # Application logs (gitignored)
+├── backups/                      # Database backups (gitignored)
+├── .env                          # Environment variables (gitignored)
+├── .env.example                  # Environment variable template
+├── .gitignore                    # Git ignore rules
+├── pytest.ini                    # pytest configuration
+└── README.md                     # This file
 ```
 
-## Environment Variables
+## 🔍 Data Seeding
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource URL | `https://YOUR_RESOURCE.openai.azure.com/` |
-| `AZURE_OPENAI_API_KEY` | API authentication key | `your_api_key_here` |
-| `AZURE_OPENAI_DEPLOYMENT` | Model deployment name | `gpt-4o-mini` |
-| `AZURE_OPENAI_API_VERSION` | API version | `2024-10-21` |
-| `DATABASE_URL` | SQLite database path | `sqlite:///./fashion_forecast.db` |
-| `HOST` | Server host | `0.0.0.0` |
-| `PORT` | Server port | `8000` |
-| `DEBUG` | Debug mode | `true` |
+The backend includes comprehensive data seeding capabilities for development and testing.
 
-## Testing
+### Store Attributes CSV Format
 
-### Run All Tests
+Required columns:
+- `store_id` - Unique store identifier (integer)
+- `size_sqft` - Store size in square feet
+- `income_level` - Median household income
+- `foot_traffic` - Daily foot traffic count
+- `competitor_density` - Number of nearby competitors
+- `online_penetration` - Online sales penetration (0.0-1.0)
+- `population_density` - Population per square mile
+- `mall_location` - Boolean (True/False)
+
+The CSV parser automatically derives:
+- `location_tier` - A/B/C based on median income
+- `fashion_tier` - PREMIUM/MAINSTREAM/VALUE based on store size
+- `store_format` - MALL/STANDALONE based on mall_location
+- `region` - NORTHEAST/SOUTHEAST/MIDWEST/WEST based on store_id
+- `avg_weekly_sales_12mo` - Computed from store features
+
+### Historical Sales CSV Format
+
+Required columns:
+- `date` - Sale date (YYYY-MM-DD format)
+- `category` - Product category name
+- `store_id` - Store identifier
+- `quantity_sold` - Units sold
+- `revenue` - Total revenue (optional)
+
+Validation rules:
+- Minimum 2 years of historical data
+- Date range: 2022-01-01 to 2024-12-31
+- Automatically detects and creates categories
+
+### Example: Seeding Database
 
 ```bash
-pytest
+# Seed with default mock data
+python scripts/seed_db.py
+
+# Seed with custom data directory
+python scripts/seed_db.py --data-dir /path/to/csv/files
+
+# Expected output:
+# 🌱 STARTING DATABASE SEED
+#   Data directory: /path/to/data
+#   Database: sqlite:///./fashion_forecast.db
+# ✓ Database tables created
+# Creating initial store clusters...
+# ✓ Created 3 initial clusters
+# =================
+# SEEDING STORES
+# =================
+# ✓ Inserted 50 stores
+#   Premium: 15 stores
+#   Mainstream: 20 stores
+#   Value: 15 stores
+# ==================================
+# SEEDING CATEGORIES & HISTORICAL SALES
+# ==================================
+#   Detected 3 categories: Blouses, Sweaters, Dresses
+# ✓ Inserted 3 categories
+#   Inserting 164,400 sales rows...
+#     Progress: 10,000 / 164,400 rows
+#     ...
+# ✓ Inserted 164,400 sales rows in 93.4s
+# =================
+# 🎉 SEED COMPLETE
+# =================
+#   Stores: 50
+#   Categories: 3
+#   Historical Sales: 164,400 rows
 ```
 
-### Run Specific Test File
+## 🐛 Debugging
+
+### Enable debug logging:
+```bash
+LOG_LEVEL=DEBUG python -m uvicorn app.main:app --reload
+```
+
+### View logs:
+```bash
+tail -f logs/fashion_forecast.log
+```
+
+### Test Azure OpenAI connection:
+```python
+from app.core.azure_client import azure_client
+print(azure_client.test_connection())
+```
+
+### Check database contents:
+```bash
+# Install sqlite3 cli tool
+sqlite3 fashion_forecast.db
+
+sqlite> .tables
+sqlite> SELECT COUNT(*) FROM stores;
+sqlite> SELECT COUNT(*) FROM historical_sales;
+sqlite> .exit
+```
+
+## 🚀 Development Workflow
+
+### 1. Make changes to code
+
+Edit files in `app/` directory.
+
+### 2. Run tests
 
 ```bash
-pytest tests/test_parameters.py
+python -m pytest
 ```
 
-### Run with Coverage Report
+### 3. Check code style (if using ruff)
 
 ```bash
-pytest --cov=app --cov-report=html tests/
+ruff check app/
+ruff format app/
 ```
 
-## Database Migrations
+### 4. Test endpoints manually
 
-### Initialize Alembic
+Use Swagger UI at http://localhost:8000/docs to test API endpoints interactively.
+
+### 5. Commit changes
 
 ```bash
-alembic init migrations
+git add .
+git commit -m "Description of changes"
 ```
 
-### Create Migration
+## 📊 Test Coverage
+
+Current test coverage:
+
+- Health endpoint: ✅ 100%
+- CSV utilities: ✅ 100%
+- API endpoints: 🔄 In progress (Phase 4-8)
+- Agent services: 🔄 In progress (Phase 4-8)
+
+Target coverage: ≥70% overall
+
+## 🔐 Security Notes
+
+**Development:**
+- Use dummy Azure OpenAI credentials if testing without API access
+- SQLite database is not suitable for production
+- CORS is open to localhost origins
+
+**Production TODO (future phases):**
+- [ ] Use PostgreSQL instead of SQLite
+- [ ] Add API key authentication
+- [ ] Configure production CORS origins
+- [ ] Enable HTTPS/TLS
+- [ ] Set up Sentry error tracking
+- [ ] Use secrets management (e.g., Azure Key Vault)
+- [ ] Enable rate limiting
+- [ ] Set up monitoring and alerting
+
+## 📝 API Response Examples
+
+### Health Check
 
 ```bash
-alembic revision --autogenerate -m "Description of changes"
+curl http://localhost:8000/api/v1/health
 ```
 
-### Apply Migrations
+Response:
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "timestamp": "2025-10-21T04:16:23.171278Z",
+  "services": {
+    "database": "ok",
+    "api": "ok"
+  }
+}
+```
+
+### Parameter Extraction
 
 ```bash
-alembic upgrade head
+curl -X POST http://localhost:8000/api/v1/parameters/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_input": "12-week Spring 2025 season starting March 3rd with weekly replenishment and 45% DC holdback",
+    "category_id": "womens_blouses"
+  }'
 ```
 
-### Rollback Migration
+Response:
+```json
+{
+  "forecast_horizon_weeks": 12,
+  "season_start_date": "2025-03-03",
+  "season_end_date": "2025-05-26",
+  "replenishment_strategy": "weekly",
+  "dc_holdback_percentage": 0.45,
+  "markdown_checkpoint_week": 6,
+  "markdown_threshold": 0.60,
+  "extraction_confidence": "high"
+}
+```
+
+### List Categories
 
 ```bash
-alembic downgrade -1
+curl http://localhost:8000/api/v1/categories
 ```
 
-## Troubleshooting
+Response:
+```json
+[
+  {
+    "category_id": "blouses",
+    "category_name": "Blouses",
+    "season_start_date": "2025-01-01",
+    "season_end_date": "2025-03-31",
+    "season_length_weeks": 12,
+    "archetype": "FASHION_RETAIL",
+    "description": "Auto-detected category from historical sales: Blouses"
+  },
+  ...
+]
+```
 
-### UV Not Found
+## 🆘 Support & Contributing
 
-**Solution:** Restart terminal or add UV to PATH manually
-- Windows: `C:\Users\<username>\AppData\Local\Programs\Python\Python311\Scripts`
-- Mac/Linux: `~/.local/bin`
+**Issues:** Report bugs or request features via GitHub Issues
 
-### Python Version Mismatch
+**Documentation:** See `/docs` directory for detailed design documents
 
-**Solution:** Use `python3.11 -m pip install uv` to ensure correct Python version
+**Contributing:**
+1. Create a feature branch
+2. Make changes
+3. Write tests (all tests must pass)
+4. Submit pull request
 
-### Prophet Installation Fails
+## 📄 License
 
-**Solution:** Prophet requires compiler tools
-- Windows: Install Visual Studio Build Tools
-- Mac: `xcode-select --install`
-- Linux: `sudo apt-get install python3-dev`
+MIT License - see LICENSE file for details
 
-### Port 8000 Already in Use
+---
 
-**Solution:** Find and kill the process or use a different port
-- Windows: `netstat -ano | findstr :8000`
-- Mac/Linux: `lsof -i :8000`
+**Backend Status:** ✅ Phase 3 Complete (Day 1-2 Stories 1-6, 12-13)
 
-## Technology Stack
-
-- **FastAPI** - Modern Python web framework with automatic API documentation
-- **UV** - Fast Python package manager (10-100x faster than pip)
-- **OpenAI Agents SDK** - Multi-agent orchestration framework
-- **SQLAlchemy** - SQL toolkit and ORM
-- **Pydantic** - Data validation using Python type annotations
-- **Prophet** - Time-series forecasting by Meta
-- **Scikit-learn** - Machine learning library
-
-## Phase 3 Implementation
-
-This backend is part of Phase 3 (Backend Architecture) of an 8-phase MVP development plan.
-
-**Stories Completed:**
-- PHASE3-001: Project Setup & UV Configuration ✅
-
-**Next Stories:**
-- PHASE3-002: Database Schema & Models
-- PHASE3-003: Pydantic Schemas & DTOs
-- PHASE3-004: FastAPI Application Setup
-- ... (11 more stories)
-
-For more details, see `docs/04_MVP_Development/implementation/phase_3_backend_architecture/`
-
-## License
-
-Academic Project - Independent Study
-
-## Contributors
-
-- Henry & Yina (Backend Development)
+**Next Phase:** Phase 4 - Orchestrator Agent Implementation
