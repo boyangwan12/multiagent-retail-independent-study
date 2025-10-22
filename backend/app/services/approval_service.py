@@ -245,6 +245,9 @@ class ApprovalService:
             )
 
 
-def get_approval_service(db: Session) -> ApprovalService:
+def get_approval_service(db: Session = None) -> ApprovalService:
     """Factory function for ApprovalService (dependency injection)."""
+    if db is None:
+        from app.database.db import SessionLocal
+        db = SessionLocal()
     return ApprovalService(db)

@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/approvals", tags=["Approvals"])
 
 
-@router.post("/manufacturing", response_model=ManufacturingApprovalResponse)
+@router.post("/manufacturing")
 async def approve_manufacturing_order(
     request: ManufacturingApprovalRequest,
-    service: ApprovalService = Depends(get_approval_service)
+    db: Session = Depends(get_db)
 ):
     """
     Approve or modify manufacturing order with adjusted safety stock.
@@ -54,6 +54,7 @@ async def approve_manufacturing_order(
     ```
     """
     try:
+        service = ApprovalService(db)
         response = service.process_manufacturing_approval(request)
 
         if request.action == "accept":
@@ -61,7 +62,7 @@ async def approve_manufacturing_order(
             # TODO: Broadcast via WebSocket
             # await broadcast_agent_started(request.workflow_id, "Inventory Agent")
 
-        return response
+        return response.model_dump()
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -70,10 +71,10 @@ async def approve_manufacturing_order(
         raise HTTPException(status_code=500, detail=f"Approval processing failed: {str(e)}")
 
 
-@router.post("/markdown", response_model=MarkdownApprovalResponse)
+@router.post("/markdown")
 async def approve_markdown_recommendation(
     request: MarkdownApprovalRequest,
-    service: ApprovalService = Depends(get_approval_service)
+    db: Session = Depends(get_db)
 ):
     """
     Approve or modify markdown recommendation with adjusted elasticity.
@@ -110,6 +111,7 @@ async def approve_markdown_recommendation(
     ```
     """
     try:
+        service = ApprovalService(db)
         response = service.process_markdown_approval(request)
 
         if request.action == "accept":
@@ -117,7 +119,7 @@ async def approve_markdown_recommendation(
             # TODO: Broadcast via WebSocket
             # await broadcast_agent_started(request.workflow_id, "Pricing Agent")
 
-        return response
+        return response.model_dump()
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
