@@ -7,7 +7,7 @@ Multi-Agent Retail Forecasting System - FastAPI Backend
 ### Prerequisites
 
 - Python 3.11+
-- Azure OpenAI API access (or use dummy credentials for development)
+- OpenAI API key (get one at https://platform.openai.com/api-keys)
 
 ### Installation
 
@@ -21,7 +21,7 @@ Multi-Agent Retail Forecasting System - FastAPI Backend
 2. **Configure environment variables:**
    ```bash
    cp .env.example .env
-   # Edit .env with your Azure OpenAI credentials (or use dummy values for testing)
+   # Edit .env with your OpenAI API key
    ```
 
 3. **Seed database with mock data:**
@@ -124,10 +124,8 @@ python -m pytest -m "not slow"     # Skip slow tests
 See `.env.example` for all available configuration options.
 
 **Required:**
-- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI endpoint URL (format: https://YOUR_RESOURCE.openai.azure.com/)
-- `AZURE_OPENAI_API_KEY` - Azure OpenAI API key
-- `AZURE_OPENAI_DEPLOYMENT` - Deployment name (e.g., gpt-4o-mini)
-- `AZURE_OPENAI_API_VERSION` - API version (e.g., 2024-10-21)
+- `OPENAI_API_KEY` - OpenAI API key (get from https://platform.openai.com/api-keys)
+- `OPENAI_MODEL` - OpenAI model name (default: gpt-4o-mini, alternatives: gpt-4o, gpt-3.5-turbo)
 
 **Optional:**
 - `DATABASE_URL` - Database connection URL (default: sqlite:///./fashion_forecast.db)
@@ -175,7 +173,7 @@ backend/
 │   ├── core/
 │   │   ├── config.py             # Pydantic settings
 │   │   ├── logging.py            # Logging configuration
-│   │   └── azure_client.py       # Azure OpenAI client
+│   │   └── openai_client.py      # OpenAI client
 │   ├── database/
 │   │   └── db.py                 # SQLAlchemy setup
 │   ├── models/                   # SQLAlchemy models
@@ -302,10 +300,10 @@ LOG_LEVEL=DEBUG python -m uvicorn app.main:app --reload
 tail -f logs/fashion_forecast.log
 ```
 
-### Test Azure OpenAI connection:
+### Test OpenAI connection:
 ```python
-from app.core.azure_client import azure_client
-print(azure_client.test_connection())
+from app.core.openai_client import openai_client
+print(openai_client.test_connection())
 ```
 
 ### Check database contents:
@@ -363,7 +361,7 @@ Target coverage: ≥70% overall
 ## 🔐 Security Notes
 
 **Development:**
-- Use dummy Azure OpenAI credentials if testing without API access
+- Use dummy OpenAI API key if testing without API access
 - SQLite database is not suitable for production
 - CORS is open to localhost origins
 
@@ -457,12 +455,11 @@ Response:
 3. Write tests (all tests must pass)
 4. Submit pull request
 
-## 📄 License
-
-MIT License - see LICENSE file for details
 
 ---
 
-**Backend Status:** ✅ Phase 3 Complete (Day 1-2 Stories 1-6, 12-13)
+**Backend Status:** ✅ Phase 3 Complete (All 14 Stories - Days 1-4)
+
+**Configuration:** OpenAI API (standard, not Azure)
 
 **Next Phase:** Phase 4 - Orchestrator Agent Implementation
