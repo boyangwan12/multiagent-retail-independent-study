@@ -637,6 +637,272 @@ Response:
 ]
 ```
 
+## 🌐 WebSocket API
+
+### Real-Time Agent Status Updates
+
+The backend provides WebSocket support for real-time agent progress updates during workflow execution.
+
+**WebSocket Endpoint:**
+```
+WS /api/v1/workflows/{workflow_id}/stream
+```
+
+**Example: Connect and Listen (JavaScript)**
+```javascript
+const workflowId = "wf_12345";
+const ws = new WebSocket(`ws://localhost:8000/api/v1/workflows/${workflowId}/stream`);
+
+ws.onopen = () => {
+  console.log("WebSocket connected");
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log("Agent update:", message.type, message);
+
+  // message.type can be:
+  // - "agent_started": Agent beginning work
+  // - "agent_progress": Agent making progress (includes progress_pct)
+  // - "agent_completed": Agent finished with results
+  // - "human_input_required": Waiting for approval
+  // - "workflow_complete": Entire workflow finished
+  // - "error": Something went wrong
+};
+
+ws.onerror = (error) => {
+  console.error("WebSocket error:", error);
+};
+
+ws.onclose = () => {
+  console.log("WebSocket closed");
+};
+```
+
+**Example: Test WebSocket with cURL**
+```bash
+# Note: cURL has limited WebSocket support, use wscat instead:
+# npm install -g wscat
+
+wscat -c ws://localhost:8000/api/v1/workflows/wf_test123/stream
+```
+
+---
+
+## ⚙️ Approval Endpoints (Human-in-the-Loop)
+
+These endpoints handle human approval decisions during the workflow.
+
+### Manufacturing Approval
+
+**Endpoint:**
+```bash
+POST /api/v1/approvals/manufacturing
+```
+
+**Request:**
+```json
+{
+  "workflow_id": "wf_12345",
+  "manufacturing_qty": 9600,
+  "initial_allocation": 5280,
+  "holdback": 4320,
+  "decision": "accept"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/approvals/manufacturing \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_id": "wf_12345",
+    "manufacturing_qty": 9600,
+    "initial_allocation": 5280,
+    "holdback": 4320,
+    "decision": "accept"
+  }'
+```
+
+**Postman Instructions:**
+1. Create new POST request
+2. URL: `http://localhost:8000/api/v1/approvals/manufacturing`
+3. Body → Raw → JSON
+4. Paste request JSON above
+5. Send
+
+### Markdown Approval
+
+**Endpoint:**
+```bash
+POST /api/v1/approvals/markdown
+```
+
+**Request:**
+```json
+{
+  "workflow_id": "wf_12345",
+  "week_number": 6,
+  "sell_through_pct": 0.65,
+  "recommended_markdown_pct": 0.25,
+  "decision": "accept"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/approvals/markdown \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_id": "wf_12345",
+    "week_number": 6,
+    "sell_through_pct": 0.65,
+    "recommended_markdown_pct": 0.25,
+    "decision": "accept"
+  }'
+```
+
+---
+
+## 🤖 Agent Scaffolds & ML Pipeline
+
+### Available Agents
+
+The backend includes 4 agent scaffolds ready for Phase 4 implementation:
+
+**Location:** `backend/app/agents/`
+
+1. **Orchestrator Agent** (`orchestrator.py`)
+   - Coordinates workflow execution
+   - Delegates to specialized agents
+   - Monitors variance and triggers re-forecasting
+   - Status: Scaffold with placeholder logic
+
+2. **Demand Agent** (`demand.py`)
+   - Forecasts demand using Prophet/ARIMA
+   - Clusters stores for allocation
+   - Status: Scaffold with mock data
+
+3. **Inventory Agent** (`inventory.py`)
+   - Calculates manufacturing quantities
+   - Plans DC allocation and store replenishment
+   - Status: Scaffold with mock data
+
+4. **Pricing Agent** (`pricing.py`)
+   - Recommends markdown percentages
+   - Applies elasticity coefficients
+   - Status: Scaffold with mock data
+
+### ML Pipeline Scaffolding
+
+**Location:** `backend/app/ml/`
+
+The ML module includes placeholder implementations:
+
+```bash
+backend/app/ml/
+├── __init__.py
+├── prophet_model.py      # Prophet forecasting (returns mock data)
+├── arima_model.py        # ARIMA forecasting (returns mock data)
+├── clustering.py         # K-means clustering (3 mock clusters)
+├── ensemble.py           # Ensemble predictions
+└── preprocessing.py      # Data preprocessing utilities
+```
+
+**Current Status:** All models return realistic mock data for testing. Actual ML implementation happens in Phase 5-7.
+
+**Example: Forecast with Prophet (Mock)**
+```python
+from app.ml.prophet_model import ProphetModel
+
+model = ProphetModel()
+forecast = model.forecast(
+    historical_data=weekly_sales,
+    periods=12,
+    confidence_interval=0.95
+)
+# Returns: {"trend": [...], "seasonal": [...], "forecast": [...]}
+```
+
+---
+
+## ✅ Phase 3 Verification Checklist
+
+Use these commands to verify Phase 3 is fully implemented:
+
+### 1. Server Health
+```bash
+# Start server
+cd backend
+python -m uvicorn app.main:app --reload
+
+# In another terminal, test health
+curl http://localhost:8000/api/v1/health
+# Expected: {"status": "ok", ...}
+```
+
+### 2. Database Verification
+```bash
+# Check tables exist (requires sqlite3 CLI)
+sqlite3 fashion_forecast.db ".tables"
+
+# Verify 50 stores seeded
+sqlite3 fashion_forecast.db "SELECT COUNT(*) FROM stores;"
+# Expected: 50
+
+# Verify historical sales data
+sqlite3 fashion_forecast.db "SELECT COUNT(*) FROM historical_sales;"
+# Expected: ~164,400 rows
+```
+
+### 3. OpenAPI Documentation
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- OpenAPI JSON: http://localhost:8000/openapi.json
+
+### 4. Parameter Extraction
+```bash
+curl -X POST http://localhost:8000/api/v1/parameters/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_input": "12-week Spring 2025 season starting March 3rd with weekly replenishment",
+    "category_id": "womens_blouses"
+  }'
+# Expected: Extracted parameters with confidence score
+```
+
+### 5. Workflow Creation
+```bash
+curl -X POST http://localhost:8000/api/v1/workflows/forecast \
+  -H "Content-Type: application/json" \
+  -d '{
+    "category_id": "blouses",
+    "parameters": {
+      "forecast_horizon_weeks": 12,
+      "season_start_date": "2025-03-01",
+      "replenishment_strategy": "weekly",
+      "dc_holdback_percentage": 0.45,
+      "markdown_checkpoint_week": 6
+    }
+  }'
+# Expected: workflow_id and WebSocket URL
+```
+
+### 6. Run All Tests
+```bash
+cd backend
+pytest tests/ -v
+# Expected: 35 tests passed
+```
+
+### 7. Review ML Scaffolding
+```bash
+ls -la backend/app/ml/
+# Should see: prophet_model.py, arima_model.py, clustering.py, ensemble.py
+```
+
+---
+
 ## 🆘 Support & Contributing
 
 **Issues:** Report bugs or request features via GitHub Issues
