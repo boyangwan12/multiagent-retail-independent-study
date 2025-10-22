@@ -317,30 +317,224 @@ sqlite> SELECT COUNT(*) FROM historical_sales;
 sqlite> .exit
 ```
 
+## 🚀 Testing All Endpoints
+
+### Step 1: Start the Development Server
+
+```bash
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# OR use the convenience script:
+./scripts/dev.sh  # Linux/Mac
+.\scripts\dev.bat  # Windows
+```
+
+You should see:
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete
+```
+
+### Step 2: Verify OpenAPI Documentation
+
+**Open these URLs in your browser immediately:**
+
+1. **Swagger UI (Interactive Testing):** http://localhost:8000/docs
+   - Click on any endpoint to expand it
+   - Click "Try it out" button
+   - Fill in parameters
+   - Click "Execute" to test
+
+2. **ReDoc (Alternative Documentation):** http://localhost:8000/redoc
+   - Read-only, more organized view
+   - Good for understanding API structure
+
+3. **OpenAPI JSON Schema:** http://localhost:8000/openapi.json
+   - Raw API specification
+   - Can be imported into Postman or other tools
+
+### Step 3: Test Endpoints - Choose Your Method
+
+#### Method A: Using Swagger UI (Easiest - No Extra Tools)
+
+1. Go to http://localhost:8000/docs
+2. Expand "Health" section
+3. Click on `GET /health`
+4. Click "Try it out"
+5. Click "Execute"
+6. See response: `{"status": "ok", ...}`
+
+**Repeat for all endpoints!**
+
+---
+
+#### Method B: Using Postman (Desktop App)
+
+**Installation:**
+1. Download Postman: https://www.postman.com/downloads/
+2. Install and open it
+
+**Import API from OpenAPI spec:**
+1. Click "File" → "Import"
+2. Click "Link" tab
+3. Paste: `http://localhost:8000/openapi.json`
+4. Click "Import"
+5. All endpoints now available in left sidebar
+
+**Test any endpoint:**
+1. Click endpoint in collection
+2. Click "Send"
+3. View response in right panel
+
+---
+
+#### Method C: Using cURL (Command Line)
+
+```bash
+# Test Health Check
+curl http://localhost:8000/api/v1/health
+
+# Test Parameter Extraction
+curl -X POST http://localhost:8000/api/v1/parameters/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_input": "12-week Spring 2025 season starting March 3rd with weekly replenishment",
+    "category_id": "womens_blouses"
+  }'
+
+# List Categories
+curl http://localhost:8000/api/v1/categories
+
+# List Stores
+curl http://localhost:8000/api/v1/stores
+
+# List Store Clusters
+curl http://localhost:8000/api/v1/stores/clusters
+```
+
+---
+
+### Complete Endpoint Testing Checklist
+
+**Copy and save as `test_all_endpoints.sh` then run: `bash test_all_endpoints.sh`**
+
+```bash
+#!/bin/bash
+set -e
+
+BASE_URL="http://localhost:8000/api/v1"
+PASSED=0
+FAILED=0
+
+test_endpoint() {
+  local method=$1
+  local endpoint=$2
+  local name=$3
+  local data=$4
+
+  echo "Testing: $name"
+  if [ "$method" = "GET" ]; then
+    response=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL$endpoint")
+  else
+    response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL$endpoint" \
+      -H "Content-Type: application/json" \
+      -d "$data")
+  fi
+
+  http_code=$(echo "$response" | tail -n1)
+  body=$(echo "$response" | head -n-1)
+
+  if [[ $http_code == 200 || $http_code == 201 ]]; then
+    echo "  ✅ PASS ($http_code)"
+    ((PASSED++))
+  else
+    echo "  ❌ FAIL ($http_code)"
+    echo "  Response: $body"
+    ((FAILED++))
+  fi
+  echo ""
+}
+
+echo "🧪 Testing All Fashion Forecast Backend Endpoints"
+echo "=================================================="
+echo ""
+
+# Health Check
+test_endpoint "GET" "/health" "Health Check" ""
+
+# Parameters
+test_endpoint "POST" "/parameters/extract" "Parameter Extraction" \
+  '{"user_input": "12-week Spring season", "category_id": "test"}'
+
+# Categories
+test_endpoint "GET" "/categories" "List Categories" ""
+
+# Stores
+test_endpoint "GET" "/stores" "List Stores" ""
+
+# Store Clusters
+test_endpoint "GET" "/stores/clusters" "List Store Clusters" ""
+
+# Forecasts
+test_endpoint "GET" "/forecasts" "List Forecasts" ""
+
+# Create Workflow
+test_endpoint "POST" "/workflows/forecast" "Create Forecast Workflow" \
+  '{
+    "category_id": "blouses",
+    "parameters": {
+      "forecast_horizon_weeks": 12,
+      "season_start_date": "2025-03-01",
+      "replenishment_strategy": "weekly",
+      "dc_holdback_percentage": 0.45,
+      "markdown_checkpoint_week": 6
+    }
+  }'
+
+# Allocations
+test_endpoint "GET" "/allocations" "List Allocations" ""
+
+# Markdowns
+test_endpoint "GET" "/markdowns" "List Markdowns" ""
+
+# Data endpoints
+test_endpoint "GET" "/data/categories" "Data Categories" ""
+
+echo "=================================================="
+echo "Results: $PASSED passed, $FAILED failed"
+echo "=================================================="
+
+if [ $FAILED -eq 0 ]; then
+  echo "✅ All endpoints working!"
+  exit 0
+else
+  echo "❌ Some endpoints failed"
+  exit 1
+fi
+```
+
+---
+
 ## 🚀 Development Workflow
 
-### 1. Make changes to code
+### 1. Make code changes
 
 Edit files in `app/` directory.
 
 ### 2. Run tests
 
 ```bash
-python -m pytest
+python -m pytest backend/tests/ -v
 ```
 
-### 3. Check code style (if using ruff)
+### 3. Check code style
 
 ```bash
 ruff check app/
 ruff format app/
 ```
 
-### 4. Test endpoints manually
-
-Use Swagger UI at http://localhost:8000/docs to test API endpoints interactively.
-
-### 5. Commit changes
+### 4. Commit changes
 
 ```bash
 git add .
