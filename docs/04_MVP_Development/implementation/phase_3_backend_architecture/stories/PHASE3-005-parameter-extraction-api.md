@@ -700,7 +700,7 @@ from backend.app.services.parameter_extractor import parameter_extractor
 from backend.app.schemas.parameters import ParameterExtractionRequest
 
 @pytest.mark.integration
-class TestAzureOpenAIIntegration:
+class TestOpenAIIntegration:
     """Integration tests for OpenAI parameter extraction"""
 
     def test_real_api_call_zara_style(self):
@@ -873,12 +873,12 @@ class TestAzureOpenAIIntegration:
 **Issue 4: OpenAI rate limit exceeded**
 - **Symptom:** 429 error on API calls
 - **Solution:** Implement exponential backoff retry (already in `openai_client.py`)
-- **Fix:** Upgrade Azure tier if frequent rate limits
+- **Fix:** Increase rate limit quota in OpenAI account if frequent rate limits
 
 **Issue 5: Extraction takes >5 seconds**
 - **Symptom:** Slow LLM response times
 - **Solution:** Reduce `max_tokens` from 500 to 300, use gpt-4o-mini (faster than gpt-4)
-- **Fix:** Check Azure region latency, consider switching regions
+- **Fix:** Check OpenAI API endpoint latency, consider implementing exponential backoff
 
 ---
 
@@ -903,7 +903,7 @@ class TestAzureOpenAIIntegration:
 - [ ] Verify confidence is "low"
 - [ ] Test empty input → 400 error
 - [ ] Test >500 character input → 400 error
-- [ ] Test with invalid Azure API key → 500 error
+- [ ] Test with invalid OpenAI API key → 500 error
 - [ ] Verify logs show extraction details
 
 ### Verification Commands
@@ -965,7 +965,7 @@ pytest --cov=backend/app/services --cov-report=term-missing
 **Files Created in Previous Stories (Referenced):**
 
 - `backend/app/schemas/parameters.py` (PHASE3-003 - Pydantic schemas)
-- `backend/app/core/config.py` (PHASE3-004 - Settings with Azure config)
+- `backend/app/core/config.py` (PHASE3-004 - Settings with OpenAI config)
 - `backend/.env` (PHASE3-001 - Environment variables)
 
 ---
@@ -999,7 +999,7 @@ _Dev Agent notes completion details here_
 - [ ] Confidence scoring works (high/medium/low based on extraction completeness)
 - [ ] Fallback defaults applied when extraction fails
 - [ ] Input validation rejects empty/long inputs
-- [ ] Error handling for Azure API failures (timeout, rate limit, auth)
+- [ ] Error handling for OpenAI API failures (timeout, rate limit, auth)
 - [ ] Unit tests cover Zara-style, standard, and ambiguous inputs
 - [ ] Integration test validates real OpenAI API call
 - [ ] Manual tests pass (Postman requests return expected parameters)

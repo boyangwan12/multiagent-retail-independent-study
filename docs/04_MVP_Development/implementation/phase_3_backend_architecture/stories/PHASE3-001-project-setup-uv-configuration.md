@@ -601,7 +601,7 @@ Successfully completed PHASE3-001 project setup:
 
 1. ✅ Created complete backend folder structure with proper Python package hierarchy
 2. ✅ Created `pyproject.toml` with all required dependencies (FastAPI, OpenAI Agents SDK, SQLAlchemy, Prophet, etc.)
-3. ✅ Created `.env.example` with Azure OpenAI and database configuration templates
+3. ✅ Created `.env.example` with OpenAI and database configuration templates
 4. ✅ Updated `.gitignore` to exclude database files (*.db, *.sqlite, *.sqlite3)
 5. ✅ Created minimal FastAPI application in `app/main.py` with:
    - Root endpoint (/)

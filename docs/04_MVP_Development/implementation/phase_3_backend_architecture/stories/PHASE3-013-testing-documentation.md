@@ -996,9 +996,8 @@ uv run pytest -m "not slow"     # Skip slow tests
 See `.env.example` for all available configuration options.
 
 **Required:**
-- `AZURE_OPENAI_ENDPOINT` - OpenAI endpoint URL
-- `AZURE_OPENAI_API_KEY` - OpenAI API key
-- `AZURE_OPENAI_DEPLOYMENT` - Deployment name (e.g., gpt-4o-mini)
+- `OPENAI_API_KEY` - OpenAI API key (starts with sk-)
+- `OPENAI_MODEL` - Model name (e.g., gpt-4o-mini)
 
 **Optional:**
 - `DATABASE_URL` - Database connection URL (default: SQLite)
@@ -1029,7 +1028,7 @@ backend/
 ├── app/
 │   ├── agents/          # Agent implementations (Orchestrator, Demand, Inventory, Pricing)
 │   ├── api/             # API route handlers
-│   ├── core/            # Configuration, logging, Azure client
+│   ├── core/            # Configuration, logging, OpenAI client
 │   ├── db/              # Database connection and session management
 │   ├── middleware/      # Custom middleware (validation, error handling)
 │   ├── ml/              # ML pipeline (Prophet, ARIMA, clustering)
@@ -1072,7 +1071,7 @@ uv run python -c "from app.core.azure_client import azure_client; print(azure_cl
 - [ ] Set `ENVIRONMENT=production` in `.env`
 - [ ] Set `DEBUG=false`
 - [ ] Configure production `CORS_ORIGINS`
-- [ ] Use strong `AZURE_OPENAI_API_KEY`
+- [ ] Use strong `OPENAI_API_KEY` (provided by OpenAI platform)
 - [ ] Enable Sentry error tracking (`SENTRY_DSN`)
 - [ ] Use PostgreSQL instead of SQLite (`DATABASE_URL`)
 - [ ] Set up reverse proxy (Nginx) with SSL
@@ -1133,7 +1132,7 @@ MIT License - see LICENSE file for details
 
 **Fixtures:**
 - Use `scope="function"` for database fixtures (fresh DB per test)
-- Use `scope="module"` for expensive setup (Azure client)
+- Use `scope="module"` for expensive setup (OpenAI client)
 - Use `scope="session"` for one-time setup (test configuration)
 
 **Test Naming:**

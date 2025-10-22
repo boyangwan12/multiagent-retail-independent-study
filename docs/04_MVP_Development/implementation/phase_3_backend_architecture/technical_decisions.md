@@ -15,7 +15,7 @@
 3. FastAPI for REST + WebSocket server
 4. SQLite with hybrid schema (normalized + JSON columns)
 5. Alembic for database migrations
-6. Azure OpenAI (gpt-4o-mini) for LLM reasoning
+6. OpenAI API (gpt-4o-mini) for LLM reasoning
 7. Pydantic for data validation and settings
 8. Monorepo structure (backend + frontend in same repo)
 9. Parameter extraction via LLM (natural language → structured JSON)

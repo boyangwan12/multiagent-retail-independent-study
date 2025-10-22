@@ -151,7 +151,7 @@ if __name__ == "__main__":
 - [x] Create `backend/app/core/__init__.py`
 - [x] Create `backend/app/core/config.py` with `Settings` class
 - [x] Use `pydantic_settings.BaseSettings` for environment variable loading
-- [x] Define all required environment variables (Azure OpenAI, database, server)
+- [x] Define all required environment variables (OpenAI, database, server)
 - [x] Add validation for required fields
 - [x] Set default values for optional fields
 - [x] Load `.env` file automatically
@@ -581,7 +581,7 @@ If middleware order is wrong, CORS errors or missing logs can occur.
 - **Type Safety:** Environment variables validated at startup (fail fast if misconfigured)
 - **Auto-Loading:** `.env` file loaded automatically
 - **Default Values:** Optional fields have sensible defaults
-- **Validation:** Custom validators ensure Azure endpoint is HTTPS, variance threshold is 0-1, etc.
+- **Validation:** Custom validators ensure OpenAI API key is valid, variance threshold is 0-1, etc.
 
 **Singleton Pattern:**
 ```python
@@ -613,7 +613,7 @@ print(settings.OPENAI_API_KEY)
 - `INFO`: General informational messages (e.g., request logs, startup events)
 - `WARNING`: Unexpected behavior that doesn't stop execution (e.g., missing optional config)
 - `ERROR`: Errors that need attention (e.g., database connection failures)
-- `CRITICAL`: System-level failures (e.g., Azure OpenAI API down)
+- `CRITICAL`: System-level failures (e.g., OpenAI API down)
 
 **Best Practices:**
 - Use `logger.info()` for high-level events (server start, request completion)
@@ -726,7 +726,7 @@ app = FastAPI(
 - [x] Logs written to `logs/app.log` file
 - [x] CORS headers present in response (check browser Network tab)
 - [x] Invalid endpoint returns JSON error (not HTML): `curl http://localhost:8000/invalid`
-- [x] Environment variables loaded: Check startup logs for Azure endpoint, database URL
+- [x] Environment variables loaded: Check startup logs for OpenAI API key, database URL
 - [x] Middleware runs in correct order (CORS, logging, error handling)
 
 ### Verification Commands
@@ -790,18 +790,18 @@ from backend.app.core.config import Settings
 
 def test_settings_loads_defaults():
     settings = Settings(
-        AZURE_OPENAI_ENDPOINT="https://test.openai.azure.com/",
-        AZURE_OPENAI_API_KEY="test-key"
+        OPENAI_API_KEY="sk-test-key",
+        OPENAI_MODEL="gpt-4o-mini"
     )
     assert settings.DEBUG == True
     assert settings.PORT == 8000
     assert settings.ENVIRONMENT == "development"
 
-def test_settings_validates_azure_endpoint():
-    with pytest.raises(ValueError, match="must start with https://"):
+def test_settings_validates_openai_api_key():
+    with pytest.raises(ValueError, match="must start with sk-"):
         Settings(
-            AZURE_OPENAI_ENDPOINT="http://test.openai.azure.com/",
-            AZURE_OPENAI_API_KEY="test-key"
+            OPENAI_API_KEY="invalid-key",
+            OPENAI_MODEL="gpt-4o-mini"
         )
 ```
 
