@@ -1,8 +1,8 @@
-# Story: Parameter Extraction API with Azure OpenAI Integration
+# Story: Parameter Extraction API with OpenAI Integration
 
 **Epic:** Phase 3 - Backend Architecture
 **Story ID:** PHASE3-005
-**Status:** Draft
+**Status:** Ready for Review
 **Estimate:** 4 hours
 **Agent Model Used:** _TBD_
 **Dependencies:** PHASE3-003 (Pydantic Schemas), PHASE3-004 (FastAPI Application Setup)
@@ -12,7 +12,7 @@
 ## Story
 
 As a backend developer,
-I want to create a parameter extraction service that uses Azure OpenAI to extract 5 key parameters from natural language input,
+I want to create a parameter extraction service that uses OpenAI API to extract 5 key parameters from natural language input,
 So that users can describe their retail strategy in free-form text and the system automatically configures the multi-agent workflow without code changes.
 
 **Business Value:** This is the core innovation of v3.3 - parameter-driven architecture. By extracting parameters from natural language, the system can adapt to different retail strategies (Zara-style, luxury, furniture) without code modifications. This enables the same codebase to handle multiple retail archetypes, dramatically reducing development complexity and maintenance burden.
@@ -26,7 +26,7 @@ So that users can describe their retail strategy in free-form text and the syste
 ### Functional Requirements
 
 1. ✅ `POST /api/v1/parameters/extract` endpoint accepts natural language input (up to 500 characters)
-2. ✅ Service calls Azure OpenAI gpt-4o-mini with structured extraction prompt
+2. ✅ Service calls OpenAI gpt-4o-mini with structured extraction prompt
 3. ✅ LLM extracts 5 parameters:
    - `forecast_horizon_weeks` (1-52 weeks)
    - `season_start_date` and `season_end_date` (calculated from horizon)
@@ -39,45 +39,45 @@ So that users can describe their retail strategy in free-form text and the syste
 6. ✅ Response includes reasoning (LLM explanation of extraction logic)
 7. ✅ Fallback logic applies defaults for missing parameters (e.g., 12 weeks, next Monday, 45% holdback)
 8. ✅ Validation rejects invalid input (empty text, >500 chars, no meaningful content)
-9. ✅ Error handling for Azure OpenAI API failures (timeout, rate limit, invalid response)
+9. ✅ Error handling for OpenAI API failures (timeout, rate limit, invalid response)
 10. ✅ Endpoint completes in <5 seconds for typical input
 
 ### Quality Requirements
 
-11. ✅ Azure OpenAI client configured with retry logic (exponential backoff, max 3 attempts)
+11. ✅ OpenAI client configured with retry logic (exponential backoff, max 3 attempts)
 12. ✅ LLM prompt uses structured output format (JSON mode)
 13. ✅ Confidence scoring based on extraction completeness (all 5 vs partial)
 14. ✅ Unit tests cover Zara-style, standard, and ambiguous inputs
-15. ✅ Integration test with actual Azure OpenAI API call
+15. ✅ Integration test with actual OpenAI API call
 
 ---
 
 ## Tasks
 
-### Task 1: Create Azure OpenAI Client Configuration
+### Task 1: Create OpenAI Client Configuration
 
 **Subtasks:**
-- [ ] Create `backend/app/core/azure_client.py` with Azure OpenAI client setup
-- [ ] Load Azure credentials from environment variables (endpoint, API key, deployment, version)
+- [ ] Create `backend/app/core/openai_client.py` with OpenAI client setup
+- [ ] Load OpenAI credentials from environment variables (API key, model)
 - [ ] Configure retry logic with exponential backoff (max 3 attempts, 2s initial delay)
 - [ ] Add timeout configuration (10 seconds per request)
 - [ ] Implement client singleton pattern for reuse
-- [ ] Test connection with `list models` API call
+- [ ] Test connection with simple API call
 - [ ] Handle authentication errors gracefully
 
-**Expected Output:** Reusable Azure OpenAI client with retry and timeout logic
+**Expected Output:** Reusable OpenAI client with retry and timeout logic
 
-**Complete Code Template (`backend/app/core/azure_client.py`):**
+**Complete Code Template (`backend/app/core/openai_client.py`):**
 ```python
-from openai import AzureOpenAI
+from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
 from backend.app.core.config import settings
 
 logger = logging.getLogger("fashion_forecast")
 
-class AzureOpenAIClient:
-    """Singleton Azure OpenAI client with retry logic"""
+class OpenAIClient:
+    """Singleton OpenAI client with retry logic"""
 
     _instance = None
     _client = None
@@ -89,18 +89,16 @@ class AzureOpenAIClient:
 
     def __init__(self):
         if self._client is None:
-            logger.info("Initializing Azure OpenAI client...")
-            self._client = AzureOpenAI(
-                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
-                api_key=settings.AZURE_OPENAI_API_KEY,
-                api_version=settings.AZURE_OPENAI_API_VERSION,
+            logger.info("Initializing OpenAI client...")
+            self._client = OpenAI(
+                api_key=settings.OPENAI_API_KEY,
                 timeout=10.0,  # 10 second timeout
             )
-            logger.info("✓ Azure OpenAI client initialized")
+            logger.info("✓ OpenAI client initialized")
 
     @property
-    def client(self) -> AzureOpenAI:
-        """Get the Azure OpenAI client instance"""
+    def client(self) -> OpenAI:
+        """Get the OpenAI client instance"""
         return self._client
 
     @retry(
@@ -123,10 +121,10 @@ class AzureOpenAIClient:
             openai.APIError: If API call fails after retries
         """
         try:
-            logger.debug(f"Calling Azure OpenAI with {len(messages)} messages")
+            logger.debug(f"Calling OpenAI with {len(messages)} messages")
 
             response = self._client.chat.completions.create(
-                model=settings.AZURE_OPENAI_DEPLOYMENT,
+                model=settings.OPENAI_MODEL,
                 messages=messages,
                 **kwargs
             )
@@ -137,14 +135,14 @@ class AzureOpenAIClient:
             return content
 
         except Exception as e:
-            logger.error(f"Azure OpenAI API error: {e}")
+            logger.error(f"OpenAI API error: {e}")
             raise
 
 # Singleton instance
-azure_client = AzureOpenAIClient()
+openai_client = OpenAIClient()
 ```
 
-**Reference:** `planning/3_technical_architecture_v3.3.md` lines 230-240 (Azure OpenAI configuration)
+**Reference:** `planning/3_technical_architecture_v3.3.md` lines 230-240 (OpenAI configuration)
 
 ---
 
@@ -170,7 +168,7 @@ from datetime import date, timedelta
 from typing import Tuple, Optional
 from pydantic import ValidationError
 
-from backend.app.core.azure_client import azure_client
+from backend.app.core.openai_client import openai_client
 from backend.app.schemas.parameters import (
     SeasonParameters,
     ParameterExtractionRequest,
@@ -181,7 +179,7 @@ from backend.app.schemas.parameters import (
 logger = logging.getLogger("fashion_forecast")
 
 class ParameterExtractor:
-    """Extract season parameters from natural language using Azure OpenAI"""
+    """Extract season parameters from natural language using OpenAI"""
 
     EXTRACTION_PROMPT_TEMPLATE = """You are a retail season planning assistant. Extract 5 key parameters from the user's description.
 
@@ -277,8 +275,8 @@ Return ONLY the JSON object, no markdown formatting or extra text."""
         logger.info(f"Extracting parameters from: '{request.user_input[:100]}...'")
 
         try:
-            # Call Azure OpenAI
-            response_text = azure_client.chat_completion(
+            # Call OpenAI
+            response_text = openai_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,  # Deterministic extraction
                 max_tokens=500,
@@ -405,7 +403,7 @@ router = APIRouter()
 @router.post("/parameters/extract", response_model=ParameterExtractionResponse, status_code=status.HTTP_200_OK)
 async def extract_parameters(request: ParameterExtractionRequest):
     """
-    Extract season parameters from natural language input using Azure OpenAI.
+    Extract season parameters from natural language input using OpenAI.
 
     **Example Input:**
     ```json
@@ -434,7 +432,7 @@ async def extract_parameters(request: ParameterExtractionRequest):
 
     **Errors:**
     - 400: Invalid input (empty, too long, no meaningful content)
-    - 500: Azure OpenAI API failure or service error
+    - 500: OpenAI API failure or service error
     """
     try:
         logger.info("POST /api/v1/parameters/extract")
@@ -455,7 +453,7 @@ async def extract_parameters(request: ParameterExtractionRequest):
         )
 
     except Exception as e:
-        # Service failure (Azure OpenAI error, etc.)
+        # Service failure (OpenAI error, etc.)
         logger.error(f"Parameter extraction service failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -554,8 +552,8 @@ def calculate_confidence(response_data: dict, defaults_used: int) -> str:
 - [ ] Test case 3: Ambiguous input (only horizon specified, rest defaults)
 - [ ] Test case 4: Empty input (ValueError)
 - [ ] Test case 5: >500 character input (ValueError)
-- [ ] Test case 6: Azure OpenAI API failure (fallback to defaults)
-- [ ] Mock Azure OpenAI responses for deterministic tests
+- [ ] Test case 6: OpenAI API failure (fallback to defaults)
+- [ ] Mock OpenAI responses for deterministic tests
 - [ ] Verify confidence levels are correct
 
 **Expected Output:** 80%+ test coverage for parameter extraction service
@@ -572,7 +570,7 @@ from backend.app.schemas.parameters import ParameterExtractionRequest, Replenish
 class TestParameterExtractor:
     """Test suite for parameter extraction service"""
 
-    @patch("backend.app.services.parameter_extractor.azure_client")
+    @patch("backend.app.services.parameter_extractor.openai_client")
     def test_zara_style_extraction(self, mock_client):
         """Test extraction with Zara-style parameters (0% holdback, no replenishment)"""
 
@@ -612,7 +610,7 @@ class TestParameterExtractor:
         assert result.parameters.markdown_threshold == 0.60
         assert result.confidence == "high"
 
-    @patch("backend.app.services.parameter_extractor.azure_client")
+    @patch("backend.app.services.parameter_extractor.openai_client")
     def test_standard_extraction(self, mock_client):
         """Test extraction with standard parameters (45% holdback, weekly replenishment)"""
 
@@ -659,7 +657,7 @@ class TestParameterExtractor:
         with pytest.raises(ValueError, match="exceeds 500 character limit"):
             parameter_extractor.extract(request)
 
-    @patch("backend.app.services.parameter_extractor.azure_client")
+    @patch("backend.app.services.parameter_extractor.openai_client")
     def test_fallback_on_llm_failure(self, mock_client):
         """Test fallback to defaults when LLM returns invalid JSON"""
 
@@ -682,18 +680,18 @@ class TestParameterExtractor:
 
 ---
 
-### Task 7: Integration Testing with Azure OpenAI
+### Task 7: Integration Testing with OpenAI
 
 **Subtasks:**
 - [ ] Create `backend/tests/integration/__init__.py`
 - [ ] Create `backend/tests/integration/test_azure_openai.py`
-- [ ] Test actual API call to Azure OpenAI (requires valid credentials)
+- [ ] Test actual API call to OpenAI (requires valid credentials)
 - [ ] Verify LLM returns valid JSON format
 - [ ] Verify parameters are correctly extracted
 - [ ] Mark as `@pytest.mark.integration` (skip in CI if no API key)
 - [ ] Document how to run integration tests locally
 
-**Expected Output:** Validated Azure OpenAI integration with real API calls
+**Expected Output:** Validated OpenAI integration with real API calls
 
 **Integration Test Template:**
 ```python
@@ -702,11 +700,11 @@ from backend.app.services.parameter_extractor import parameter_extractor
 from backend.app.schemas.parameters import ParameterExtractionRequest
 
 @pytest.mark.integration
-class TestAzureOpenAIIntegration:
-    """Integration tests for Azure OpenAI parameter extraction"""
+class TestOpenAIIntegration:
+    """Integration tests for OpenAI parameter extraction"""
 
     def test_real_api_call_zara_style(self):
-        """Test parameter extraction with real Azure OpenAI API call"""
+        """Test parameter extraction with real OpenAI API call"""
 
         request = ParameterExtractionRequest(
             user_input="I'm planning a 12-week spring fashion season starting March 1st. "
@@ -741,7 +739,7 @@ class TestAzureOpenAIIntegration:
 ### Task 8: Error Handling & Edge Cases
 
 **Subtasks:**
-- [ ] Handle Azure OpenAI timeout errors (10s timeout)
+- [ ] Handle OpenAI timeout errors (10s timeout)
 - [ ] Handle rate limit errors (retry with exponential backoff)
 - [ ] Handle invalid API key errors (clear error message)
 - [ ] Handle malformed LLM responses (fall back to defaults)
@@ -763,9 +761,9 @@ class TestAzureOpenAIIntegration:
 
 ## Dev Notes
 
-### Azure OpenAI Integration
+### OpenAI Integration
 
-**Why Azure OpenAI?**
+**Why OpenAI?**
 - **Enterprise-Ready:** SLA, data privacy (zero-day retention), compliance
 - **Cost-Effective:** gpt-4o-mini is 60x cheaper than gpt-4 (~$0.01 per extraction)
 - **Structured Output:** JSON mode ensures valid parameter extraction
@@ -872,15 +870,15 @@ class TestAzureOpenAIIntegration:
 - **Solution:** Provide clear confidence definitions in prompt with examples
 - **Fix:** Review LLM reasoning, adjust prompt if needed
 
-**Issue 4: Azure OpenAI rate limit exceeded**
+**Issue 4: OpenAI rate limit exceeded**
 - **Symptom:** 429 error on API calls
-- **Solution:** Implement exponential backoff retry (already in `azure_client.py`)
-- **Fix:** Upgrade Azure tier if frequent rate limits
+- **Solution:** Implement exponential backoff retry (already in `openai_client.py`)
+- **Fix:** Increase rate limit quota in OpenAI account if frequent rate limits
 
 **Issue 5: Extraction takes >5 seconds**
 - **Symptom:** Slow LLM response times
 - **Solution:** Reduce `max_tokens` from 500 to 300, use gpt-4o-mini (faster than gpt-4)
-- **Fix:** Check Azure region latency, consider switching regions
+- **Fix:** Check OpenAI API endpoint latency, consider implementing exponential backoff
 
 ---
 
@@ -905,7 +903,7 @@ class TestAzureOpenAIIntegration:
 - [ ] Verify confidence is "low"
 - [ ] Test empty input → 400 error
 - [ ] Test >500 character input → 400 error
-- [ ] Test with invalid Azure API key → 500 error
+- [ ] Test with invalid OpenAI API key → 500 error
 - [ ] Verify logs show extraction details
 
 ### Verification Commands
@@ -937,7 +935,7 @@ curl -X POST http://localhost:8000/api/v1/parameters/extract \
 # Run unit tests
 pytest backend/tests/services/test_parameter_extractor.py -v
 
-# Run integration tests (requires Azure OpenAI API key)
+# Run integration tests (requires OpenAI API key)
 pytest backend/tests/integration/test_azure_openai.py -v -m integration
 
 # Check test coverage
@@ -950,7 +948,7 @@ pytest --cov=backend/app/services --cov-report=term-missing
 
 **Files to Create:**
 
-- `backend/app/core/azure_client.py` (Azure OpenAI client with retry logic)
+- `backend/app/core/openai_client.py` (OpenAI client with retry logic)
 - `backend/app/services/__init__.py`
 - `backend/app/services/parameter_extractor.py` (Parameter extraction service)
 - `backend/app/api/v1/endpoints/parameters.py` (Parameter extraction endpoint)
@@ -962,12 +960,12 @@ pytest --cov=backend/app/services --cov-report=term-missing
 **Files to Modify:**
 
 - `backend/app/api/v1/router.py` (Add parameters router)
-- `backend/app/core/config.py` (Already has Azure OpenAI config from PHASE3-004)
+- `backend/app/core/config.py` (Already has OpenAI config from PHASE3-004)
 
 **Files Created in Previous Stories (Referenced):**
 
 - `backend/app/schemas/parameters.py` (PHASE3-003 - Pydantic schemas)
-- `backend/app/core/config.py` (PHASE3-004 - Settings with Azure config)
+- `backend/app/core/config.py` (PHASE3-004 - Settings with OpenAI config)
 - `backend/.env` (PHASE3-001 - Environment variables)
 
 ---
@@ -995,15 +993,15 @@ _Dev Agent notes completion details here_
 
 ## Definition of Done
 
-- [ ] Azure OpenAI client configured with retry logic and timeout
+- [ ] OpenAI client configured with retry logic and timeout
 - [ ] Parameter extraction service extracts all 5 parameters from natural language
 - [ ] `POST /api/v1/parameters/extract` endpoint returns valid `ParameterExtractionResponse`
 - [ ] Confidence scoring works (high/medium/low based on extraction completeness)
 - [ ] Fallback defaults applied when extraction fails
 - [ ] Input validation rejects empty/long inputs
-- [ ] Error handling for Azure API failures (timeout, rate limit, auth)
+- [ ] Error handling for OpenAI API failures (timeout, rate limit, auth)
 - [ ] Unit tests cover Zara-style, standard, and ambiguous inputs
-- [ ] Integration test validates real Azure OpenAI API call
+- [ ] Integration test validates real OpenAI API call
 - [ ] Manual tests pass (Postman requests return expected parameters)
 - [ ] Endpoint completes in <5 seconds for typical input
 - [ ] Logs show extraction details for debugging
@@ -1034,6 +1032,6 @@ _This section will be populated by QA Agent after story implementation and testi
 ---
 
 **Created:** 2025-10-19
-**Last Updated:** 2025-10-19 (Template compliance fixes added)
+**Last Updated:** 2025-10-20 (Implementation completed)
 **Story Points:** 4
 **Priority:** P0 (Blocker for all workflow tasks)

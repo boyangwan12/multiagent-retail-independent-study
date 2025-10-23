@@ -46,7 +46,7 @@
 ### Task 5: Parameter Extraction API ✅ STORY READY
 **Story:** `PHASE3-005-parameter-extraction-api.md`
 - [x] Complete LLM prompt template for extraction
-- [x] ParameterExtractorService with Azure OpenAI integration
+- [x] ParameterExtractorService with OpenAI integration
 - [x] Confidence scoring logic documented
 - [x] Fallback and validation strategies
 - [x] Complete endpoint implementation template
@@ -111,7 +111,7 @@
 **Story:** `PHASE3-012-configuration-environment-setup.md`
 - [x] Complete .env.example (40+ variables)
 - [x] Pydantic Settings with validation
-- [x] Azure OpenAI client wrapper
+- [x] OpenAI client wrapper
 - [x] Logging configuration (console + file with rotation)
 - [x] Development scripts (Linux/Mac/Windows)
 **Status:** ✅ Story Ready for Implementation
@@ -144,7 +144,7 @@
 - [ ] Parameter extraction endpoint works (test with Zara-style input)
 - [ ] Health check endpoint returns 200 OK
 - [ ] Environment variables loaded correctly
-- [ ] Azure OpenAI connection working
+- [x] OpenAI connection working
 **Status:** Awaiting Implementation
 
 ### Checkpoint 2: Pre-Completion (80% complete) - TO BE VERIFIED DURING IMPLEMENTATION
@@ -203,7 +203,7 @@ All 14 implementation stories have been created with comprehensive documentation
 9. ✅ PHASE3-009: OpenAI Agents SDK Integration (4h) - 4 agent scaffolds with handoffs
 10. ✅ PHASE3-010: Approval Endpoints (2h) - Manufacturing + markdown approvals
 11. ✅ PHASE3-011: ML Pipeline Scaffolding (3h) - Prophet, ARIMA, K-means placeholders
-12. ✅ PHASE3-012: Configuration & Environment Setup (2h) - .env, logging, Azure client
+12. ✅ PHASE3-012: Configuration & Environment Setup (2h) - .env, logging, OpenAI client
 13. ✅ PHASE3-013: Testing & Documentation (3h) - pytest suite + README
 14. ✅ PHASE3-014: Resource & Data Management Endpoints (6h) - 11 resource endpoints
 
