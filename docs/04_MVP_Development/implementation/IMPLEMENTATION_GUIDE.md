@@ -1,52 +1,67 @@
 # Implementation Guide
 
 **Project:** Multi-Agent Retail Demand Forecasting System (v3.3 Parameter-Driven)
-**Status:** Ready to Start - Phase 1 (Data Generation)
-**Last Updated:** 2025-10-17
+**Status:** Phase 4 - Frontend/Backend Integration (PRIORITY)
+**Last Updated:** 2025-10-29
+**Branch:** phase3-backend-henry-yina
 **BMad Agent:** Use as specified per phase
+
+---
+
+## ⚠️ CRITICAL: Professor Feedback & New Direction
+
+**Professor's Feedback (2025-10-29):**
+1. ❌ **Repository too unstructured** - cleanup needed
+2. ❌ **Frontend and backend not connected** - integrate them first
+3. ✅ **Complete integration BEFORE building agents**
+
+**Original Plan Issue:** We were planning to build all agents (Orchestrator, Demand, Inventory, Pricing) before connecting frontend to backend. This was backwards!
+
+**NEW PLAN:** Integration-first approach
+- ✅ Phases 1-3: COMPLETE (Data, Frontend mockups, Backend scaffolding)
+- 🎯 **Phase 4: Frontend/Backend Integration** ← CURRENT PRIORITY
+- ⏳ Phases 5-8: Agent implementation (AFTER integration works)
 
 ---
 
 ## Overview
 
-This guide provides comprehensive instructions for executing the **4-phase implementation process** for the parameter-driven multi-agent retail forecasting system. All v3.3 planning documents are complete - we are now **ready to code**.
+This guide provides comprehensive instructions for executing the **REVISED 4-phase implementation process** for the parameter-driven multi-agent retail forecasting system.
 
-**Purpose:** This is the single source of truth for all implementation activities. It covers workflows, best practices, troubleshooting, and daily routines for successful phase execution.
+### Revised Implementation Philosophy
 
-### Implementation Philosophy
+- **Integration-First: Data → Frontend → Backend → INTEGRATION → Agents**
+  - Rationale: Validate full stack works before adding complex AI logic
+  - Frontend/Backend integration de-risks the project early
+  - Agents can be built incrementally once integration is proven
 
-- **Strategic order: Data → Frontend → Backend Architecture → Individual Agents**
-  - Rationale: Requirements may change, but architecture remains stable
-  - Frontend mockup validates UX before agent logic implementation
-  - Architecture provides scaffolding for all agents
-
+- **Repository Cleanup** - Remove garbage, organize structure
 - **One phase at a time** - Complete before moving to next
 - **Document as you build** - Update docs during implementation, not after
 - **All requirements from planning docs** - Single source of truth in `docs/04_MVP_Development/planning/`
-- **Learn and adapt** - Retrospectives inform next phase
 
 ---
 
 ## Phase Status Tracker
 
-| Phase | Status | Duration | Agent | Start Date | End Date | Docs |
-|-------|--------|----------|-------|------------|----------|------|
-| **Phase 1: Data Generation** | 🟡 Ready to Start | 1-2 days | `*agent dev` | TBD | TBD | 0/4 |
-| **Phase 2: Frontend Mockup** | ⏳ Not Started | 3-4 days | `*agent ux-expert` | TBD | TBD | 0/4 |
-| **Phase 3: Backend Architecture** | ⏳ Not Started | 5-7 days | `*agent architect` | TBD | TBD | 0/4 |
-| **Phase 4: Orchestrator Agent** | ⏳ Not Started | 2-3 days | `*agent dev` | TBD | TBD | 0/4 |
-| **Phase 5: Demand Agent** | ⏳ Not Started | 5-7 days | `*agent dev` | TBD | TBD | 0/4 |
-| **Phase 6: Inventory Agent** | ⏳ Not Started | 3-4 days | `*agent dev` | TBD | TBD | 0/4 |
-| **Phase 7: Pricing Agent** | ⏳ Not Started | 2-3 days | `*agent dev` | TBD | TBD | 0/4 |
-| **Phase 8: Integration & Testing** | ⏳ Not Started | 5-7 days | `*agent qa` | TBD | TBD | 0/4 |
+| Phase | Status | Duration | Agent | Start Date | End Date | Progress |
+|-------|--------|----------|-------|------------|----------|----------|
+| **Phase 1: Data Generation** | ✅ Complete | <1 day | `*agent dev` | 2025-10-17 | 2025-10-17 | 100% |
+| **Phase 2: Frontend Mockup** | ✅ Complete | 3-4 days | `*agent ux-expert` | TBD | 2025-10-19 | 100% |
+| **Phase 3: Backend Architecture** | ✅ Complete | 5-7 days | `*agent architect` | TBD | 2025-10-19 | 100% (14/14 stories) |
+| **Phase 4: Frontend/Backend Integration** | 🟡 CURRENT PRIORITY | 5-7 days | `*agent dev` | TBD | TBD | 0% |
+| **Phase 5: Demand Agent** | ⏳ Not Started | 5-7 days | `*agent dev` | TBD | TBD | 0% |
+| **Phase 6: Inventory Agent** | ⏳ Not Started | 3-4 days | `*agent dev` | TBD | TBD | 0% |
+| **Phase 7: Pricing Agent** | ⏳ Not Started | 2-3 days | `*agent dev` | TBD | TBD | 0% |
+| **Phase 8: End-to-End Testing & Cleanup** | ⏳ Not Started | 5-7 days | `*agent qa` | TBD | TBD | 0% |
 
 **Legend:**
 - ✅ Complete
-- 🟡 Ready to Start / In Progress
+- 🟡 Current Priority / In Progress
 - ⏳ Not Started
 - 🔴 Blocked
 
-**Total Estimated Duration:** 26-39 days (~4-6 weeks)
+**Total Estimated Duration:** 24-37 days (~3.5-5 weeks remaining)
 
 ---
 
@@ -61,549 +76,434 @@ This guide provides comprehensive instructions for executing the **4-phase imple
 | **Process Workflow v3.3** | `planning/2_process_workflow_v3.3.md` | 5-phase operational workflow with examples |
 | **Technical Architecture v3.3** | `planning/3_technical_architecture_v3.3.md` | Tech stack, API structure, data models |
 | **PRD v3.3** | `planning/4_prd_v3.3.md` | Product requirements and user stories |
-| **Frontend Spec v3.3** | `planning/5_front-end-spec_v3.3.md` | Complete UI/UX design, all 7 sections |
+| **Frontend Spec v3.3** | `planning/5_front-end-spec_v3.3.md` | Complete UI/UX design, all 8 sections |
 | **Data Specification v3.2** | `planning/6_data_specification_v3.2.md` | CSV formats, validation rules |
 
 **Critical Rule:** If implementation requirements are unclear, reference these planning documents first. Do NOT make assumptions.
 
 ---
 
-## Phase Navigation
+## Completed Phases (1-3)
 
-### Phase 1: Data Generation (CURRENT - READY!)
+### ✅ Phase 1: Data Generation (COMPLETE)
 
-**Goal:** Generate realistic mock data for 3 scenarios (normal, high demand, low demand)
+**Status:** COMPLETE - 2025-10-17
+**Agent:** `*agent dev`
+**Duration:** <1 day (single session)
+
+**Deliverables:**
+- ✅ historical_sales_2022_2024.csv (164,400 rows)
+- ✅ store_attributes.csv (50 stores)
+- ✅ 36 weekly actuals CSVs (3 scenarios × 12 weeks)
+- ✅ Validation suite (6 types - all passing)
+- ✅ README.md documentation
+
+**Success Metrics:**
+- MAPE: 12-18% achievable ✅
+- Week 5 Variance: 31.8%, 37.4%, 24.2% (Target: >20%) ✅
+- K-means Silhouette: 0.521 (Target: >0.4) ✅
+
+**Location:** `data/mock/`
+
+**Key Learnings:**
+- Comprehensive planning docs eliminated ambiguity
+- Validation-driven development caught issues early
+- Fixed seed (42) enabled reproducibility
+- Cross-platform considerations (Windows encoding)
+
+**Retrospective:** See `phase_1_data_generation/retrospective.md`
+
+---
+
+### ✅ Phase 2: Frontend Mockup (COMPLETE)
+
+**Status:** COMPLETE - 2025-10-19
+**Agent:** `*agent ux-expert`
+**Duration:** 3-4 days
+
+**Deliverables:**
+- ✅ React 18 + TypeScript + Vite project setup
+- ✅ Shadcn/ui + Tailwind CSS (Linear Dark Theme)
+- ✅ All 8 sections implemented:
+  - Section 0: Parameter Gathering with mock LLM extraction
+  - Section 1: Fixed Header with Agent Cards
+  - Section 2: Forecast Summary
+  - Section 3: Cluster Cards (3 clusters, expandable tables)
+  - Section 4: Weekly Performance Chart
+  - Section 5: Replenishment Queue
+  - Section 6: Markdown Decision
+  - Section 7: Performance Metrics
+- ✅ Mock WebSocket simulation (setTimeout-based)
+- ✅ JSON fixtures from Phase 1 CSV data
+- ✅ All interactions functional (buttons, sliders, tables)
+
+**Location:** `frontend/src/`
+
+**Components Inventory:**
+- AgentWorkflow/ (AgentCard, FixedHeader)
+- ClusterCards/ (ClusterCard, ClusterTable, ConfidenceBar)
+- ForecastSummary/ (MetricCard)
+- MarkdownDecision/ (ConfidenceIndicator, ImpactPreview)
+- ParameterGathering/ (AgentReasoningPreview, ConfirmedBanner, ParameterCard)
+- Layout/ (AppLayout, Sidebar, Breadcrumb)
+- And 20+ more shared components
+
+**Current State:**
+- ⚠️ **Frontend uses MOCK data only**
+- ⚠️ **NOT connected to backend API**
+- ⚠️ **WebSocket is simulated with setTimeout**
+
+**Retrospective:** See `phase_2_frontend/retrospective.md`
+
+---
+
+### ✅ Phase 3: Backend Architecture (COMPLETE)
+
+**Status:** COMPLETE - 2025-10-19 (All 14 stories done)
+**Agent:** `*agent architect` + `*agent dev`
+**Duration:** 5-7 days
+
+**Deliverables:**
+- ✅ FastAPI project with UV package manager
+- ✅ SQLite database with hybrid schema (normalized + JSON columns)
+- ✅ Pydantic models (SeasonParameters, Forecast, Allocation, etc.)
+- ✅ All 18 REST API endpoints implemented:
+  - ✅ Parameter Extraction: POST /api/parameters/extract
+  - ✅ Workflow: POST /api/workflows/forecast, POST /api/workflows/reforecast, GET /api/workflows/{id}
+  - ✅ Resource: GET /api/forecasts, GET /api/forecasts/{id}, GET /api/allocations/{id}, GET /api/markdowns/{id}, GET /api/variance/{id}/week/{week}
+  - ✅ Data Management: POST /api/data/upload-historical-sales, POST /api/data/upload-weekly-sales, GET /api/categories, GET /api/stores, GET /api/stores/clusters
+  - ✅ Approvals: POST /api/approvals/manufacturing, POST /api/approvals/markdown
+  - ✅ Agent Debug: POST /api/agents/demand/forecast, POST /api/agents/inventory/allocate, POST /api/agents/pricing/analyze
+- ✅ WebSocket server (WS /api/workflows/{id}/stream) with 6 message types
+- ✅ OpenAI Agents SDK integration (agent scaffolding)
+- ✅ Parameter extraction service with OpenAI GPT-4o-mini
+- ✅ ML pipeline scaffolding (Prophet, ARIMA, K-means placeholders)
+
+**Location:** `backend/app/`
+
+**Current State:**
+- ⚠️ **All agents return MOCK/PLACEHOLDER data**
+- ⚠️ **No actual Prophet/ARIMA forecasting implemented**
+- ⚠️ **No K-means clustering implemented**
+- ⚠️ **Frontend NOT calling these endpoints yet**
+
+**Technical Stack:**
+- Python 3.11+ with UV package manager
+- FastAPI 0.115+
+- OpenAI Agents SDK 0.3.3+
+- SQLAlchemy + Alembic
+- Pydantic 2.0+
+- OpenAI API (migrated from Azure OpenAI)
+
+**Retrospective:** See `phase_3_backend_architecture/retrospective.md` (if exists)
+
+---
+
+## 🎯 CURRENT PRIORITY: Phase 4 - Frontend/Backend Integration
+
+**Goal:** Connect React frontend to FastAPI backend with REAL data flow (NO AI agents yet)
 
 **Agent:** `*agent dev`
 
-**Requirements Source:**
-- `planning/6_data_specification_v3.2.md` - Complete CSV specifications
-- `planning/2_process_workflow_v3.3.md` - Scenario definitions
+**Why This Phase Is Critical:**
+1. **Professor's requirement** - Frontend and backend must hook up
+2. **De-risk early** - Validate full stack works before complex AI logic
+3. **Repository cleanup** - Remove unused files, organize structure
+4. **End-to-end validation** - User can upload data, see responses, test WebSocket
+5. **Baseline for agents** - Once integration works, agents can be swapped in incrementally
 
-**Key Deliverables:**
-1. **Historical Sales Data** (`historical_sales_2022_2024.csv`)
-   - 54,750 rows (3 years × 365 days × 50 stores)
-   - 3 categories: Women's Dresses, Men's Shirts, Accessories
-   - Seasonality patterns, holiday events, weekly patterns
-   - Clean data (±10-15% noise) for model training
+### Phase 4 Deliverables
 
-2. **Store Attributes** (`store_attributes.csv`)
-   - 50 stores with 7 K-means features
-   - Expected 3 clusters: Fashion_Forward, Mainstream, Value_Conscious
-   - Correlation formula for sales multiplier
+**1. Repository Cleanup & Organization**
+- [ ] Remove duplicate/unused files (identify "garbage")
+- [ ] Consolidate documentation
+- [ ] Clean up node_modules, Python cache files
+- [ ] Update .gitignore to exclude build artifacts
+- [ ] Organize folder structure (clear separation: backend/, frontend/, docs/, data/)
+- [ ] Document project structure in README.md
 
-3. **Weekly Actuals** (12 CSV files, `actuals_week_1.csv` to `actuals_week_12.csv`)
-   - 3 scenarios: normal_season, high_demand, low_demand
-   - Messier data (±20-25% noise) for testing
-   - Week 5 variance >20% in all scenarios (to trigger re-forecast)
+**2. Environment Configuration**
+- [ ] Backend `.env` with correct OpenAI API keys
+- [ ] Frontend `.env` with backend API URL (e.g., VITE_API_URL=http://localhost:8000)
+- [ ] CORS configuration in FastAPI (allow frontend origin)
+- [ ] WebSocket connection settings
 
-4. **Validation Suite**
-   - 6 validation types: Completeness, Quality, Format, Statistical, Pattern, Weekly Actuals
-   - MAPE target: 12-18% across all scenarios
+**3. Frontend Integration**
+- [ ] Replace mock API calls with actual fetch/axios calls to backend
+- [ ] Integrate parameter extraction (Section 0)
+  - Call POST /api/parameters/extract with user input
+  - Display extracted SeasonParameters in confirmation modal
+- [ ] Connect workflow initiation (Section 1)
+  - Call POST /api/workflows/forecast after parameter confirmation
+  - Receive workflow_id and WebSocket URL
+- [ ] Implement real WebSocket connection
+  - Replace setTimeout mock with actual WebSocket client
+  - Listen for 6 message types (agent_started, agent_progress, agent_completed, etc.)
+  - Update agent cards in real-time
+- [ ] Connect data upload workflows
+  - Section: Upload historical sales CSV → POST /api/data/upload-historical-sales
+  - Section: Upload weekly actuals → POST /api/data/upload-weekly-sales
+- [ ] Display backend responses in all 8 sections
+  - Forecast Summary: GET /api/forecasts/{id}
+  - Cluster Cards: GET /api/stores/clusters
+  - Weekly Chart: GET /api/variance/{id}/week/{week}
+  - Replenishment: GET /api/allocations/{id}
+  - Markdown: GET /api/markdowns/{id}
+  - Metrics: Aggregate from multiple endpoints
 
-**Documents:**
-- [Implementation Plan](./phase_1_data_generation/implementation_plan.md) ⏳ Create before starting
-- [Technical Decisions](./phase_1_data_generation/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_1_data_generation/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_1_data_generation/retrospective.md) ⏳ Complete after phase
+**4. Backend Integration Points**
+- [ ] Ensure all endpoints return correct JSON structure (match TypeScript types)
+- [ ] Add error handling and validation
+- [ ] Implement proper HTTP status codes (200, 400, 404, 500)
+- [ ] Test CORS with frontend origin
+- [ ] Verify WebSocket message broadcasting
+- [ ] Seed database with Phase 1 CSV data for testing
 
-**Quick Start:**
+**5. End-to-End Testing (No AI Yet)**
+- [ ] Test parameter extraction flow
+  - User enters: "12-week spring season, weekly replenishment, 45% holdback, markdown Week 6 @ 60%"
+  - Backend extracts SeasonParameters correctly
+  - Frontend displays extracted values
+- [ ] Test workflow initiation
+  - POST /api/workflows/forecast returns workflow_id
+  - WebSocket connection established
+  - Agent status cards show "mock agent" progress messages
+- [ ] Test data upload
+  - Upload historical_sales_2022_2024.csv
+  - Backend parses and stores in database
+  - Frontend shows success confirmation
+- [ ] Test data retrieval
+  - GET /api/forecasts returns mock forecast data
+  - Frontend displays in Forecast Summary section
+  - All 8 sections render without errors
+
+**6. Documentation Updates**
+- [ ] Update README.md with:
+  - How to run backend (uvicorn)
+  - How to run frontend (npm run dev)
+  - Environment variable setup
+  - API endpoint documentation
+- [ ] Create INTEGRATION_TESTING.md checklist
+- [ ] Update technical_decisions.md with integration choices
+
+### Requirements Source
+
+- **Primary:** `planning/5_front-end-spec_v3.3.md` - UI/UX requirements
+- **Primary:** `planning/3_technical_architecture_v3.3.md` - API contracts
+- **Reference:** `planning/4_prd_v3.3.md` - User stories and acceptance criteria
+
+### Success Criteria
+
+✅ **Phase 4 Complete When:**
+1. User can start backend and frontend without errors
+2. Frontend calls ALL backend endpoints successfully
+3. Parameter extraction works end-to-end (natural language → SeasonParameters)
+4. WebSocket connection streams real-time messages
+5. CSV upload workflows functional (historical + weekly actuals)
+6. All 8 frontend sections display backend data (mock/placeholder OK)
+7. No console errors, all API calls return expected JSON
+8. Repository is clean and organized (no garbage)
+9. README.md has clear setup instructions
+10. **Professor can run the full stack and see it working!**
+
+### Quick Start for Phase 4
+
 ```bash
-*agent dev
+# 1. Start Backend
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload
 
-Task: Implement mock data generation script for parameter-driven retail forecasting system
+# 2. Start Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
 
-Reference: docs/04_MVP_Development/planning/6_data_specification_v3.2.md
-
-Key deliverables:
-- historical_sales_2022_2024.csv (54,750 rows, 3 categories)
-- store_attributes.csv (50 stores, 7 features)
-- 36 weekly actuals CSVs (3 scenarios × 12 weeks)
-- Validation suite (6 types)
-- README.md with data dictionary
-
-MAPE target: 12-18%
+# 3. Test Integration
+# - Open http://localhost:5173
+# - Enter parameter text in Section 0
+# - Click "Extract Parameters"
+# - Verify backend call works and modal shows extracted params
+# - Confirm parameters
+# - Verify workflow starts and WebSocket connects
+# - Check browser console for no errors
 ```
 
-**Prerequisites:**
-- ✅ Planning documents complete (v3.3)
-- ⏳ Python 3.11+ environment
-- ⏳ Required libraries: pandas, numpy, prophet, pmdarima, scikit-learn
+### Documents for Phase 4
+
+- [Implementation Plan](./phase_4_integration/implementation_plan.md) ⏳ Create before starting
+- [Technical Decisions](./phase_4_integration/technical_decisions.md) ⏳ Update during coding
+- [Checklist](./phase_4_integration/checklist.md) ⏳ Create from plan
+- [Retrospective](./phase_4_integration/retrospective.md) ⏳ Complete after phase
 
 ---
 
-### Phase 2: Frontend Mockup
+## Future Phases (5-8) - Agent Implementation
 
-**Goal:** Build fully functional React dashboard UI (no backend integration yet)
+### Phase 5: Demand Agent Implementation
 
-**Agent:** `*agent ux-expert`
-
-**Why Before Backend:** Validate UX flow and parameter gathering interface with stakeholders before implementing complex agent logic. Frontend changes are cheaper than backend refactoring.
-
-**Requirements Source:**
-- `planning/5_front-end-spec_v3.3.md` - Complete UI specification (ALL 7 sections)
-- `planning/1_product_brief_v3.3.md` - Parameter-driven features
-
-**Key Deliverables:**
-1. **Section 0: Parameter Gathering** (NEW in v3.3)
-   - Free-form textarea (500 char limit)
-   - "Extract Parameters" button → LLM extraction (mock for now)
-   - Confirmation modal with 5 parameters
-   - Collapsible banner after confirmation
-
-2. **Section 1: Fixed Header with Agent Cards**
-   - 3 agent cards (Demand, Inventory, Pricing)
-   - Progress bars, WebSocket log messages (mock streaming)
-   - Auto-collapse after 5 seconds
-
-3. **Section 2: Forecast Summary**
-   - Category display, total forecast, Prophet/ARIMA/Ensemble
-   - Manufacturing order with approval status
-   - Mini chart (Recharts 400x60px)
-
-4. **Section 3: Cluster Cards**
-   - 3 stacked cluster cards (Fashion_Forward, Mainstream, Value_Conscious)
-   - Expandable store table (TanStack Table)
-   - Export CSV button
-
-5. **Section 4: Weekly Performance Chart**
-   - Recharts ComposedChart (forecast line + actual bars)
-   - Interactive table with variance highlighting
-   - Row expansion for store-level breakdown
-
-6. **Section 5: Replenishment Queue**
-   - Current week's shipments
-   - DC inventory warnings
-   - Approve button (no confirmation modal)
-
-7. **Section 6: Markdown Decision**
-   - Countdown timer before Week 6
-   - Sell-through analysis at Week 6
-   - Elasticity slider with real-time preview
-   - Apply button triggers re-forecast
-
-8. **Section 7: Performance Metrics**
-   - 3 metric cards (Forecast Accuracy, Business Impact, System Performance)
-   - Export buttons
-
-9. **Mock Data Integration**
-   - Use JSON fixtures from Phase 1 CSV outputs
-   - Simulate WebSocket streaming with setTimeout
-   - All interactions functional (buttons, sliders, tables)
-
-**Documents:**
-- [Implementation Plan](./phase_2_frontend/implementation_plan.md) ⏳ Create when Phase 1 complete
-- [Technical Decisions](./phase_2_frontend/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_2_frontend/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_2_frontend/retrospective.md) ⏳ Complete after phase
-
-**Prerequisites:**
-- ✅ Phase 1 complete (mock data available as JSON fixtures)
-- ⏳ Node.js 18+ installed
-- ⏳ Tech stack: React 18 + TypeScript + Vite + Shadcn/ui + Tailwind CSS
-
----
-
-### Phase 3: Backend Architecture Setup
-
-**Goal:** Set up FastAPI backend with data models, database schema, REST API scaffolding (no agent logic yet)
-
-**Agent:** `*agent architect`
-
-**Why This Order:** Architecture provides stable foundation. Requirements may evolve, but infrastructure (DB, API structure, WebSocket) remains constant. This allows parallel agent development later.
-
-**Requirements Source:**
-- `planning/3_technical_architecture_v3.3.md` - Complete architecture specification
-- `planning/4_prd_v3.3.md` - API endpoint requirements
-
-**Key Deliverables:**
-1. **Environment Setup**
-   - Python 3.11+ with UV package manager
-   - FastAPI 0.115+
-   - OpenAI Agents SDK 0.3.3+
-   - Database: SQLite 3.45+
-
-2. **Data Models (Pydantic)**
-   - SeasonParameters (NEW in v3.3)
-   - Category, Store, StoreCluster
-   - Forecast, Allocation
-   - All 9 models from technical architecture
-
-3. **Database Schema (SQLite)**
-   - 4 normalized tables: categories, stores, store_clusters, parameters
-   - 4 JSON array field tables: forecasts, allocations, actual_sales, workflow_logs
-   - Migration scripts
-
-4. **REST API Scaffolding (ALL endpoints, placeholder responses)**
-   - Phase 0: `/api/parameters/extract`, `/api/parameters/confirm`
-   - Phase 1: `/api/data/upload-*`, `/api/categories/list`, `/api/forecast/generate`
-   - Phase 2: `/api/data/upload-weekly-actuals`, `/api/variance/{week}`
-   - Phase 3: `/api/replenishment/queue/{week}`, `/api/replenishment/approve`
-   - Phase 4: `/api/markdown/checkpoint/{week}`, `/api/markdown/apply`
-   - General: `/api/forecast/{id}`, `/api/allocation/{id}`, `/api/reports/{season_id}`
-
-5. **WebSocket Server Setup**
-   - Endpoint: `ws://localhost:8000/ws/agents`
-   - Message format: {agent, status, progress, step, duration, result}
-   - Broadcasting mechanism (for later agent integration)
-
-6. **Data Pipeline**
-   - CSV upload handlers
-   - Historical data ingestion
-   - Store attributes import
-   - Weekly actuals processing
-
-7. **API Documentation**
-   - OpenAPI/Swagger auto-generated
-   - Request/response examples
-   - Authentication stubs (for future)
-
-**Documents:**
-- [Implementation Plan](./phase_3_backend_architecture/implementation_plan.md) ⏳ Create when Phase 2 complete
-- [Technical Decisions](./phase_3_backend_architecture/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_3_backend_architecture/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_3_backend_architecture/retrospective.md) ⏳ Complete after phase
-
-**Prerequisites:**
-- ✅ Phase 2 complete (frontend mockup validates API contracts)
-- ⏳ Azure OpenAI API keys configured
-- ⏳ UV package manager installed
-
----
-
-### Phase 4: Orchestrator Agent
-
-**Goal:** Implement central coordinator for multi-agent workflows
+**Goal:** Replace mock forecast with REAL Prophet + ARIMA ensemble forecasting
 
 **Agent:** `*agent dev`
 
-**Why First Agent:** Orchestrator defines handoff patterns that all other agents will use. Implement once, then each agent plugs into this framework.
-
-**Requirements Source:**
-- `planning/3_technical_architecture_v3.3.md` - Orchestrator responsibilities
-- `planning/2_process_workflow_v3.3.md` - Workflow coordination examples
-
 **Key Deliverables:**
-1. **Core Orchestrator Logic**
-   - OpenAI Agents SDK integration
-   - Session management (conversation history)
-   - Context-rich handoffs (pass objects, not DB IDs)
+1. **Prophet Forecasting**
+   - Implement time series forecasting with seasonal decomposition
+   - Train on historical_sales_2022_2024.csv
+   - Generate 12-week forecast
+   - Duration: ~15-20s per model
 
-2. **Workflow State Machine**
-   - 5-phase workflow: Pre-season → Season Start → In-Season → Mid-Season → Post-Season
-   - State transitions based on variance, approvals, markdown triggers
+2. **ARIMA Forecasting**
+   - Auto-ARIMA parameter selection
+   - Train on same historical data
+   - Generate 12-week forecast
+   - Duration: ~15-20s per model
 
-3. **Dynamic Handoff Enabling**
-   - Normal flow: Demand → Inventory → Pricing
-   - Re-forecast flow: Pricing → Demand (enabled only when variance >20%)
-   - Parameters-aware: Skip Pricing if no markdown checkpoint
+3. **Ensemble Logic**
+   - Simple average: (Prophet + ARIMA) / 2
+   - Return combined forecast
 
-4. **Variance Monitoring**
-   - Weekly variance calculation (forecast vs actuals)
-   - Threshold detection (>20% triggers re-forecast)
-   - Alert system (🟢<10%, 🟡10-20%, 🔴>20%)
+4. **K-means Clustering**
+   - Cluster 50 stores into 3 groups using 7 features
+   - Assign cluster names: Fashion_Forward, Mainstream, Value_Conscious
+   - Calculate allocation factors per cluster
 
-5. **Human-in-the-Loop Integration**
-   - Approval modals (manufacturing order, replenishment, markdown)
-   - Modify iterative + Accept options (no Reject)
-   - Approval tracking
+5. **Parameter-Driven Adaptation**
+   - IF replenishment_strategy == "none" THEN safety_stock = 25% ELSE 20%
+   - LLM generates reasoning text for user
 
-6. **WebSocket Event Streaming**
-   - Broadcast agent status updates
-   - Line-by-line progress messages
-   - Duration tracking per step
-
-7. **Workflow Logging**
-   - Log all interactions to workflow_logs table
-   - Input/output JSON for each handoff
-   - Performance metrics (duration_ms)
-
-**Stub Agent Responses (for testing):**
-- Demand Agent: Return mock forecast JSON
-- Inventory Agent: Return mock allocation JSON
-- Pricing Agent: Return mock markdown recommendation
-
-**Documents:**
-- [Implementation Plan](./phase_4_orchestrator/implementation_plan.md) ⏳ Create when Phase 3 complete
-- [Technical Decisions](./phase_4_orchestrator/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_4_orchestrator/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_4_orchestrator/retrospective.md) ⏳ Complete after phase
+6. **Replace Placeholder**
+   - Update `backend/app/agents/demand_agent.py`
+   - Keep agent handoff structure from Phase 3
+   - Return actual forecast instead of mock data
 
 **Prerequisites:**
-- ✅ Phase 3 complete (backend architecture ready)
-- ⏳ OpenAI Agents SDK configured
-- ⏳ WebSocket server functional
-
----
-
-### Phase 5: Demand Agent
-
-**Goal:** Implement ensemble forecasting (Prophet + ARIMA) + K-means clustering + allocation factors
-
-**Agent:** `*agent dev`
-
-**Requirements Source:**
-- `planning/3_technical_architecture_v3.3.md` - Demand Agent specifications
-- `planning/1_product_brief_v3.3.md` - Parameter-driven adaptations
-
-**Key Deliverables:**
-1. **Forecasting Tools**
-   - `forecast_category_demand()` - Ensemble Prophet + ARIMA
-   - Prophet model: Seasonal decomposition, trend analysis
-   - ARIMA model: Auto-ARIMA parameter selection
-   - Ensemble: Simple average of both forecasts
-   - Duration target: ~15-20s per model
-
-2. **Clustering Tool**
-   - `cluster_stores()` - K-means with K=3
-   - 7 features: avg_weekly_sales_12mo, store_size_sqft, median_income, foot_traffic, competitor_density, online_penetration, population_density
-   - StandardScaler normalization
-   - K-means++ initialization
-   - Cluster naming: Fashion_Forward, Mainstream, Value_Conscious
-
-3. **Allocation Factors Tool**
-   - `calculate_allocation_factors()` - Hierarchical allocation
-   - Formula: 0.70 × historical_pct + 0.30 × attribute_score
-   - Historical_pct = store's % of cluster sales last season
-   - Attribute_score based on size, tier, demographics
-
-4. **Parameter-Driven Adaptation (v3.3)**
-   - Input: `ReplenishmentStrategy` from SeasonParameters
-   - Logic: IF replenishment_strategy == "none" THEN safety_stock_pct = 0.25 ELSE 0.20
-   - Reasoning: "No replenishment means I cannot correct forecast errors later. Increase safety stock from 20% to 25%."
-   - LLM generates explanation text for user
-
-5. **Re-Forecast Logic**
-   - Triggered by Orchestrator when variance >20%
-   - Receives: {reason, variance, actual_week_1_to_N, remaining_weeks}
-   - Re-runs Prophet + ARIMA with combined historical + new actuals
-   - Returns updated forecast for remaining weeks only
-
-6. **Output JSON Structure**
-   ```json
-   {
-     "total_season_demand": 8000,
-     "prophet_forecast": 8200,
-     "arima_forecast": 7800,
-     "forecasting_method": "ensemble_prophet_arima",
-     "weekly_demand_curve": [650, 720, 680, ...],
-     "peak_week": 2,
-     "cluster_distribution": {"Fashion_Forward": 0.40, ...},
-     "store_allocation_factors": {"S01": 0.08, ...},
-     "adapted_safety_stock_pct": 0.25,
-     "adaptation_reasoning": "No replenishment strategy specified..."
-   }
-   ```
-
-7. **Integration with Orchestrator**
-   - Register with Orchestrator handoff system
-   - Receive parameters context from Orchestrator
-   - Return forecast object (no DB write, Orchestrator handles)
-
-**Documents:**
-- [Implementation Plan](./phase_5_demand_agent/implementation_plan.md) ⏳ Create when Phase 4 complete
-- [Technical Decisions](./phase_5_demand_agent/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_5_demand_agent/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_5_demand_agent/retrospective.md) ⏳ Complete after phase
-
-**Prerequisites:**
-- ✅ Phase 4 complete (Orchestrator ready)
-- ✅ Phase 1 complete (historical data available)
+- ✅ Phase 4 complete (integration working)
+- ✅ Phase 1 data available (historical sales CSV)
 - ⏳ Prophet, pmdarima, scikit-learn installed
 
+**Duration:** 5-7 days
+
+**Documents:**
+- [Implementation Plan](./phase_5_demand_agent/implementation_plan.md)
+- [Technical Decisions](./phase_5_demand_agent/technical_decisions.md)
+- [Checklist](./phase_5_demand_agent/checklist.md)
+- [Retrospective](./phase_5_demand_agent/retrospective.md)
+
 ---
 
-### Phase 6: Inventory Agent
+### Phase 6: Inventory Agent Implementation
 
-**Goal:** Implement manufacturing order calculation + hierarchical allocation + replenishment planning
+**Goal:** Replace mock allocation with REAL manufacturing calculation + hierarchical allocation
 
 **Agent:** `*agent dev`
-
-**Requirements Source:**
-- `planning/3_technical_architecture_v3.3.md` - Inventory Agent specifications
-- `planning/1_product_brief_v3.3.md` - Parameter-driven adaptations
 
 **Key Deliverables:**
 1. **Manufacturing Tool**
-   - `calculate_manufacturing_order()` - Add safety stock
    - Formula: manufacturing_qty = total_demand × (1 + safety_stock_pct)
-   - Receives safety_stock_pct from Demand Agent (parameter-adapted)
-   - Duration target: <1s
+   - Receives safety_stock_pct from Demand Agent output
+   - Duration: <1s
 
 2. **Allocation Tool**
-   - `allocate_to_stores()` - Hierarchical allocation
    - Input: dc_holdback_pct from SeasonParameters
    - Calculate initial_allocation_pct = 1 - dc_holdback_pct
-   - For each cluster: cluster_qty = manufacturing_qty × cluster_distribution
-   - For each store: store_qty = cluster_qty × store_allocation_factors
+   - Hierarchical allocation: cluster → store using allocation factors
    - Constraint: Minimum 2-week forecast per store
-   - Duration target: <2s
+   - Duration: <2s
 
 3. **Replenishment Tool**
-   - `plan_replenishment()` - Weekly shipment planning
    - Formula: replenish = max(0, next_week_forecast - current_inventory)
-   - Constraint: Don't exceed available DC inventory
-   - Duration target: <1s
+   - Constraint: Don't exceed DC inventory
+   - Duration: <1s
 
-4. **Parameter-Driven Adaptation (v3.3)**
-   - Input 1: `replenishment_strategy` (none, weekly, bi-weekly)
-     - IF "none" THEN skip `plan_replenishment()`, allocate 100% at Week 0
-     - Reasoning: "No replenishment means no weekly shipment planning needed."
+4. **Parameter-Driven Adaptation**
+   - IF replenishment_strategy == "none" THEN skip replenishment, allocate 100% at Week 0
+   - LLM generates reasoning: "No replenishment → allocate all inventory upfront"
 
-   - Input 2: `dc_holdback_percentage` (0.0, 0.45, 0.65, etc.)
-     - Adjust initial_allocation_pct dynamically
-     - Reasoning: "High holdback (65%) gives flexibility for replenishment."
-
-5. **Re-Allocation Logic**
-   - Triggered by re-forecast from Demand Agent
-   - Recalculates manufacturing, allocation, replenishment
-   - Compares to original: flag shortage, recommend emergency order
-
-6. **Output JSON Structure**
-   ```json
-   {
-     "manufacturing_order": 9600,
-     "safety_stock_pct": 0.20,
-     "dc_holdback_pct": 0.45,
-     "replenishment_strategy": "none",
-     "store_allocations": [
-       {"store_id": "S01", "cluster_id": "Fashion_Forward",
-        "season_total": 256, "initial_allocation": 141, "dc_holdback": 115}
-     ],
-     "replenishment_plan": [],
-     "adaptation_reasoning": "No replenishment strategy - allocated 100% at Week 0"
-   }
-   ```
-
-7. **Integration with Orchestrator**
-   - Register with Orchestrator handoff system
-   - Receive forecast object from Demand Agent (context-rich handoff)
-   - Return allocation object
-
-**Documents:**
-- [Implementation Plan](./phase_6_inventory_agent/implementation_plan.md) ⏳ Create when Phase 5 complete
-- [Technical Decisions](./phase_6_inventory_agent/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_6_inventory_agent/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_6_inventory_agent/retrospective.md) ⏳ Complete after phase
+5. **Replace Placeholder**
+   - Update `backend/app/agents/inventory_agent.py`
+   - Receive forecast object from Demand Agent via handoff
+   - Return actual allocation instead of mock data
 
 **Prerequisites:**
-- ✅ Phase 5 complete (Demand Agent provides forecast)
+- ✅ Phase 5 complete (Demand Agent working)
 - ⏳ Allocation algorithms tested
+
+**Duration:** 3-4 days
+
+**Documents:**
+- [Implementation Plan](./phase_6_inventory_agent/implementation_plan.md)
+- [Technical Decisions](./phase_6_inventory_agent/technical_decisions.md)
+- [Checklist](./phase_6_inventory_agent/checklist.md)
+- [Retrospective](./phase_6_inventory_agent/retrospective.md)
 
 ---
 
-### Phase 7: Pricing Agent
+### Phase 7: Pricing Agent Implementation
 
-**Goal:** Implement sell-through monitoring + markdown calculation + re-forecast trigger
+**Goal:** Replace mock markdown with REAL sell-through monitoring + Gap × Elasticity formula
 
 **Agent:** `*agent dev`
 
-**Requirements Source:**
-- `planning/3_technical_architecture_v3.3.md` - Pricing Agent specifications
-- `planning/1_product_brief_v3.3.md` - Parameter-driven adaptations
-
 **Key Deliverables:**
 1. **Sell-Through Tool**
-   - `evaluate_sellthrough()` - Compare actual vs target
    - Formula: sell_through_rate = actual_sold / total_manufactured
-   - Duration target: <1s
+   - Compare to target threshold
+   - Duration: <1s
 
 2. **Markdown Tool**
-   - `calculate_markdown()` - Gap × Elasticity formula
+   - Formula: markdown = Gap × elasticity_coefficient
    - Gap = target_threshold - sell_through_rate
-   - Markdown = Gap × elasticity_coefficient
    - Round to nearest 5%, cap at 40%
-   - Duration target: <1s
+   - Duration: <1s
 
 3. **Markdown Application Tool**
-   - `apply_markdown()` - Uniform across all stores (MVP)
+   - Uniform across all stores (MVP)
    - Estimate sales lift: markdown_pct × 1.8
-   - Duration target: <1s
+   - Duration: <1s
 
-4. **Parameter-Driven Adaptation (v3.3)**
-   - Input 1: `markdown_checkpoint_week` (int or None)
-     - IF None THEN skip entire Week 6 checkpoint, agent remains idle
-     - Reasoning: "No markdown parameter specified. Skip pricing adjustments (premium positioning)."
-
-   - Input 2: `markdown_threshold` (float or None)
-     - Use as target sell-through % instead of hardcoded 60%
-     - Reasoning: "Later checkpoint with lower threshold - less aggressive markdown strategy."
+4. **Parameter-Driven Adaptation**
+   - IF markdown_checkpoint_week is None THEN skip entire agent
+   - Use markdown_threshold from SeasonParameters
+   - LLM reasoning: "Week 6 @ 60% threshold → apply 10% markdown"
 
 5. **Re-Forecast Trigger**
    - After markdown applied, trigger Orchestrator
    - Orchestrator enables re-forecast handoff to Demand Agent
-   - Demand Agent receives: "Markdown applied, re-forecast weeks 7-12 with new price elasticity"
 
-6. **Output JSON Structure**
-   ```json
-   {
-     "week_6_checkpoint": {
-       "total_manufactured": 9600,
-       "total_sold_w1_to_w6": 5280,
-       "sell_through_rate": 0.55,
-       "target_sell_through": 0.60,
-       "gap": 0.05
-     },
-     "markdown_recommendation": {
-       "apply_markdown": true,
-       "markdown_pct": 0.10,
-       "formula": "Gap × Elasticity = 0.05 × 2.0 = 0.10",
-       "expected_sales_lift": 0.18,
-       "elasticity_coefficient": 2.0
-     },
-     "trigger_reforecast": true,
-     "adaptation_reasoning": "Applied 10% markdown at Week 6 checkpoint per strategy parameters"
-   }
-   ```
-
-7. **Integration with Orchestrator**
-   - Register with Orchestrator handoff system
+6. **Replace Placeholder**
+   - Update `backend/app/agents/pricing_agent.py`
    - Receive allocation object from Inventory Agent
-   - Return markdown recommendation
-   - Trigger re-forecast via Orchestrator
-
-**Documents:**
-- [Implementation Plan](./phase_7_pricing_agent/implementation_plan.md) ⏳ Create when Phase 6 complete
-- [Technical Decisions](./phase_7_pricing_agent/technical_decisions.md) ⏳ Update during coding
-- [Checklist](./phase_7_pricing_agent/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_7_pricing_agent/retrospective.md) ⏳ Complete after phase
+   - Return actual markdown recommendation
 
 **Prerequisites:**
-- ✅ Phase 6 complete (Inventory Agent provides allocation)
+- ✅ Phase 6 complete (Inventory Agent working)
 - ⏳ Markdown elasticity formulas validated
+
+**Duration:** 2-3 days
+
+**Documents:**
+- [Implementation Plan](./phase_7_pricing_agent/implementation_plan.md)
+- [Technical Decisions](./phase_7_pricing_agent/technical_decisions.md)
+- [Checklist](./phase_7_pricing_agent/checklist.md)
+- [Retrospective](./phase_7_pricing_agent/retrospective.md)
 
 ---
 
-### Phase 8: Integration & Testing
+### Phase 8: End-to-End Testing & Final Cleanup
 
-**Goal:** End-to-end system integration + validation across 3 scenarios + performance testing
+**Goal:** Validate complete system across 3 scenarios + final repository cleanup
 
 **Agent:** `*agent qa`
 
-**Requirements Source:**
-- `planning/4_prd_v3.3.md` - Acceptance criteria
-- `planning/1_product_brief_v3.3.md` - Success metrics
-
 **Key Deliverables:**
-1. **Frontend-Backend Integration**
-   - Connect React dashboard to FastAPI endpoints
-   - WebSocket streaming (agent progress messages)
-   - Parameter extraction via LLM
-   - All 7 dashboard sections functional
-
-2. **End-to-End Workflow Testing**
-   - Test full workflow: Parameters → Forecast → Allocation → Replenishment → Markdown → Re-forecast
-   - Verify context-rich handoffs between agents
-   - Validate variance monitoring (>20% triggers re-forecast)
-   - Test human-in-the-loop approvals
-
-3. **Scenario Testing (3 scenarios from Phase 1)**
+1. **Scenario Testing** (3 scenarios from Phase 1)
    - **Normal Season:** Viral TikTok +30% Week 5, MAPE 12-15%
    - **High Demand:** Competitor bankruptcy +40% Week 5, MAPE 15-18%
    - **Low Demand:** Supply disruption -25% Week 5, MAPE 15-18%
-   - Validate re-forecast triggered in all scenarios at Week 5
+   - Validate re-forecast triggered at Week 5 in all scenarios
 
-4. **Parameter Flexibility Testing**
+2. **Parameter Flexibility Testing**
    - Test 4 parameter combinations:
      1. Fast fashion: 100% allocation, no replenishment, no markdown
      2. Premium retail: 45% holdback, weekly replenishment, no markdown
@@ -611,35 +511,44 @@ MAPE target: 12-18%
      4. Value: 65% holdback, weekly replenishment, Week 4 markdown @ 50%
    - Verify agent adaptations and reasoning for each
 
-5. **Performance Validation**
+3. **Performance Validation**
    - Workflow runtime <60s (target)
    - Prophet model ~15-20s
    - ARIMA model ~15-20s
    - Allocation + replenishment <3s
    - Markdown calculation <1s
 
-6. **Accuracy Validation**
+4. **Accuracy Validation**
    - Hindcast Spring 2024 (12-week season)
    - Measure MAPE 12-18% across all 3 scenarios
    - Validate bias ±5%
    - Confirm re-forecast trigger accuracy 90%+
 
-7. **Regression Test Suite**
+5. **Final Repository Cleanup**
+   - Remove ALL unused files
+   - Consolidate documentation
+   - Clean up logs, cache, build artifacts
+   - Verify .gitignore is comprehensive
+   - Final README.md review
+
+6. **Regression Test Suite**
    - Unit tests for each agent tool
    - Integration tests for API endpoints
    - WebSocket streaming tests
    - Database transaction tests
 
-**Documents:**
-- [Implementation Plan](./phase_8_integration_testing/implementation_plan.md) ⏳ Create when Phase 7 complete
-- [Technical Decisions](./phase_8_integration_testing/technical_decisions.md) ⏳ Update during testing
-- [Checklist](./phase_8_integration_testing/checklist.md) ⏳ Create from plan
-- [Retrospective](./phase_8_integration_testing/retrospective.md) ⏳ Complete after phase
-
 **Prerequisites:**
-- ✅ Phases 1-7 complete (full system functional)
-- ⏳ All 3 scenario CSVs generated
+- ✅ Phases 5-7 complete (all agents implemented)
+- ✅ All 3 scenario CSVs generated
 - ⏳ Test framework setup (pytest, React Testing Library)
+
+**Duration:** 5-7 days
+
+**Documents:**
+- [Implementation Plan](./phase_8_testing_cleanup/implementation_plan.md)
+- [Technical Decisions](./phase_8_testing_cleanup/technical_decisions.md)
+- [Checklist](./phase_8_testing_cleanup/checklist.md)
+- [Retrospective](./phase_8_testing_cleanup/retrospective.md)
 
 ---
 
@@ -762,7 +671,7 @@ Run validation checks at milestones defined in implementation plan:
 3. **Update Documentation**
    - [ ] Update IMPLEMENTATION_GUIDE.md phase status to ✅ Complete
    - [ ] Fill in actual start/end dates
-   - [ ] Update "Docs" count to 4/4
+   - [ ] Update "Progress" percentage to 100%
 
 4. **Final Commit**
    ```bash
@@ -802,7 +711,7 @@ Run validation checks at milestones defined in implementation plan:
 3. **Document decisions** - Write technical_decisions.md as you code, not after
 4. **Update checklists** - Check off tasks immediately after completion
 5. **Learn from retrospectives** - Read previous phase retrospectives before starting new phase
-6. **Strategic order matters** - Data → Frontend → Architecture → Agents (for a reason!)
+6. **Integration-first** - Connect frontend/backend BEFORE building complex AI agents
 
 ### For Developers
 
@@ -810,7 +719,7 @@ Run validation checks at milestones defined in implementation plan:
 2. **Phase isolation** - Complete one phase before starting next
 3. **Continuous documentation** - Docs and code evolve together
 4. **Validate assumptions** - If planning docs contradict, ask before proceeding
-5. **Architecture stability** - Requirements may change, but architecture doesn't
+5. **Integration de-risks** - Prove the stack works before adding AI complexity
 
 ---
 
@@ -882,6 +791,19 @@ Run validation checks at milestones defined in implementation plan:
 - **Fourth:** Ask user for clarification with specific questions
 - **Never:** Guess or assume intended behavior
 
+### Issue 7: Frontend/Backend Integration Fails
+
+**Symptoms:** API calls return 404, CORS errors, WebSocket won't connect
+
+**Solutions:**
+- Check backend is running (`uvicorn app.main:app --reload`)
+- Verify CORS settings in FastAPI (allow frontend origin)
+- Check frontend API_URL environment variable
+- Use browser DevTools Network tab to inspect requests/responses
+- Test backend endpoints with Postman/curl first
+- Check WebSocket URL format (ws:// not http://)
+- Verify JSON structure matches TypeScript types exactly
+
 ---
 
 ## Tips for Effective Implementation
@@ -897,7 +819,7 @@ Run validation checks at milestones defined in implementation plan:
 - **Track actual time vs estimates for learning**
 - **Run validation checkpoints at defined milestones**
 - **Write retrospective immediately after phase completion**
-- **Follow strategic order: Data → Frontend → Architecture → Agents**
+- **Prioritize integration before complex AI logic**
 
 ### Don't ❌
 
@@ -910,7 +832,7 @@ Run validation checks at milestones defined in implementation plan:
 - **Don't guess when planning docs are unclear**
 - **Don't mark tasks complete before they're truly done**
 - **Don't rush through retrospectives**
-- **Don't skip frontend mockup phase (validates UX before backend)**
+- **Don't build agents before proving integration works**
 
 ---
 
@@ -964,7 +886,7 @@ Run validation checks at milestones defined in implementation plan:
 │  PHASE COMPLETION                                       │
 │  1. Finish all tasks                                    │
 │  2. Write retrospective                                 │
-│  3. Update README status                                │
+│  3. Update guide status                                 │
 │  4. Final commit                                        │
 └────────────────┬────────────────────────────────────────┘
                  │
@@ -988,10 +910,10 @@ Run validation checks at milestones defined in implementation plan:
 - [ ] Retrospectives capture lessons learned
 
 **Implementation Progress:**
-- [ ] Phase 1: 38 CSV files generated, MAPE 12-18% validated
-- [ ] Phase 2: All 7 dashboard sections functional with mock data
-- [ ] Phase 3: Backend architecture + API scaffolding complete
-- [ ] Phase 4: Orchestrator workflow coordination functional
+- [x] Phase 1: 38 CSV files generated, MAPE 12-18% validated ✅
+- [x] Phase 2: All 8 dashboard sections functional with mock data ✅
+- [x] Phase 3: Backend architecture + API scaffolding complete ✅
+- [ ] Phase 4: Frontend/backend integrated, end-to-end data flow working 🎯 CURRENT
 - [ ] Phase 5: Demand Agent forecast accuracy <20% MAPE
 - [ ] Phase 6: Inventory Agent allocation complete in <3s
 - [ ] Phase 7: Pricing Agent markdown calculation <1s
@@ -999,33 +921,56 @@ Run validation checks at milestones defined in implementation plan:
 
 ---
 
-## Current Priority: Phase 1
+## Current Priority: Phase 4 (Integration)
 
-✅ **All v3.3 planning documents are ready!**
+🎯 **All v3.3 planning documents are ready!**
+✅ **Phases 1-3 are COMPLETE!**
 
-**Next Step:** Copy the handoff message below and start implementation:
+**Next Step:** Start Phase 4 - Frontend/Backend Integration
+
+**Why This is the Right Next Step:**
+1. Professor feedback: Connect frontend and backend first
+2. De-risk the project: Validate full stack before AI complexity
+3. Incremental value: Users can test the system with mock agents
+4. Clean foundation: Repository cleanup before adding more code
+
+**Handoff Message for Phase 4:**
 
 ```
 *agent dev
 
-Task: Implement mock data generation script for parameter-driven retail forecasting system
+Task: Integrate React frontend with FastAPI backend - end-to-end data flow
 
-Reference: docs/04_MVP_Development/planning/6_data_specification_v3.2.md
+Reference:
+- docs/04_MVP_Development/planning/5_front-end-spec_v3.3.md (UI requirements)
+- docs/04_MVP_Development/planning/3_technical_architecture_v3.3.md (API contracts)
 
-Planning Docs (v3.3):
-- Data Specification: docs/04_MVP_Development/planning/6_data_specification_v3.2.md
-- Process Workflow: docs/04_MVP_Development/planning/2_process_workflow_v3.3.md
-- Product Brief: docs/04_MVP_Development/planning/1_product_brief_v3.3.md
+Context:
+- Phase 1: Data generation COMPLETE
+- Phase 2: Frontend mockups COMPLETE (all 8 sections with mock data)
+- Phase 3: Backend architecture COMPLETE (18 API endpoints scaffolded)
+- Professor feedback: Connect frontend/backend BEFORE building agents
 
-Key Deliverables:
-- historical_sales_2022_2024.csv (54,750 rows, 3 categories)
-- store_attributes.csv (50 stores, 7 K-means features)
-- 36 weekly actuals CSVs (3 scenarios × 12 weeks each)
-- Validation suite (6 types: Completeness, Quality, Format, Statistical, Pattern, Weekly)
-- README.md with data dictionary
+Phase 4 Goals:
+1. Repository cleanup (remove garbage, organize structure)
+2. Replace frontend mock API calls with real backend calls
+3. Connect parameter extraction (Section 0)
+4. Implement real WebSocket connection (replace setTimeout mock)
+5. Connect CSV upload workflows
+6. Display backend responses in all 8 sections
+7. End-to-end testing (no AI agents yet, mock data OK)
 
-Target MAPE: 12-18% across all 3 scenarios
-Week 5 Variance: >20% in all scenarios (to trigger re-forecast)
+Success Criteria:
+- User can run backend + frontend without errors
+- All frontend sections call backend APIs successfully
+- WebSocket streams real-time agent status updates
+- CSV uploads work (historical sales, weekly actuals)
+- Repository is clean and well-organized
+- README.md has clear setup instructions
+
+Duration Estimate: 5-7 days
+
+Let's make the full stack work end-to-end! 🚀
 ```
 
 ---
@@ -1074,11 +1019,16 @@ Week 5 Variance: >20% in all scenarios (to trigger re-forecast)
 
 ### Implementation Phase Quick Links
 
-**Current Phase (Phase 1):**
-- Implementation Plan: `./phase_1_data_generation/implementation_plan.md`
-- Technical Decisions: `./phase_1_data_generation/technical_decisions.md`
-- Checklist: `./phase_1_data_generation/checklist.md`
-- Retrospective: `./phase_1_data_generation/retrospective.md`
+**Completed Phases:**
+- Phase 1: `./phase_1_data_generation/` ✅
+- Phase 2: `./phase_2_frontend/` ✅
+- Phase 3: `./phase_3_backend_architecture/` ✅
+
+**Current Phase (Phase 4):**
+- Implementation Plan: `./phase_4_integration/implementation_plan.md` ⏳ Create
+- Technical Decisions: `./phase_4_integration/technical_decisions.md` ⏳ Create
+- Checklist: `./phase_4_integration/checklist.md` ⏳ Create
+- Retrospective: `./phase_4_integration/retrospective.md` ⏳ After completion
 
 ### Git Commit Template
 
@@ -1099,7 +1049,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-**Last Updated:** 2025-10-17
-**Next Review:** After Phase 1 completion
-**Status:** Ready for Phase 1 Implementation ✅
-**Strategic Order:** Data → Frontend → Backend Architecture → Agents (for architecture stability)
+**Last Updated:** 2025-10-29 (REVISED - Integration-First Approach)
+**Next Review:** After Phase 4 completion
+**Status:** Ready for Phase 4 Implementation ✅
+**Branch:** phase3-backend-henry-yina
+**Strategic Order:** Data → Frontend → Backend → **INTEGRATION** → Agents (for early validation)
