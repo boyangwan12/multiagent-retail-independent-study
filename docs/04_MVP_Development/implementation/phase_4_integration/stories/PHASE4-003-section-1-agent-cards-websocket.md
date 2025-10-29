@@ -3,9 +3,14 @@
 **Epic:** Phase 4 - Frontend/Backend Integration
 **Story ID:** PHASE4-003
 **Status:** Ready for Implementation
-**Estimate:** 6 hours
+**Estimate:** 7 hours
 **Agent:** `*agent dev`
 **Dependencies:** PHASE4-002 (Section 0 - Parameter Gathering)
+
+**Planning References:**
+- Technical Architecture v3.3: Section 4.3 (WebSocket Architecture & Real-Time Communication)
+- Frontend Spec v3.3: Section 3.2 (Section 1 - Agent Cards UI Design)
+- PRD v3.3: Section 3.2 (Real-Time Workflow Execution & Transparency)
 
 ---
 
@@ -26,23 +31,60 @@ So that I understand what the system is doing and can monitor the workflow execu
 ### Functional Requirements
 
 1. ✅ POST /api/workflows/forecast endpoint tested with Postman (returns workflow_id)
-2. ✅ WebSocket connection establishes to ws://localhost:8000/api/workflows/{id}/stream
-3. ✅ Frontend listens for 6 message types: agent_started, agent_progress, agent_completed, human_input_required, workflow_complete, error
-4. ✅ Agent cards update in real-time as messages arrive
-5. ✅ Mock agents (Demand, Inventory, Pricing) return dynamic data based on parameters
-6. ✅ Progress bars update based on agent_progress messages
-7. ✅ Agent status badges update (idle → running → complete)
-8. ✅ WebSocket reconnects automatically if connection drops
-9. ✅ Workflow completes successfully and displays results
-10. ✅ All 3 agent cards show correct final status
+2. ✅ Workflow creation uses parameters and category from Context (not hardcoded)
+3. ✅ Workflow creation shows loading state while request is in progress
+4. ✅ Workflow creation errors display user-friendly messages
+5. ✅ WebSocket connection establishes to ws://localhost:8000/api/workflows/{id}/stream
+6. ✅ workflowId is validated before WebSocket connection (format: wf_*)
+7. ✅ Frontend listens for 6 message types: agent_started, agent_progress, agent_completed, human_input_required, workflow_complete, error
+8. ✅ Agent cards update in real-time as messages arrive
+9. ✅ Mock agents (Demand, Inventory, Pricing) return dynamic data based on parameters
+10. ✅ Progress bars update based on agent_progress messages
+11. ✅ Agent status badges update (idle → running → complete → error)
+12. ✅ Agent error messages display in alert component
+13. ✅ human_input_required messages update agent state with pending approval message
+14. ✅ Connection status indicator displays at top of Section 1
+15. ✅ Connection status shows workflow ID
+16. ✅ WebSocket reconnects automatically if connection drops
+17. ✅ Workflow completes successfully and displays results
+18. ✅ All 3 agent cards show correct final status
 
 ### Quality Requirements
 
-11. ✅ WebSocket messages arrive in <1 second of backend sending
-12. ✅ No console errors during WebSocket connection
-13. ✅ Connection cleanup on component unmount (no memory leaks)
-14. ✅ Test with backend restart (reconnection works)
-15. ✅ Mock agents adapt output based on SeasonParameters
+19. ✅ WebSocket messages arrive in <1 second of backend sending
+20. ✅ No console errors during WebSocket connection
+21. ✅ Connection cleanup on component unmount (no memory leaks)
+22. ✅ Test with backend restart (reconnection works)
+23. ✅ Mock agents adapt output based on SeasonParameters
+24. ✅ Workflow creation completes in <3 seconds
+25. ✅ workflowId format validated (prevents invalid connections)
+
+---
+
+## Prerequisites
+
+Before implementing this story, ensure the following backend components are ready:
+
+**Backend Mock Agents:**
+- [ ] Demand Agent mock implementation complete
+- [ ] Inventory Agent mock implementation complete
+- [ ] Pricing Agent mock implementation complete
+- [ ] Mock agents adapt behavior based on SeasonParameters (e.g., safety stock changes with replenishment strategy)
+- [ ] Mock agents return parameter-aware results with adaptation_reasoning
+
+**Backend API Endpoints:**
+- [ ] POST /api/workflows/forecast endpoint implemented and returns workflow_id
+- [ ] WebSocket server endpoint `/api/workflows/{id}/stream` implemented
+- [ ] WebSocket server sends all 6 message types (agent_started, agent_progress, agent_completed, human_input_required, workflow_complete, error)
+- [ ] WebSocket connection respects CORS origins from PHASE4-001
+
+**Frontend Context Integration:**
+- [ ] PHASE4-002 ParameterContext is implemented and working
+- [ ] useParameters() hook provides access to parameters and category
+- [ ] Parameters are stored in Context after confirmation
+
+**Why This Matters:**
+This story integrates frontend with backend WebSocket communication. If mock agents aren't implemented or don't adapt to parameters, the real-time updates won't demonstrate the parameter-driven architecture. The story will technically work but won't validate the core v3.3 innovation.
 
 ---
 
@@ -442,7 +484,16 @@ So that I understand what the system is doing and can monitor the workflow execu
     const [workflowResult, setWorkflowResult] = useState<any>(null);
 
     useEffect(() => {
-      if (!workflowId) return;
+      // Validate workflowId
+      if (!workflowId) {
+        console.warn('useWebSocket: No workflow ID provided');
+        return;
+      }
+
+      if (!workflowId.startsWith('wf_')) {
+        console.error('useWebSocket: Invalid workflow ID format:', workflowId);
+        return;
+      }
 
       // Create WebSocket service
       const ws = new WebSocketService();
@@ -528,7 +579,21 @@ So that I understand what the system is doing and can monitor the workflow execu
           break;
 
         case 'human_input_required':
-          // Handle approval requests (future story)
+          // TODO: Future story - Display approval modal for manufacturing orders and markdown decisions
+          // For now, update agent state with pending approval message
+          setAgents(prev =>
+            prev.map(agent =>
+              agent.name === message.agent
+                ? {
+                    ...agent,
+                    messages: [
+                      ...agent.messages,
+                      `⏸️ Waiting for human approval: ${message.action}`,
+                    ],
+                  }
+                : agent
+            )
+          );
           console.log('Human input required:', message);
           break;
       }
@@ -604,14 +669,22 @@ So that I understand what the system is doing and can monitor the workflow execu
     const { isConnected, agents, workflowComplete, workflowResult } = useWebSocket(workflowId);
 
     return (
-      <div>
-        {/* Connection status indicator */}
+      <div className="space-y-4">
+        {/* Section 1 Header */}
+        <h2 className="text-2xl font-bold">Agent Workflow Execution</h2>
+
+        {/* Connection Status Indicator - Top of Section 1, above agent cards */}
         {workflowId && (
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border">
             <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
             <span className="text-xs text-gray-600">
-              {isConnected ? 'Connected to workflow' : 'Disconnected'}
+              {isConnected ? '✅ Connected to workflow' : '❌ Disconnected'}
             </span>
+            {workflowId && (
+              <span className="text-xs text-gray-400 ml-auto">
+                ID: {workflowId}
+              </span>
+            )}
           </div>
         )}
 
@@ -637,8 +710,12 @@ So that I understand what the system is doing and can monitor the workflow execu
   }
   ```
 
-- [ ] Update AgentCard component to display agent state:
+- [ ] Update AgentCard component to display agent state with error handling:
   ```typescript
+  // Add these imports to the AgentCard component file
+  import { Alert, AlertDescription } from '@/components/ui/alert';
+  import { AlertCircle } from 'lucide-react';
+
   function AgentCard({ agent }: { agent: AgentState }) {
     return (
       <Card>
@@ -675,6 +752,16 @@ So that I understand what the system is doing and can monitor the workflow execu
               Completed in {agent.duration}s
             </p>
           )}
+
+          {/* Error Message Display */}
+          {agent.status === 'error' && agent.messages.length > 0 && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {agent.messages[agent.messages.length - 1]}
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
     );
@@ -692,40 +779,96 @@ So that I understand what the system is doing and can monitor the workflow execu
 ### Task 7: Integrate Workflow Initiation from Section 0
 
 **Subtasks:**
-- [ ] Update ParameterGathering component to start workflow after confirmation:
+- [ ] Update ParameterGathering component to start workflow after confirmation using Context:
 
   ```typescript
   import { WorkflowService } from '@/services/workflow-service';
+  import { useParameters } from '@/contexts/ParameterContext';
 
+  const { parameters, category } = useParameters();
   const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
 
   const handleConfirmParameters = async () => {
+    // Validate that parameters and category are available
+    if (!parameters || !category) {
+      setState(prev => ({
+        ...prev,
+        error: 'Parameters or category not found. Please try again.',
+      }));
+      return;
+    }
+
     setState(prev => ({ ...prev, isConfirmed: true }));
     setShowConfirmationModal(false);
+    setIsCreatingWorkflow(true);
 
     try {
-      // Start workflow
+      // Start workflow using parameters from Context
       const response = await WorkflowService.createForecastWorkflow({
-        parameters: state.extractedParameters!,
-        category_name: 'Women\'s Dresses', // TODO: Let user select category
+        parameters: parameters,
+        category_name: category.category_name,
       });
 
       setWorkflowId(response.workflow_id);
-      console.log('Workflow started:', response.workflow_id);
-      console.log('WebSocket URL:', response.websocket_url);
+      console.log('✅ Workflow started:', response.workflow_id);
+      console.log('📡 WebSocket URL:', response.websocket_url);
 
       // Scroll to Section 1 (Agent Cards)
       document.getElementById('section-1-agent-cards')?.scrollIntoView({
         behavior: 'smooth',
       });
     } catch (error) {
-      console.error('Failed to start workflow:', error);
+      console.error('❌ Failed to start workflow:', error);
+
+      let errorMessage = 'Failed to start workflow. Please try again.';
+      if (error.status === 401) {
+        errorMessage = 'Authentication error. Please check API configuration.';
+      } else if (error.status === 422) {
+        errorMessage = 'Invalid parameters. Please check your input and try again.';
+      } else if (error.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (error.status === 0) {
+        errorMessage = 'Cannot connect to backend. Is the server running?';
+      }
+
       setState(prev => ({
         ...prev,
-        error: 'Failed to start workflow. Please try again.',
+        error: errorMessage,
       }));
+
+      // Re-open modal so user can see the error
+      setShowConfirmationModal(true);
+    } finally {
+      setIsCreatingWorkflow(false);
     }
   };
+  ```
+
+- [ ] Add loading indicator while workflow is being created:
+  ```typescript
+  {/* In confirmation modal */}
+  {isCreatingWorkflow && (
+    <div className="flex items-center justify-center py-4">
+      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+      <p className="text-sm text-gray-600">Creating workflow...</p>
+    </div>
+  )}
+
+  {/* Update Confirm button */}
+  <Button
+    onClick={handleConfirmParameters}
+    disabled={isCreatingWorkflow}
+  >
+    {isCreatingWorkflow ? (
+      <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Creating Workflow...
+      </>
+    ) : (
+      'Confirm & Start Workflow'
+    )}
+  </Button>
   ```
 
 - [ ] Create WorkflowService:
@@ -924,27 +1067,53 @@ def run_demand_forecast_mock(parameters: SeasonParameters):
 
 ## Definition of Done
 
+**Prerequisites Met:**
+- [ ] Backend mock agents implemented and parameter-aware
+- [ ] POST /api/workflows/forecast endpoint functional
+- [ ] WebSocket server functional with all 6 message types
+- [ ] PHASE4-002 ParameterContext integration complete
+
+**Backend Integration:**
 - [ ] POST /api/workflows/forecast tested with Postman
-- [ ] WebSocket tested with wscat
+- [ ] WebSocket tested with wscat (all 6 message types received)
+- [ ] Mock agents return parameter-aware results
+
+**Frontend WebSocket:**
 - [ ] TypeScript types created for all 6 message types
-- [ ] WebSocketService created and tested
-- [ ] useWebSocket hook created and tested
+- [ ] WebSocketService created with reconnection logic
+- [ ] useWebSocket hook created with workflowId validation
+- [ ] workflowId format validated (wf_*) before connection
+
+**Workflow Creation:**
+- [ ] Workflow creation integrated with ParameterContext
+- [ ] Parameters and category retrieved from Context (not hardcoded)
+- [ ] Workflow creation loading state displays
+- [ ] Workflow creation error handling implemented (401, 422, 500, network)
+
+**Agent Cards UI:**
 - [ ] AgentWorkflow component updated with real WebSocket
-- [ ] Workflow initiation integrated from Section 0
+- [ ] Connection status indicator displays at top of Section 1
+- [ ] Connection status shows workflow ID
 - [ ] Real-time updates working (agent cards update live)
 - [ ] Progress bars animate correctly
-- [ ] Status badges update correctly
+- [ ] Status badges update correctly (idle → running → complete → error)
+- [ ] Agent error messages display in alert component
+- [ ] human_input_required messages update agent state
+
+**Quality & Testing:**
 - [ ] Workflow completion message displays
 - [ ] Reconnection works (test with backend restart)
 - [ ] All manual tests passing
 - [ ] No console errors
 - [ ] No memory leaks (WebSocket cleanup on unmount)
+- [ ] WebSocket messages arrive in <1 second
+- [ ] Workflow creation completes in <3 seconds
 
 ---
 
 ## Time Tracking
 
-- **Estimated:** 6 hours
+- **Estimated:** 7 hours
 - **Actual:** ___ hours
 - **Variance:** ___ hours
 
@@ -953,9 +1122,11 @@ def run_demand_forecast_mock(parameters: SeasonParameters):
 - Task 2 (wscat WebSocket test): ___ min
 - Task 3 (TypeScript types): ___ min
 - Task 4 (WebSocketService): ___ min
-- Task 5 (useWebSocket hook): ___ min
-- Task 6 (AgentWorkflow component): ___ min
-- Task 7 (Workflow initiation): ___ min
+- Task 5 (useWebSocket hook with validation): ___ min
+- Task 6 (AgentWorkflow component with error display): ___ min
+- Task 7 (Workflow initiation with Context integration): ___ min
+- Additional: Context integration and error handling: ___ min
+- Additional: Loading states and validation: ___ min
 - Testing: ___ min
 - Documentation: ___ min
 

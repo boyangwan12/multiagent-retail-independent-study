@@ -3,9 +3,14 @@
 **Epic:** Phase 4 - Frontend/Backend Integration
 **Story ID:** PHASE4-001
 **Status:** Ready for Implementation
-**Estimate:** 2 hours
+**Estimate:** 3 hours
 **Agent:** `*agent dev`
 **Dependencies:** None (foundational story)
+
+**Planning References:**
+- Technical Architecture v3.3: Section 4 (API Architecture & Endpoints)
+- Frontend Spec v3.3: Section 2 (Environment Configuration)
+- PRD v3.3: Section 5 (Technical Requirements)
 
 ---
 
@@ -38,6 +43,13 @@ So that the React frontend can successfully communicate with the FastAPI backend
 8. ✅ `.env.example` files created for both frontend and backend
 9. ✅ README.md updated with environment setup instructions
 10. ✅ All environment variables load correctly on server startup
+
+### WebSocket & Advanced Requirements
+
+11. ✅ WebSocket CORS configuration included (for PHASE4-003)
+12. ✅ WebSocket connection test passes (basic connectivity)
+13. ✅ All required environment variables documented in checklist
+14. ✅ Environment variable validation on startup (missing vars cause clear errors)
 
 ---
 
@@ -238,15 +250,18 @@ CORS Origins: ['http://localhost:5173', 'http://localhost:3000']
       description="Multi-Agent Retail Demand Forecasting System"
   )
 
-  # CORS Configuration
+  # CORS Configuration (includes WebSocket support)
   app.add_middleware(
       CORSMiddleware,
       allow_origins=settings.cors_origins_list,
       allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
       allow_methods=settings.CORS_ALLOW_METHODS.split(",") if settings.CORS_ALLOW_METHODS != "*" else ["*"],
       allow_headers=settings.CORS_ALLOW_HEADERS.split(",") if settings.CORS_ALLOW_HEADERS != "*" else ["*"],
-      expose_headers=["*"],
+      expose_headers=["*"],  # Required for WebSocket upgrade headers
   )
+
+  # Note: WebSocket connections also respect CORS origins.
+  # The allow_origins list applies to both HTTP and WebSocket connections.
 
   @app.get("/api/health")
   async def health_check():
@@ -305,7 +320,173 @@ has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is pres
 
 ---
 
-### Task 4: Create Frontend API Client Configuration
+### Task 4: Environment Variable Validation Checklist
+
+**Goal:** Ensure all required environment variables are set and valid before proceeding with integration.
+
+**Subtasks:**
+
+- [ ] Create comprehensive environment variable checklist:
+
+**Backend Environment Variables:**
+```bash
+# Required (will cause startup failure if missing)
+✅ OPENAI_API_KEY - OpenAI API key (starts with 'sk-')
+✅ DATABASE_URL - Database connection string
+
+# Recommended (has defaults but should be configured)
+✅ CORS_ORIGINS - Frontend URL(s) for CORS
+✅ PORT - Backend server port (default: 8000)
+✅ HOST - Backend server host (default: 0.0.0.0)
+
+# Optional (system will use defaults)
+✅ OPENAI_MODEL - OpenAI model name (default: gpt-4o-mini)
+✅ OPENAI_ORG_ID - OpenAI organization ID
+✅ LOG_LEVEL - Logging level (default: INFO)
+✅ LOG_FILE - Log file path (default: logs/app.log)
+✅ DEBUG - Debug mode (default: true)
+✅ RELOAD - Auto-reload on code changes (default: true)
+```
+
+**Frontend Environment Variables:**
+```bash
+# Required
+✅ VITE_API_URL - Backend API base URL (default: http://localhost:8000)
+✅ VITE_WS_URL - Backend WebSocket URL (default: ws://localhost:8000)
+
+# Optional
+✅ VITE_ENV - Environment name (default: development)
+✅ VITE_DEBUG - Debug mode (default: true)
+```
+
+- [ ] Add startup validation in `backend/app/main.py`:
+  ```python
+  from app.core.config import settings
+  import sys
+
+  def validate_environment():
+      """Validate required environment variables on startup"""
+      errors = []
+
+      # Required variables
+      if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "sk-your_api_key_here":
+          errors.append("OPENAI_API_KEY is not set or using placeholder value")
+
+      if not settings.CORS_ORIGINS or settings.CORS_ORIGINS == "":
+          errors.append("CORS_ORIGINS is not set")
+
+      # Validate format
+      if not settings.OPENAI_API_KEY.startswith("sk-"):
+          errors.append("OPENAI_API_KEY must start with 'sk-'")
+
+      if errors:
+          print("\n❌ ENVIRONMENT CONFIGURATION ERRORS:")
+          for error in errors:
+              print(f"  - {error}")
+          print("\n📝 Please check your .env file and restart the server.\n")
+          sys.exit(1)
+      else:
+          print("✅ Environment configuration validated successfully")
+
+  @app.on_event("startup")
+  async def startup_event():
+      validate_environment()
+      print(f"🚀 Server starting on {settings.HOST}:{settings.PORT}")
+      print(f"📡 CORS enabled for: {', '.join(settings.cors_origins_list)}")
+  ```
+
+- [ ] Test validation by starting backend without OPENAI_API_KEY:
+  ```bash
+  # Remove OPENAI_API_KEY from .env temporarily
+  uv run uvicorn app.main:app --reload
+  ```
+
+**Expected Output:**
+```
+❌ ENVIRONMENT CONFIGURATION ERRORS:
+  - OPENAI_API_KEY is not set or using placeholder value
+
+📝 Please check your .env file and restart the server.
+```
+
+- [ ] Test validation with correct environment variables:
+  ```bash
+  # Restore OPENAI_API_KEY to .env
+  uv run uvicorn app.main:app --reload
+  ```
+
+**Expected Output:**
+```
+✅ Environment configuration validated successfully
+🚀 Server starting on 0.0.0.0:8000
+📡 CORS enabled for: http://localhost:5173, http://localhost:3000
+```
+
+**Validation:**
+- Missing required variables cause clear error messages
+- Startup validation prevents running with invalid configuration
+- Error messages guide developer to fix issues
+
+---
+
+### Task 5: WebSocket Connection Test
+
+**Goal:** Verify WebSocket connections work with CORS configuration (preparation for PHASE4-003).
+
+**Subtasks:**
+
+- [ ] Install wscat for WebSocket testing:
+  ```bash
+  npm install -g wscat
+  ```
+
+- [ ] Add a test WebSocket endpoint to backend (temporary for validation):
+  ```python
+  # Add to backend/app/main.py
+  from fastapi import WebSocket
+
+  @app.websocket("/ws/test")
+  async def websocket_test(websocket: WebSocket):
+      await websocket.accept()
+      await websocket.send_json({"message": "WebSocket connection successful!"})
+      await websocket.close()
+  ```
+
+- [ ] Test WebSocket connection from command line:
+  ```bash
+  wscat -c ws://localhost:8000/ws/test
+  ```
+
+**Expected Output:**
+```
+Connected (press CTRL+C to quit)
+< {"message":"WebSocket connection successful!"}
+Disconnected
+```
+
+- [ ] Test WebSocket connection from browser console:
+  ```javascript
+  const ws = new WebSocket('ws://localhost:8000/ws/test');
+  ws.onopen = () => console.log('✅ WebSocket connected');
+  ws.onmessage = (event) => console.log('📨 Message:', JSON.parse(event.data));
+  ws.onerror = (error) => console.error('❌ WebSocket error:', error);
+  ```
+
+**Expected Output (Browser Console):**
+```
+✅ WebSocket connected
+📨 Message: {message: "WebSocket connection successful!"}
+```
+
+**Validation:**
+- WebSocket connection establishes successfully
+- No CORS errors in browser console
+- Message received from backend
+- This confirms WebSocket will work for PHASE4-003
+
+---
+
+### Task 6: Create Frontend API Client Configuration
 
 **Subtasks:**
 - [ ] Create `frontend/src/config/api.ts`:
@@ -468,7 +649,7 @@ Health check: { status: "healthy", environment: "development", api_version: "1.0
 
 ---
 
-### Task 5: Update .gitignore Files
+### Task 7: Update .gitignore Files
 
 **Subtasks:**
 - [ ] Verify `frontend/.gitignore` includes:
@@ -515,7 +696,7 @@ Health check: { status: "healthy", environment: "development", api_version: "1.0
 
 ---
 
-### Task 6: Update README.md with Environment Setup Instructions
+### Task 8: Update README.md with Environment Setup Instructions
 
 **Subtasks:**
 - [ ] Update root `README.md` with environment setup section:
@@ -720,23 +901,36 @@ Health check: { status: "healthy", environment: "development", api_version: "1.0
 
 ## Definition of Done
 
-- [ ] Frontend `.env` created with `VITE_API_URL`
-- [ ] Backend `.env` created with `OPENAI_API_KEY`
-- [ ] CORS middleware configured in FastAPI
+**Configuration Files:**
+- [ ] Frontend `.env` created with `VITE_API_URL` and `VITE_WS_URL`
+- [ ] Backend `.env` created with `OPENAI_API_KEY` and all required variables
+- [ ] `.env.example` files created for both frontend and backend
+- [ ] `.env` files added to `.gitignore`
+
+**CORS & Connectivity:**
+- [ ] CORS middleware configured in FastAPI (HTTP + WebSocket support)
 - [ ] Frontend can call `GET /api/health` without CORS errors
 - [ ] OPTIONS preflight requests return 200 OK
-- [ ] `.env` files in `.gitignore`
-- [ ] `.env.example` files created for both frontend and backend
-- [ ] README.md updated with setup instructions
+- [ ] WebSocket connection test passes (`/ws/test` endpoint)
+
+**Validation & Quality:**
+- [ ] Environment variable validation on backend startup
+- [ ] Missing/invalid env vars cause clear error messages
+- [ ] Comprehensive environment variable checklist documented
 - [ ] All manual tests passing
 - [ ] No console errors in browser
 - [ ] Backend logs show no errors
+
+**Documentation:**
+- [ ] README.md updated with setup instructions
+- [ ] Planning document references added to story
+- [ ] Troubleshooting section included
 
 ---
 
 ## Time Tracking
 
-- **Estimated:** 2 hours
+- **Estimated:** 3 hours
 - **Actual:** ___ hours
 - **Variance:** ___ hours
 
@@ -744,9 +938,11 @@ Health check: { status: "healthy", environment: "development", api_version: "1.0
 - Task 1 (Frontend .env): ___ min
 - Task 2 (Backend .env): ___ min
 - Task 3 (CORS config): ___ min
-- Task 4 (API client): ___ min
-- Task 5 (.gitignore): ___ min
-- Task 6 (README): ___ min
+- Task 4 (Environment validation): ___ min
+- Task 5 (WebSocket test): ___ min
+- Task 6 (API client): ___ min
+- Task 7 (.gitignore): ___ min
+- Task 8 (README): ___ min
 - Testing: ___ min
 - Documentation: ___ min
 

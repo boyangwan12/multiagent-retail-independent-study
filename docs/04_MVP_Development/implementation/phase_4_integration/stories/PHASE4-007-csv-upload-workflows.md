@@ -4,9 +4,14 @@
 **Story Name:** Integrate CSV Upload Workflows for Agent Data Input
 **Phase:** Phase 4 - Frontend/Backend Integration
 **Dependencies:** PHASE4-001, PHASE4-002, PHASE4-003
-**Estimated Effort:** 8 hours
+**Estimated Effort:** 9 hours
 **Assigned To:** Developer (Frontend + Backend Integration)
 **Status:** Not Started
+
+**Planning References:**
+- PRD v3.3: Section 4.3 (CSV Data Upload & Validation)
+- Technical Architecture v3.3: Section 4.7 (Upload Endpoints & File Storage)
+- Frontend Spec v3.3: Section 3.9 (Upload UI Components)
 
 ---
 
@@ -99,9 +104,15 @@ SKU456,DC_East,3000,800
 
 ## Acceptance Criteria
 
+### Context Integration & Data Flow
+
+- [ ] **AC1:** Components use workflowId from ParameterContext (not props)
+- [ ] **AC2:** Category from Context validated against uploaded store profiles
+- [ ] **AC3:** Upload button only enabled when workflowId exists
+
 ### Backend Integration
 
-- [ ] **AC1:** POST /api/workflows/{id}/demand/upload accepts multipart/form-data
+- [ ] **AC4:** POST /api/workflows/{id}/demand/upload accepts multipart/form-data
 - [ ] **AC2:** Backend validates CSV format (headers, data types, required columns)
 - [ ] **AC3:** Backend returns validation errors with specific row/column details
 - [ ] **AC4:** POST /api/workflows/{id}/inventory/upload accepts DC inventory CSVs
@@ -144,9 +155,19 @@ SKU456,DC_East,3000,800
 - [ ] **AC24:** Frontend displays validation errors in a scrollable list
 - [ ] **AC25:** User can download error report as .txt file
 
+### Accessibility
+
+- [ ] **AC26:** Drag-and-drop zone has aria-label describing purpose
+- [ ] **AC27:** File picker button has aria-label
+- [ ] **AC28:** Upload progress has role="progressbar" with aria-valuenow
+- [ ] **AC29:** Success/error messages have role="status" or role="alert"
+- [ ] **AC30:** Validation error list has aria-label and is keyboard navigable
+- [ ] **AC31:** Modal has proper focus trap and ESC key closes it
+- [ ] **AC32:** Tab navigation works correctly within upload modal
+
 ### Testing
 
-- [ ] **AC26:** Backend upload endpoints tested in Postman:
+- [ ] **AC33:** Backend upload endpoints tested in Postman:
   - Test Case 1: Valid CSV upload (all required columns, correct data types)
   - Test Case 2: Invalid CSV (missing required column)
   - Test Case 3: Invalid CSV (wrong data type in row)
@@ -351,12 +372,12 @@ SKU456,DC_East,3000,800
 
 **Objective:** Create service to handle CSV file uploads to backend.
 
-**File:** `src/services/uploadService.ts`
+**File:** `frontend/src/services/upload-service.ts`
 
 **Implementation:**
 
 ```typescript
-import { API_ENDPOINTS } from '../config/api.config';
+import { API_ENDPOINTS } from '@/config/api';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -606,16 +627,17 @@ export class UploadService {
 
 **Objective:** Create reusable component for CSV file uploads with drag-and-drop.
 
-**File:** `src/components/UploadZone.tsx`
+**File:** `frontend/src/components/UploadZone/UploadZone.tsx`
 
 **Implementation:**
 
 ```typescript
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { Upload, File, X, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { UploadService, ValidationError } from '../services/uploadService';
-import { Button } from './ui/button';
-import { Card } from './ui/card';
+import { Upload, File, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { UploadService, ValidationError } from '@/services/upload-service';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface UploadZoneProps {
   workflowId: string;
@@ -799,8 +821,11 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
+          role="button"
+          aria-label={`Upload ${fileTypeLabel} CSV file`}
+          tabIndex={0}
         >
-          <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" aria-hidden="true" />
           <p className="text-sm text-gray-600 mb-2">
             Drag and drop your CSV file here, or
           </p>
@@ -808,6 +833,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             onClick={() => fileInputRef.current?.click()}
             variant="outline"
             size="sm"
+            aria-label={`Browse files for ${fileTypeLabel}`}
           >
             Browse Files
           </Button>
@@ -817,6 +843,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             accept=".csv"
             onChange={handleFileInputChange}
             className="hidden"
+            aria-hidden="true"
           />
         </div>
       )}
@@ -857,9 +884,9 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
       {/* UPLOADING STATE */}
       {uploadStatus === 'uploading' && (
-        <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+        <div className="border border-blue-300 rounded-lg p-4 bg-blue-50" role="status" aria-live="polite">
           <div className="flex items-center gap-3 mb-3">
-            <File className="w-8 h-8 text-blue-600" />
+            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
             <div className="flex-1">
               <p className="font-medium text-blue-900">{selectedFile?.name}</p>
               <p className="text-xs text-blue-700">Uploading...</p>
@@ -867,7 +894,14 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full bg-blue-200 rounded-full h-2">
+          <div
+            className="w-full bg-blue-200 rounded-full h-2"
+            role="progressbar"
+            aria-valuenow={uploadProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Upload progress"
+          >
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
@@ -879,7 +913,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
       {/* SUCCESS STATE */}
       {uploadStatus === 'success' && (
-        <div className="border border-green-300 rounded-lg p-4 bg-green-50">
+        <div className="border border-green-300 rounded-lg p-4 bg-green-50" role="status" aria-live="polite">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-8 h-8 text-green-600" />
             <div className="flex-1">
@@ -895,7 +929,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
       {/* ERROR STATE */}
       {uploadStatus === 'error' && (
-        <div className="border border-red-300 rounded-lg p-4 bg-red-50">
+        <div className="border border-red-300 rounded-lg p-4 bg-red-50" role="alert">
           <div className="flex items-center gap-3 mb-3">
             <AlertCircle className="w-8 h-8 text-red-600" />
             <div className="flex-1">
@@ -910,7 +944,11 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
           {/* Validation Errors List */}
           {validationErrors.length > 0 && (
-            <div className="max-h-40 overflow-y-auto bg-white rounded p-3 border border-red-200 mb-3">
+            <div
+              className="max-h-40 overflow-y-auto bg-white rounded p-3 border border-red-200 mb-3"
+              aria-label="Validation errors"
+              tabIndex={0}
+            >
               <ul className="space-y-2">
                 {validationErrors.slice(0, 5).map((error, index) => (
                   <li key={index} className="text-xs text-red-800">
@@ -964,27 +1002,27 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
 **Objective:** Create modal with tabs for each agent's CSV uploads.
 
-**File:** `src/components/UploadModal.tsx`
+**File:** `frontend/src/components/UploadModal/UploadModal.tsx`
 
 **Implementation:**
 
 ```typescript
 import React, { useState } from 'react';
+import { useParameters } from '@/contexts/ParameterContext';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { UploadZone } from './UploadZone';
-import { Badge } from './ui/badge';
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UploadZone } from '@/components/UploadZone';
+import { Badge } from '@/components/ui/badge';
 import { CheckCircle2 } from 'lucide-react';
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  workflowId: string;
 }
 
 interface UploadStatus {
@@ -997,16 +1035,18 @@ interface UploadStatus {
   };
 }
 
-export const UploadModal: React.FC<UploadModalProps> = ({
-  isOpen,
-  onClose,
-  workflowId,
-}) => {
+export function UploadModal({ isOpen, onClose }: UploadModalProps) {
+  const { workflowId } = useParameters();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
     demand: {},
     inventory: {},
     pricing: {},
   });
+
+  // If no workflowId, don't render modal
+  if (!workflowId) {
+    return null;
+  }
 
   const handleUploadSuccess = (
     agentType: string,
@@ -1211,8 +1251,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 ```
 
 **Validation:**
+- [ ] Modal reads workflowId from Context (no prop needed)
 - [ ] Modal opens/closes correctly
+- [ ] ESC key closes modal (focus trap works)
 - [ ] Three tabs render (Demand, Inventory, Pricing)
+- [ ] Tab navigation works with keyboard (Tab, Arrow keys)
 - [ ] Each tab shows relevant UploadZone components
 - [ ] Green checkmark appears on tab when file uploaded
 - [ ] Upload status summary displays uploaded files
@@ -1224,74 +1267,76 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
 **Objective:** Add "Upload Data" button to dashboard below Agent Cards (Section 1).
 
-**File:** `src/pages/Dashboard.tsx` (or equivalent)
+**File:** `frontend/src/pages/Dashboard.tsx` (or equivalent)
 
 **Implementation:**
 
 ```typescript
 import React, { useState } from 'react';
-import { UploadModal } from '../components/UploadModal';
-import { Button } from '../components/ui/button';
+import { useParameters } from '@/contexts/ParameterContext';
+import { UploadModal } from '@/components/UploadModal';
+import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 
-export const Dashboard: React.FC = () => {
-  const [workflowId, setWorkflowId] = useState<string | null>(null);
+export function Dashboard() {
+  const { workflowId } = useParameters();
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  // ... existing state management ...
-
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Section 0: Parameter Gathering */}
-      <ParameterGathering
-        onParametersExtracted={(params, wfId) => {
-          setParameters(params);
-          setWorkflowId(wfId);
-        }}
-      />
+    <ParameterProvider>
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Section 0: Parameter Gathering */}
+        <ParameterGathering />
 
-      {workflowId && parameters && (
-        <>
-          {/* Section 1: Agent Cards */}
-          <AgentCards workflowId={workflowId} />
+        {/* Section 1: Agent Cards */}
+        <AgentCards />
 
-          {/* Upload Data Button */}
+        {/* Upload Data Button (only visible when workflowId exists) */}
+        {workflowId && (
           <div className="flex justify-center">
             <Button
               onClick={() => setUploadModalOpen(true)}
               variant="outline"
               size="lg"
               className="gap-2"
+              aria-label="Upload CSV data files for agents"
             >
               <Upload className="w-5 h-5" />
               Upload CSV Data (Optional)
             </Button>
           </div>
+        )}
 
-          {/* Remaining Sections... */}
-          <ForecastSummary workflowId={workflowId} />
-          {/* ... */}
-        </>
-      )}
+        {/* Remaining Sections... */}
+        <ForecastSummary />
+        <ClusterCards />
+        <WeeklyPerformanceChart />
+        <ReplenishmentQueue />
+        <MarkdownDecision />
+        <PerformanceMetrics />
+      </div>
 
       {/* Upload Modal */}
-      {workflowId && (
-        <UploadModal
-          isOpen={uploadModalOpen}
-          onClose={() => setUploadModalOpen(false)}
-          workflowId={workflowId}
-        />
-      )}
-    </div>
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+      />
+    </ParameterProvider>
   );
-};
+}
 ```
+
+**Notes:**
+- UploadModal reads workflowId from Context (no prop needed)
+- Button only visible when workflowId exists
+- All components use Context for data flow
 
 **Validation:**
 - [ ] "Upload Data" button appears below Section 1 (Agent Cards)
-- [ ] Button only visible when workflowId exists
+- [ ] Button only visible when workflowId exists in Context
 - [ ] Clicking button opens UploadModal
-- [ ] Modal closes correctly when user clicks outside or closes
+- [ ] Modal closes correctly when user clicks outside or presses ESC
+- [ ] Button has aria-label for accessibility
 
 ---
 
@@ -1346,11 +1391,20 @@ export const Dashboard: React.FC = () => {
 - [ ] All 5 tasks completed and validated
 - [ ] Backend upload endpoints tested in Postman (6 test cases passing)
 - [ ] UploadService created with complete type definitions and validation
+- [ ] Components use Context (workflowId from ParameterContext, not props)
 - [ ] UploadZone component supports drag-and-drop and file picker
 - [ ] UploadModal has 3 tabs with UploadZone components for each agent
-- [ ] "Upload Data" button integrated into Dashboard
+- [ ] UploadModal reads workflowId from Context (no prop needed)
+- [ ] "Upload Data" button integrated into Dashboard using Context
 - [ ] Validation errors displayed with specific row/column details
 - [ ] Error report download functionality works
+- [ ] Accessibility requirements met:
+  - [ ] Drag-and-drop zone has aria-label
+  - [ ] Progress bar has role="progressbar" with aria-valuenow
+  - [ ] Success/error messages have role="status" or role="alert"
+  - [ ] Validation error list is keyboard navigable with aria-label
+  - [ ] Modal has focus trap and ESC key support
+  - [ ] Tab navigation works correctly
 - [ ] Manual testing completed with all scenarios
 - [ ] No console errors or warnings
 - [ ] Code reviewed by team member

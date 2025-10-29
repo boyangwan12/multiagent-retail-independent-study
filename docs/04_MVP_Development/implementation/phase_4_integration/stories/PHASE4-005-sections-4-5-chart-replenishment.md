@@ -3,9 +3,14 @@
 **Epic:** Phase 4 - Frontend/Backend Integration
 **Story ID:** PHASE4-005
 **Status:** Ready for Implementation
-**Estimate:** 5 hours
+**Estimate:** 6 hours
 **Agent:** `*agent dev`
 **Dependencies:** PHASE4-004 (Sections 2-3)
+
+**Planning References:**
+- PRD v3.3: Section 4.2 (Weekly Performance Monitoring & Variance Tracking)
+- Technical Architecture v3.3: Section 4.5 (Variance & Allocation APIs)
+- Frontend Spec v3.3: Sections 3.5-3.6 (Sections 4-5 Design)
 
 ---
 
@@ -27,22 +32,43 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
 
 1. ✅ GET /api/variance/{id}/week/{week} endpoint tested with Postman
 2. ✅ GET /api/allocations/{id} endpoint tested with Postman
-3. ✅ Section 4 (Weekly Chart) displays forecast vs actuals
-4. ✅ Variance highlighting works (>20% = red, 10-20% = yellow, <10% = green)
-5. ✅ Interactive table shows week-by-week breakdown
-6. ✅ Row expansion shows store-level variance
-7. ✅ Section 5 (Replenishment Queue) displays upcoming shipments
-8. ✅ DC inventory warnings display when low
-9. ✅ Approve button works (calls backend)
-10. ✅ Replenishment skipped when strategy = "none" (conditional display)
+3. ✅ Components use forecastId from Context (not props)
+4. ✅ Components use parameters from Context for forecast_horizon_weeks
+5. ✅ Components wait for workflowComplete before fetching data
+6. ✅ Section 4 (Weekly Chart) displays forecast vs actuals
+7. ✅ Variance highlighting works (>20% = red, 10-20% = yellow, <10% = green)
+8. ✅ Interactive table shows week-by-week breakdown
+9. ✅ Row expansion shows store-level variance
+10. ✅ Section 5 (Replenishment Queue) displays upcoming shipments
+11. ✅ DC inventory warnings display when low
+12. ✅ Approve shipment button calls POST /api/approvals/replenishment
+13. ✅ Approval success/error feedback displayed
+14. ✅ Replenishment section hidden when strategy = "none" (conditional display)
+
+### Data Validation & Error Handling
+
+15. ✅ Allocation replenishment_strategy validated against Context parameters
+16. ✅ 404 error handled if variance data not found
+17. ✅ 404 error handled if allocation data not found
+18. ✅ 500 and network errors handled with user-friendly messages
+19. ✅ currentWeek calculated from season_start_date in Context
 
 ### Quality Requirements
 
-11. ✅ Chart renders smoothly with Recharts
-12. ✅ Variance colors update correctly based on thresholds
-13. ✅ No console errors during data display
-14. ✅ Test with different replenishment strategies (weekly, bi-weekly, none)
-15. ✅ Loading states show while fetching data
+20. ✅ Chart renders smoothly with Recharts
+21. ✅ Variance colors update correctly based on thresholds
+22. ✅ No console errors during data display
+23. ✅ Test with different replenishment strategies (weekly, bi-weekly, none)
+24. ✅ Loading states show while fetching data
+
+### Accessibility
+
+25. ✅ Chart has aria-label describing variance data
+26. ✅ Variance color indicators include text labels (not color-only)
+27. ✅ Row expansion accessible via keyboard (Enter/Space)
+28. ✅ Row expansion has aria-expanded attribute
+29. ✅ Approve button has aria-label with week and quantity
+30. ✅ DC warnings have role="alert" for screen readers
 
 ---
 
@@ -304,32 +330,70 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
 
 ---
 
-### Task 5: Update WeeklyPerformanceChart Component (Section 4)
+### Task 5: Create currentWeek Calculation Utility
+
+**Goal:** Calculate current week number from season_start_date for reactive updates.
+
+**Subtasks:**
+- [ ] Create utility function to calculate current week:
+  ```typescript
+  // frontend/src/utils/date-utils.ts
+  export function getCurrentWeekNumber(seasonStartDate: string): number {
+    const startDate = new Date(seasonStartDate);
+    const today = new Date();
+
+    // Calculate days elapsed since season start
+    const daysElapsed = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Convert to weeks (1-indexed)
+    const weekNumber = Math.floor(daysElapsed / 7) + 1;
+
+    // Clamp to valid range (1 to forecast_horizon_weeks)
+    return Math.max(1, weekNumber);
+  }
+  ```
+
+- [ ] Add currentWeek to ParameterContext (optional, or calculate in components):
+  ```typescript
+  // Option A: Add to Context
+  const currentWeek = parameters?.season_start_date
+    ? getCurrentWeekNumber(parameters.season_start_date)
+    : 1;
+
+  // Option B: Calculate in each component as needed
+  // (Simpler, avoids Context updates)
+  ```
+
+**Recommendation:** Calculate in components as needed (Option B) to avoid unnecessary Context complexity.
+
+**Validation:**
+- Function returns correct week number based on date math
+- Returns 1 if season hasn't started yet
+- Used in ReplenishmentQueue to show "current week" context
+
+---
+
+### Task 6: Update WeeklyPerformanceChart Component (Section 4)
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/WeeklyPerformanceChart/WeeklyPerformanceChart.tsx`
 
-- [ ] Add state and data fetching:
+- [ ] Update to use Context instead of props:
   ```typescript
   import { VarianceService } from '@/services/variance-service';
+  import { useParameters } from '@/contexts/ParameterContext';
   import type { WeeklyVariance } from '@/types/variance';
 
-  interface WeeklyPerformanceChartProps {
-    forecastId: string | null;
-    forecastHorizonWeeks: number;
-  }
-
-  export function WeeklyPerformanceChart({
-    forecastId,
-    forecastHorizonWeeks
-  }: WeeklyPerformanceChartProps) {
+  export function WeeklyPerformanceChart() {
+    const { forecastId, parameters, workflowComplete } = useParameters();
     const [weeklyData, setWeeklyData] = useState<WeeklyVariance[]>([]);
     const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-      if (!forecastId) return;
+      // Wait for workflow completion and validate parameters
+      if (!workflowComplete || !forecastId || !parameters) return;
 
       const fetchVarianceData = async () => {
         setIsLoading(true);
@@ -338,19 +402,30 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
         try {
           const data = await VarianceService.getAllWeeks(
             forecastId,
-            forecastHorizonWeeks
+            parameters.forecast_horizon_weeks
           );
           setWeeklyData(data);
         } catch (err) {
           console.error('Failed to fetch variance data:', err);
-          setError('Failed to load variance data');
+
+          // Handle specific error types
+          let errorMessage = 'Failed to load variance data';
+          if (err.status === 404) {
+            errorMessage = 'Variance data not found. Workflow may not have completed.';
+          } else if (err.status === 500) {
+            errorMessage = 'Server error loading variance data.';
+          } else if (err.status === 0) {
+            errorMessage = 'Cannot connect to backend.';
+          }
+
+          setError(errorMessage);
         } finally {
           setIsLoading(false);
         }
       };
 
       fetchVarianceData();
-    }, [forecastId, forecastHorizonWeeks]);
+    }, [workflowComplete, forecastId, parameters]);
 
     if (!forecastId) {
       return (
@@ -405,28 +480,30 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
         </CardHeader>
         <CardContent>
           {/* Recharts ComposedChart */}
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" label={{ value: 'Week', position: 'insideBottom', offset: -5 }} />
-              <YAxis label={{ value: 'Units', angle: -90, position: 'insideLeft' }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="forecast"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                name="Forecast (Cumulative)"
-              />
-              <Bar
-                dataKey="actual"
-                fill="#10b981"
-                name="Actual (Cumulative)"
-                opacity={0.8}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div role="img" aria-label={`Weekly performance chart showing forecast vs actual sales over ${parameters.forecast_horizon_weeks} weeks`}>
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" label={{ value: 'Week', position: 'insideBottom', offset: -5 }} />
+                <YAxis label={{ value: 'Units', angle: -90, position: 'insideLeft' }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="forecast"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="Forecast (Cumulative)"
+                />
+                <Bar
+                  dataKey="actual"
+                  fill="#10b981"
+                  name="Actual (Cumulative)"
+                  opacity={0.8}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
 
           {/* Interactive Variance Table */}
           <div className="mt-6">
@@ -462,8 +539,9 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
                           week.variance_pct > 20 ? 'destructive' :
                           week.variance_pct > 10 ? 'warning' : 'success'
                         }>
-                          {week.variance_pct > 20 ? '🔴 High' :
-                           week.variance_pct > 10 ? '🟡 Medium' : '🟢 Low'}
+                          {/* Include text labels, not just color indicators */}
+                          {week.variance_pct > 20 ? 'High Variance' :
+                           week.variance_pct > 10 ? 'Medium Variance' : 'Low Variance'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -473,6 +551,9 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
                           onClick={() => setSelectedWeek(
                             selectedWeek === week.week_number ? null : week.week_number
                           )}
+                          aria-expanded={selectedWeek === week.week_number}
+                          aria-controls={`week-${week.week_number}-details`}
+                          aria-label={`${selectedWeek === week.week_number ? 'Collapse' : 'Expand'} store-level variance for Week ${week.week_number}`}
                         >
                           {selectedWeek === week.week_number ? <ChevronUp /> : <ChevronDown />}
                         </Button>
@@ -483,7 +564,7 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
                     {selectedWeek === week.week_number && (
                       <TableRow>
                         <TableCell colSpan={6} className="bg-gray-50">
-                          <div className="py-4">
+                          <div className="py-4" id={`week-${week.week_number}-details`}>
                             <h4 className="font-semibold mb-2">Store-Level Variance - Week {week.week_number}</h4>
                             <div className="max-h-60 overflow-y-auto">
                               <Table>
@@ -535,31 +616,67 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
 
 ---
 
-### Task 6: Update ReplenishmentQueue Component (Section 5)
+### Task 7: Update ReplenishmentQueue Component (Section 5)
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/ReplenishmentQueue/ReplenishmentQueue.tsx`
 
-- [ ] Add state and data fetching:
+- [ ] Update to use Context instead of props:
   ```typescript
   import { AllocationService } from '@/services/allocation-service';
+  import { useParameters } from '@/contexts/ParameterContext';
+  import { getCurrentWeekNumber } from '@/utils/date-utils';
   import type { AllocationPlan, WeeklyReplenishment } from '@/types/allocation';
 
-  interface ReplenishmentQueueProps {
-    forecastId: string | null;
-    currentWeek: number;
-  }
-
-  export function ReplenishmentQueue({
-    forecastId,
-    currentWeek
-  }: ReplenishmentQueueProps) {
+  export function ReplenishmentQueue() {
+    const { forecastId, parameters, workflowComplete } = useParameters();
     const [allocation, setAllocation] = useState<AllocationPlan | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isApprovingShipments, setIsApprovingShipments] = useState(false);
+    const [approvalSuccess, setApprovalSuccess] = useState<string | null>(null);
+
+    // Calculate current week from season_start_date
+    const currentWeek = parameters?.season_start_date
+      ? getCurrentWeekNumber(parameters.season_start_date)
+      : 1;
+
+    // Handle approval button click
+    const handleApproveShipments = async () => {
+      if (!forecastId) return;
+
+      setIsApprovingShipments(true);
+      setApprovalSuccess(null);
+
+      try {
+        // POST /api/approvals/replenishment
+        await ApiClient.post('/api/approvals/replenishment', {
+          forecast_id: forecastId,
+          week_number: currentWeek,
+        });
+
+        setApprovalSuccess(`Week ${currentWeek} shipments approved successfully`);
+      } catch (err) {
+        console.error('Failed to approve shipments:', err);
+
+        let errorMessage = 'Failed to approve shipments';
+        if (err.status === 404) {
+          errorMessage = 'Replenishment plan not found.';
+        } else if (err.status === 500) {
+          errorMessage = 'Server error approving shipments.';
+        } else if (err.status === 0) {
+          errorMessage = 'Cannot connect to backend.';
+        }
+
+        setError(errorMessage);
+      } finally {
+        setIsApprovingShipments(false);
+      }
+    };
 
     useEffect(() => {
-      if (!forecastId) return;
+      // Wait for workflow completion and validate parameters
+      if (!workflowComplete || !forecastId || !parameters) return;
 
       const fetchAllocation = async () => {
         setIsLoading(true);
@@ -567,17 +684,36 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
 
         try {
           const data = await AllocationService.getAllocation(forecastId);
+
+          // Validate replenishment strategy matches parameters
+          if (parameters && data.replenishment_strategy !== parameters.replenishment_strategy) {
+            console.warn(
+              `Replenishment strategy mismatch: expected ${parameters.replenishment_strategy}, got ${data.replenishment_strategy}`
+            );
+          }
+
           setAllocation(data);
         } catch (err) {
           console.error('Failed to fetch allocation:', err);
-          setError('Failed to load replenishment data');
+
+          // Handle specific error types
+          let errorMessage = 'Failed to load replenishment data';
+          if (err.status === 404) {
+            errorMessage = 'Allocation data not found. Workflow may not have completed.';
+          } else if (err.status === 500) {
+            errorMessage = 'Server error loading allocation data.';
+          } else if (err.status === 0) {
+            errorMessage = 'Cannot connect to backend.';
+          }
+
+          setError(errorMessage);
         } finally {
           setIsLoading(false);
         }
       };
 
       fetchAllocation();
-    }, [forecastId]);
+    }, [workflowComplete, forecastId, parameters]);
 
     if (!forecastId) {
       return (
@@ -649,9 +785,17 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
           </p>
         </CardHeader>
         <CardContent>
+          {/* Approval Success Message */}
+          {approvalSuccess && (
+            <Alert variant="success" className="mb-4" role="status">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>{approvalSuccess}</AlertDescription>
+            </Alert>
+          )}
+
           {/* DC Inventory Warnings */}
           {allocation.dc_inventory_warnings.length > 0 && (
-            <Alert variant="warning" className="mb-4">
+            <Alert variant="warning" className="mb-4" role="alert">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>DC Inventory Warning</AlertTitle>
               <AlertDescription>
@@ -694,8 +838,19 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
               </div>
 
               <div className="mt-4">
-                <Button onClick={() => console.log('Approve shipments')}>
-                  Approve Shipments
+                <Button
+                  onClick={handleApproveShipments}
+                  disabled={isApprovingShipments}
+                  aria-label={`Approve ${currentWeekShipments.total_shipped} units for Week ${currentWeek}`}
+                >
+                  {isApprovingShipments ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Approving...
+                    </>
+                  ) : (
+                    'Approve Shipments'
+                  )}
                 </Button>
               </div>
             </>
@@ -714,11 +869,91 @@ So that I can monitor forecast accuracy and manage inventory replenishment.
   ```
 
 **Validation:**
+- Uses Context instead of props for forecastId, parameters, workflowComplete
+- Calculates currentWeek from season_start_date
+- Validates replenishment strategy matches parameters
 - Displays current week's shipments
 - Shows "No replenishment" message when strategy = "none"
-- DC warnings appear when inventory low
-- Approve button present
+- DC warnings appear when inventory low (with role="alert")
+- Approve button includes aria-label with week and quantity
+- Approval success message displayed with role="status"
 - Table scrolls when many shipments
+
+---
+
+### Task 8: Implement Approval Endpoint Service
+
+**Goal:** Add service method for POST /api/approvals/replenishment
+
+**Subtasks:**
+- [ ] Create `frontend/src/services/approval-service.ts`:
+  ```typescript
+  import { ApiClient } from '@/utils/api-client';
+  import { API_ENDPOINTS } from '@/config/api';
+
+  export interface ApprovalRequest {
+    forecast_id: string;
+    week_number: number;
+  }
+
+  export interface ApprovalResponse {
+    approval_id: string;
+    forecast_id: string;
+    week_number: number;
+    total_units_approved: number;
+    stores_affected: number;
+    approved_at: string;
+    status: "approved";
+  }
+
+  export class ApprovalService {
+    static async approveReplenishment(
+      request: ApprovalRequest
+    ): Promise<ApprovalResponse> {
+      return ApiClient.post<ApprovalResponse>(
+        API_ENDPOINTS.APPROVALS_REPLENISHMENT,
+        request
+      );
+    }
+  }
+  ```
+
+- [ ] Add endpoint to API_ENDPOINTS config:
+  ```typescript
+  // frontend/src/config/api.ts
+  export const API_ENDPOINTS = {
+    // ... existing endpoints
+    APPROVALS_REPLENISHMENT: '/api/approvals/replenishment',
+  };
+  ```
+
+- [ ] Test endpoint with Postman:
+  - Method: POST
+  - URL: `http://localhost:8000/api/approvals/replenishment`
+  - Body:
+    ```json
+    {
+      "forecast_id": "fc_abc123",
+      "week_number": 2
+    }
+    ```
+  - Expected Response (200 OK):
+    ```json
+    {
+      "approval_id": "ap_abc123",
+      "forecast_id": "fc_abc123",
+      "week_number": 2,
+      "total_units_approved": 1200,
+      "stores_affected": 15,
+      "approved_at": "2025-10-29T10:30:00Z",
+      "status": "approved"
+    }
+    ```
+
+**Validation:**
+- POST endpoint returns approval confirmation
+- Approval ID generated
+- Success response includes approval details
 
 ---
 
@@ -812,22 +1047,36 @@ describe('ReplenishmentQueue', () => {
 
 - [ ] GET /api/variance tested with Postman (all 12 weeks)
 - [ ] GET /api/allocations tested with Postman
-- [ ] TypeScript types created
-- [ ] API services created
-- [ ] Section 4 displays chart and table
-- [ ] Variance highlighting works correctly
-- [ ] Store-level expansion works
-- [ ] Section 5 displays replenishment queue
+- [ ] POST /api/approvals/replenishment tested with Postman
+- [ ] TypeScript types created (variance, allocation, approval)
+- [ ] API services created (VarianceService, AllocationService, ApprovalService)
+- [ ] currentWeek utility function created
+- [ ] Components use Context (forecastId, parameters, workflowComplete) instead of props
+- [ ] Components wait for workflowComplete before fetching data
+- [ ] Category and strategy validation implemented
+- [ ] Section 4 displays chart and table with data from Context
+- [ ] Chart has aria-label for accessibility
+- [ ] Variance highlighting works correctly (red >20%, yellow 10-20%, green <10%)
+- [ ] Variance badges include text labels (not color-only)
+- [ ] Store-level expansion works with aria-expanded and aria-controls
+- [ ] Section 5 displays replenishment queue using Context
+- [ ] currentWeek calculated from season_start_date
 - [ ] Conditional display for "none" strategy works
-- [ ] DC warnings display
+- [ ] DC warnings display with role="alert"
+- [ ] Approve button includes aria-label
+- [ ] Approval success/error feedback displayed
+- [ ] Approval button calls POST /api/approvals/replenishment
+- [ ] 404, 500, and network errors handled
 - [ ] All manual tests passing
 - [ ] No console errors
+- [ ] Accessibility requirements met (WCAG compliance)
 
 ---
 
 ## Time Tracking
 
-- **Estimated:** 5 hours
+- **Estimated:** 6 hours (updated from 5 hours)
+  - +1 hour for Context integration, accessibility, and approval endpoint
 - **Actual:** ___ hours
 
 ---

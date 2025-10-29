@@ -3,9 +3,14 @@
 **Epic:** Phase 4 - Frontend/Backend Integration
 **Story ID:** PHASE4-002
 **Status:** Ready for Implementation
-**Estimate:** 4 hours
+**Estimate:** 5 hours
 **Agent:** `*agent dev`
 **Dependencies:** PHASE4-001 (Environment Configuration)
+
+**Planning References:**
+- PRD v3.3: Section 3.1 (Parameter-Driven Workflow Approach)
+- Technical Architecture v3.3: Section 4.2 (Parameter Extraction API)
+- Frontend Spec v3.3: Section 3.1 (Section 0 - Parameter Gathering Design)
 
 ---
 
@@ -17,7 +22,7 @@ So that I can quickly configure a forecasting workflow without filling out compl
 
 **Business Value:** This is the critical first user interaction that enables the entire parameter-driven workflow. Natural language parameter extraction is a core innovation of v3.3, making the system accessible to non-technical users. Without this working, users cannot start workflows, blocking all downstream value.
 
-**Epic Context:** This is Story 2 of 9 in Phase 4. It connects the very first section of the frontend (Section 0: Parameter Gathering) to the backend parameter extraction API. This is the entry point for all workflows - everything else depends on parameters being extracted correctly.
+**Epic Context:** This is Story 2 of 9 in Phase 4. It connects the very first section of the frontend (Section 0: Parameter Gathering) to the backend parameter extraction API. This is the entry point for all workflows - everything else depends on parameters being extracted correctly. The backend extracts 7 parameters from natural language input: forecast_horizon_weeks, season_start_date, season_end_date, replenishment_strategy, dc_holdback_percentage, markdown_checkpoint_week, and markdown_threshold.
 
 ---
 
@@ -25,24 +30,43 @@ So that I can quickly configure a forecasting workflow without filling out compl
 
 ### Functional Requirements
 
-1. ✅ User can enter natural language text in Section 0 textarea
-2. ✅ "Extract Parameters" button calls POST /api/parameters/extract
-3. ✅ Backend endpoint tested independently with Postman (returns 200 OK)
-4. ✅ Backend returns SeasonParameters JSON with 5 key parameters
-5. ✅ Frontend displays extracted parameters in confirmation modal
-6. ✅ User can confirm parameters to start workflow
-7. ✅ Confirmed parameters stored in frontend state
-8. ✅ Parameter banner displays after confirmation
-9. ✅ "Edit Parameters" button returns user to Section 0
-10. ✅ Loading state shows while extraction is in progress
+1. ✅ User can select category from dropdown before entering parameters
+2. ✅ User can enter natural language text in Section 0 textarea
+3. ✅ "Extract Parameters" button calls POST /api/parameters/extract
+4. ✅ Backend endpoint tested independently with Postman (returns 200 OK)
+5. ✅ Backend returns SeasonParameters JSON with all 7 parameters
+6. ✅ Frontend displays extracted parameters in confirmation modal
+7. ✅ User can confirm parameters to start workflow
+8. ✅ Confirmed parameters stored in global state (Context API)
+9. ✅ Parameter banner displays after confirmation
+10. ✅ "Edit Parameters" button returns user to Section 0
+11. ✅ Loading state shows while extraction is in progress
 
 ### Quality Requirements
 
-11. ✅ Extraction completes in <5 seconds for typical input
-12. ✅ JSON structure matches TypeScript SeasonParameters interface exactly
-13. ✅ No console errors during extraction flow
-14. ✅ Error handling for API failures (network error, 500, etc.)
-15. ✅ Test with 3-4 different natural language inputs
+12. ✅ Extraction completes in <5 seconds for typical input
+13. ✅ JSON structure matches TypeScript SeasonParameters interface exactly
+14. ✅ No console errors during extraction flow
+15. ✅ Error handling for API failures (network error, 500, 429, 401, etc.)
+16. ✅ Test with 3-4 different natural language inputs
+
+### Parameter Validation
+
+17. ✅ Extracted parameters validated client-side:
+  - forecast_horizon_weeks > 0 and <= 52
+  - season_start_date is not in the past
+  - season_end_date is after season_start_date
+  - dc_holdback_percentage between 0.0 and 1.0
+  - markdown_threshold between 0.0 and 1.0 (if present)
+18. ✅ Invalid parameters show warning message with option to edit
+
+### Accessibility
+
+19. ✅ Category dropdown has proper label and keyboard navigation
+20. ✅ Textarea has proper ARIA labels and aria-describedby for character count
+21. ✅ Modal is accessible (focus trap, ESC to close, proper ARIA roles)
+22. ✅ Character counter announced to screen readers
+23. ✅ All interactive elements accessible via keyboard (Tab, Enter, ESC)
 
 ---
 
@@ -164,7 +188,149 @@ So that I can quickly configure a forecasting workflow without filling out compl
 
 ---
 
-### Task 2: Update TypeScript Interfaces to Match Backend
+### Task 2: Add Category Selection to Section 0
+
+**Goal:** Allow users to select a product category before entering parameters.
+
+**Subtasks:**
+- [ ] Test GET /api/categories endpoint with Postman:
+  - Method: GET
+  - URL: `http://localhost:8000/api/categories`
+  - Expected Response (200 OK):
+    ```json
+    {
+      "categories": [
+        {
+          "category_id": "cat_001",
+          "category_name": "Women's Dresses",
+          "department": "Women's Apparel"
+        },
+        {
+          "category_id": "cat_002",
+          "category_name": "Men's Shirts",
+          "department": "Men's Apparel"
+        },
+        {
+          "category_id": "cat_003",
+          "category_name": "Children's Shoes",
+          "department": "Children's"
+        }
+      ]
+    }
+    ```
+
+- [ ] Create TypeScript types for categories:
+  ```typescript
+  // frontend/src/types/category.ts
+  export interface Category {
+    category_id: string;
+    category_name: string;
+    department: string;
+  }
+
+  export interface CategoriesResponse {
+    categories: Category[];
+  }
+  ```
+
+- [ ] Create CategoryService:
+  ```typescript
+  // frontend/src/services/category-service.ts
+  import { ApiClient } from '@/utils/api-client';
+  import { API_ENDPOINTS } from '@/config/api';
+  import type { CategoriesResponse } from '@/types/category';
+
+  export class CategoryService {
+    static async getCategories(): Promise<CategoriesResponse> {
+      return ApiClient.get<CategoriesResponse>(API_ENDPOINTS.CATEGORIES);
+    }
+  }
+  ```
+
+- [ ] Add category dropdown to ParameterGathering component:
+  ```typescript
+  import { CategoryService } from '@/services/category-service';
+  import type { Category } from '@/types/category';
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await CategoryService.getCategories();
+        setCategories(data.categories);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Add before textarea
+  <div className="mb-4">
+    <Label htmlFor="category-select">Select Category</Label>
+    <Select
+      value={selectedCategory}
+      onValueChange={setSelectedCategory}
+    >
+      <SelectTrigger id="category-select" aria-label="Select product category">
+        <SelectValue placeholder="Choose a category..." />
+      </SelectTrigger>
+      <SelectContent>
+        {categories.map(cat => (
+          <SelectItem key={cat.category_id} value={cat.category_id}>
+            {cat.category_name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+  ```
+
+- [ ] Add validation to prevent extraction without category:
+  ```typescript
+  const handleExtractParameters = async () => {
+    if (!selectedCategory) {
+      setState(prev => ({
+        ...prev,
+        error: 'Please select a category first',
+      }));
+      return;
+    }
+
+    if (!state.userInput.trim()) {
+      setState(prev => ({
+        ...prev,
+        error: 'Please enter your season planning strategy',
+      }));
+      return;
+    }
+
+    // ... proceed with extraction
+  };
+  ```
+
+- [ ] Store category in state for later use (workflow creation):
+  ```typescript
+  const [workflowCategory, setWorkflowCategory] = useState<Category | null>(null);
+
+  const handleConfirmParameters = () => {
+    const category = categories.find(c => c.category_id === selectedCategory);
+    setWorkflowCategory(category);
+    // ... rest of confirmation logic
+  };
+  ```
+
+**Validation:**
+- GET /api/categories returns list of categories
+- Dropdown populates with category options
+- Cannot extract parameters without selecting category
+- Selected category stored for workflow creation
+
+---
+
+### Task 3: Update TypeScript Interfaces to Match Backend
 
 **Subtasks:**
 - [ ] Create or update `frontend/src/types/parameters.ts`:
@@ -213,7 +379,7 @@ So that I can quickly configure a forecasting workflow without filling out compl
 
 ---
 
-### Task 3: Create API Service for Parameter Extraction
+### Task 4: Create API Service for Parameter Extraction
 
 **Subtasks:**
 - [ ] Create `frontend/src/services/parameter-service.ts`:
@@ -278,7 +444,7 @@ Reasoning: Successfully extracted all 5 key parameters...
 
 ---
 
-### Task 4: Update ParameterGathering Component with Real API Call
+### Task 5: Update ParameterGathering Component with Real API Call
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/ParameterGathering/ParameterGathering.tsx`
@@ -395,7 +561,7 @@ Reasoning: Successfully extracted all 5 key parameters...
 
 ---
 
-### Task 5: Update ParameterConfirmationModal with Backend Data
+### Task 6: Update ParameterConfirmationModal with Backend Data
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/ParameterGathering/ParameterConfirmationModal.tsx`
@@ -502,7 +668,7 @@ Reasoning: Successfully extracted all 5 key parameters...
 
 ---
 
-### Task 6: Implement Parameter Confirmation Flow
+### Task 7: Implement Parameter Confirmation Flow
 
 **Subtasks:**
 - [ ] Update `handleConfirm` in ParameterGathering component:
@@ -576,34 +742,147 @@ Reasoning: Successfully extracted all 5 key parameters...
 
 ---
 
-### Task 7: Add Error Handling and Edge Cases
+### Task 8: Add Client-Side Parameter Validation
+
+**Goal:** Validate extracted parameters to catch unrealistic or invalid values before workflow creation.
 
 **Subtasks:**
-- [ ] Handle network errors:
+- [ ] Create validation utility function:
+  ```typescript
+  // frontend/src/utils/parameter-validation.ts
+  import type { SeasonParameters } from '@/types/parameters';
+
+  export interface ValidationError {
+    field: string;
+    message: string;
+  }
+
+  export function validateParameters(params: SeasonParameters): ValidationError[] {
+    const errors: ValidationError[] = [];
+
+    // Validate forecast_horizon_weeks
+    if (params.forecast_horizon_weeks <= 0 || params.forecast_horizon_weeks > 52) {
+      errors.push({
+        field: 'forecast_horizon_weeks',
+        message: 'Forecast horizon must be between 1 and 52 weeks',
+      });
+    }
+
+    // Validate dates
+    const startDate = new Date(params.season_start_date);
+    const endDate = new Date(params.season_end_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (startDate < today) {
+      errors.push({
+        field: 'season_start_date',
+        message: 'Season start date cannot be in the past',
+      });
+    }
+
+    if (endDate <= startDate) {
+      errors.push({
+        field: 'season_end_date',
+        message: 'Season end date must be after start date',
+      });
+    }
+
+    // Validate dc_holdback_percentage
+    if (params.dc_holdback_percentage < 0 || params.dc_holdback_percentage > 1.0) {
+      errors.push({
+        field: 'dc_holdback_percentage',
+        message: 'DC holdback percentage must be between 0% and 100%',
+      });
+    }
+
+    // Validate markdown_threshold if present
+    if (params.markdown_threshold !== null) {
+      if (params.markdown_threshold < 0 || params.markdown_threshold > 1.0) {
+        errors.push({
+          field: 'markdown_threshold',
+          message: 'Markdown threshold must be between 0% and 100%',
+        });
+      }
+    }
+
+    // Validate markdown_checkpoint_week if present
+    if (params.markdown_checkpoint_week !== null) {
+      if (params.markdown_checkpoint_week < 1 || params.markdown_checkpoint_week > params.forecast_horizon_weeks) {
+        errors.push({
+          field: 'markdown_checkpoint_week',
+          message: `Markdown checkpoint must be between week 1 and ${params.forecast_horizon_weeks}`,
+        });
+      }
+    }
+
+    return errors;
+  }
+  ```
+
+- [ ] Integrate validation in ParameterConfirmationModal:
+  ```typescript
+  import { validateParameters } from '@/utils/parameter-validation';
+
+  const validationErrors = validateParameters(parameters);
+
+  // Display warnings if validation errors exist
+  {validationErrors.length > 0 && (
+    <Alert variant="warning">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>Parameter Validation Warnings</AlertTitle>
+      <AlertDescription>
+        <ul className="list-disc list-inside">
+          {validationErrors.map((error, idx) => (
+            <li key={idx}>{error.message}</li>
+          ))}
+        </ul>
+        <p className="mt-2 text-sm">
+          You can still proceed, but please review these parameters carefully.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )}
+  ```
+
+**Validation:**
+- Invalid forecast horizons (0, -5, 100) show warnings
+- Past dates show warnings
+- Invalid percentages (>100%, negative) show warnings
+- Warnings appear in modal but don't block confirmation
+
+---
+
+### Task 9: Add Error Handling and Edge Cases
+
+**Subtasks:**
+- [ ] Handle network and API errors:
   ```typescript
   try {
     const response = await ParameterService.extractParameters(state.userInput);
     // ... success
   } catch (error) {
+    let errorMessage = 'Failed to extract parameters';
+
     if (error.status === 0) {
-      setState(prev => ({
-        ...prev,
-        isExtracting: false,
-        error: 'Cannot connect to backend. Is the server running?',
-      }));
+      errorMessage = 'Cannot connect to backend. Is the server running?';
+    } else if (error.status === 401) {
+      errorMessage = 'API authentication error. Please check your OpenAI API key configuration.';
+    } else if (error.status === 429) {
+      errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
     } else if (error.status === 500) {
-      setState(prev => ({
-        ...prev,
-        isExtracting: false,
-        error: 'Server error. Please try again or simplify your input.',
-      }));
-    } else {
-      setState(prev => ({
-        ...prev,
-        isExtracting: false,
-        error: error.message || 'Failed to extract parameters',
-      }));
+      errorMessage = 'Server error. Please try again or simplify your input.';
+    } else if (error.status === 422) {
+      errorMessage = 'Invalid input format. Please check your text and try again.';
+    } else if (error.message) {
+      errorMessage = error.message;
     }
+
+    setState(prev => ({
+      ...prev,
+      isExtracting: false,
+      error: errorMessage,
+    }));
   }
   ```
 
@@ -650,6 +929,239 @@ Reasoning: Successfully extracted all 5 key parameters...
 - Empty input shows validation error
 - Character limit enforced
 - Error messages are user-friendly
+
+---
+
+### Task 10: Set Up Global State Management for Parameters
+
+**Goal:** Make extracted and confirmed parameters accessible across all sections using React Context API.
+
+**Subtasks:**
+- [ ] Create ParameterContext:
+  ```typescript
+  // frontend/src/contexts/ParameterContext.tsx
+  import React, { createContext, useContext, useState, ReactNode } from 'react';
+  import type { SeasonParameters } from '@/types/parameters';
+  import type { Category } from '@/types/category';
+
+  interface ParameterContextState {
+    parameters: SeasonParameters | null;
+    category: Category | null;
+    isConfirmed: boolean;
+    setParameters: (params: SeasonParameters) => void;
+    setCategory: (cat: Category) => void;
+    confirmParameters: () => void;
+    resetParameters: () => void;
+  }
+
+  const ParameterContext = createContext<ParameterContextState | undefined>(undefined);
+
+  export function ParameterProvider({ children }: { children: ReactNode }) {
+    const [parameters, setParametersState] = useState<SeasonParameters | null>(null);
+    const [category, setCategoryState] = useState<Category | null>(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
+
+    const setParameters = (params: SeasonParameters) => {
+      setParametersState(params);
+    };
+
+    const setCategory = (cat: Category) => {
+      setCategoryState(cat);
+    };
+
+    const confirmParameters = () => {
+      setIsConfirmed(true);
+    };
+
+    const resetParameters = () => {
+      setParametersState(null);
+      setCategoryState(null);
+      setIsConfirmed(false);
+    };
+
+    return (
+      <ParameterContext.Provider
+        value={{
+          parameters,
+          category,
+          isConfirmed,
+          setParameters,
+          setCategory,
+          confirmParameters,
+          resetParameters,
+        }}
+      >
+        {children}
+      </ParameterContext.Provider>
+    );
+  }
+
+  export function useParameters() {
+    const context = useContext(ParameterContext);
+    if (!context) {
+      throw new Error('useParameters must be used within a ParameterProvider');
+    }
+    return context;
+  }
+  ```
+
+- [ ] Wrap App with ParameterProvider:
+  ```typescript
+  // frontend/src/App.tsx or main.tsx
+  import { ParameterProvider } from '@/contexts/ParameterContext';
+
+  function App() {
+    return (
+      <ParameterProvider>
+        {/* App content */}
+      </ParameterProvider>
+    );
+  }
+  ```
+
+- [ ] Update ParameterGathering component to use context:
+  ```typescript
+  import { useParameters } from '@/contexts/ParameterContext';
+
+  const { setParameters, setCategory, confirmParameters } = useParameters();
+
+  const handleConfirmParameters = () => {
+    // Store in context
+    setParameters(state.extractedParameters!);
+    setCategory(selectedCategoryObject);
+    confirmParameters();
+
+    // Close modal
+    setShowConfirmationModal(false);
+
+    // Scroll to next section
+    document.getElementById('section-1-agent-cards')?.scrollIntoView({
+      behavior: 'smooth',
+    });
+  };
+  ```
+
+- [ ] Test context from another component:
+  ```typescript
+  // Test in any component
+  import { useParameters } from '@/contexts/ParameterContext';
+
+  function SomeOtherComponent() {
+    const { parameters, category, isConfirmed } = useParameters();
+
+    if (!isConfirmed) {
+      return <p>Please configure parameters first</p>;
+    }
+
+    return (
+      <div>
+        <p>Category: {category?.category_name}</p>
+        <p>Forecast horizon: {parameters?.forecast_horizon_weeks} weeks</p>
+      </div>
+    );
+  }
+  ```
+
+**Validation:**
+- Context provides parameters to all components
+- Parameters persist across component re-renders
+- useParameters hook works from any component
+- resetParameters clears all state
+- Later stories (PHASE4-003) can access parameters via useParameters()
+
+---
+
+### Task 11: Add Accessibility Support
+
+**Goal:** Ensure Section 0 is fully accessible via keyboard and screen readers.
+
+**Subtasks:**
+- [ ] Add ARIA labels to category dropdown:
+  ```typescript
+  <Label htmlFor="category-select">
+    Select Category <span aria-label="required">*</span>
+  </Label>
+  <Select
+    value={selectedCategory}
+    onValueChange={setSelectedCategory}
+    aria-required="true"
+    aria-label="Select product category for forecasting"
+  >
+    {/* ... */}
+  </Select>
+  ```
+
+- [ ] Add ARIA labels to textarea:
+  ```typescript
+  <Label htmlFor="parameter-input">
+    Describe Your Season Plan <span aria-label="required">*</span>
+  </Label>
+  <Textarea
+    id="parameter-input"
+    value={state.userInput}
+    onChange={handleUserInputChange}
+    maxLength={500}
+    aria-required="true"
+    aria-describedby="char-count error-message"
+    aria-label="Enter your season planning strategy in natural language"
+  />
+  <p id="char-count" className="text-xs text-gray-500 text-right" aria-live="polite">
+    {state.userInput.length}/500 characters
+  </p>
+  {state.error && (
+    <p id="error-message" role="alert" className="text-sm text-red-600">
+      {state.error}
+    </p>
+  )}
+  ```
+
+- [ ] Add focus trap to modal:
+  ```typescript
+  import { Dialog, DialogContent } from '@/components/ui/dialog';
+
+  <Dialog open={showConfirmationModal} onOpenChange={setShowConfirmationModal}>
+    <DialogContent
+      onEscapeKeyDown={() => setShowConfirmationModal(false)}
+      aria-labelledby="modal-title"
+      aria-describedby="modal-description"
+    >
+      <DialogHeader>
+        <DialogTitle id="modal-title">Confirm Extracted Parameters</DialogTitle>
+        <DialogDescription id="modal-description">
+          Review the parameters extracted from your input.
+        </DialogDescription>
+      </DialogHeader>
+      {/* ... modal content */}
+    </DialogContent>
+  </Dialog>
+  ```
+
+- [ ] Test keyboard navigation:
+  ```
+  - [ ] Tab through all interactive elements in correct order
+  - [ ] Category dropdown opens with Enter/Space
+  - [ ] Textarea receives focus and accepts input
+  - [ ] Extract button activates with Enter/Space
+  - [ ] Modal opens and focus moves to first element
+  - [ ] ESC closes modal and returns focus to trigger
+  - [ ] Tab within modal stays trapped until closed
+  ```
+
+- [ ] Test screen reader announcements:
+  ```
+  - [ ] Category label announced
+  - [ ] Textarea label and description announced
+  - [ ] Character count updates announced (aria-live)
+  - [ ] Error messages announced immediately (role="alert")
+  - [ ] Loading state announced
+  - [ ] Modal title and description announced on open
+  ```
+
+**Validation:**
+- All interactive elements accessible via keyboard
+- Screen reader announces all labels and state changes
+- Focus management works correctly in modal
+- Error messages announced immediately
 
 ---
 
@@ -790,15 +1302,52 @@ The backend uses OpenAI GPT-4o-mini to extract parameters. Expected behavior:
 
 ## Definition of Done
 
+**Backend Integration:**
 - [ ] POST /api/parameters/extract tested with Postman (4 test cases)
+- [ ] GET /api/categories tested with Postman
+- [ ] All 7 parameters extracted correctly
 - [ ] TypeScript interfaces match backend response
+
+**Category Selection:**
+- [ ] Category dropdown displays available categories
+- [ ] Category selection required before parameter extraction
+- [ ] Selected category stored and passed to workflow creation
+
+**API Integration:**
 - [ ] ParameterService created and tested
+- [ ] CategoryService created and tested
 - [ ] ParameterGathering component updated with real API call
 - [ ] ParameterConfirmationModal displays backend data
-- [ ] Parameter confirmation flow works end-to-end
-- [ ] Error handling implemented (network, API, validation)
-- [ ] Loading states work correctly
+
+**Parameter Validation:**
+- [ ] Client-side parameter validation implemented
+- [ ] Validation warnings display in modal
+- [ ] Invalid parameters (dates, percentages, weeks) caught
+- [ ] Validation doesn't block confirmation (warnings only)
+
+**State Management:**
+- [ ] ParameterContext created with React Context API
+- [ ] useParameters hook provides access to parameters
+- [ ] Parameters persist across components
+- [ ] State management tested and working
+
+**Error Handling:**
+- [ ] Error handling implemented (network, 401, 429, 500, 422)
+- [ ] User-friendly error messages for all scenarios
+- [ ] Empty input validation
 - [ ] Character limit enforced (500 chars)
+
+**Accessibility:**
+- [ ] Category dropdown has ARIA labels
+- [ ] Textarea has ARIA labels and aria-describedby
+- [ ] Modal has focus trap and ESC to close
+- [ ] Character counter announced to screen readers
+- [ ] All interactive elements accessible via keyboard
+- [ ] Screen reader testing passed
+
+**Quality:**
+- [ ] Parameter confirmation flow works end-to-end
+- [ ] Loading states work correctly
 - [ ] All manual tests passing
 - [ ] No console errors
 - [ ] Integration tests passing
@@ -807,18 +1356,22 @@ The backend uses OpenAI GPT-4o-mini to extract parameters. Expected behavior:
 
 ## Time Tracking
 
-- **Estimated:** 4 hours
+- **Estimated:** 5 hours
 - **Actual:** ___ hours
 - **Variance:** ___ hours
 
 **Breakdown:**
 - Task 1 (Postman testing): ___ min
-- Task 2 (TypeScript types): ___ min
-- Task 3 (API service): ___ min
-- Task 4 (Component update): ___ min
-- Task 5 (Modal update): ___ min
-- Task 6 (Confirmation flow): ___ min
-- Task 7 (Error handling): ___ min
+- Task 2 (Category selection): ___ min
+- Task 3 (TypeScript types): ___ min
+- Task 4 (API service): ___ min
+- Task 5 (Component update): ___ min
+- Task 6 (Modal update): ___ min
+- Task 7 (Confirmation flow): ___ min
+- Task 8 (Parameter validation): ___ min
+- Task 9 (Error handling): ___ min
+- Task 10 (State management): ___ min
+- Task 11 (Accessibility): ___ min
 - Testing: ___ min
 - Documentation: ___ min
 

@@ -8,6 +8,11 @@
 **Assigned To:** Developer (Testing Focus)
 **Status:** Not Started
 
+**Planning References:**
+- PRD v3.3: Section 5 (Quality Assurance & Testing Strategy)
+- Technical Architecture v3.3: Section 6 (Testing & Deployment)
+- All previous story implementations (Stories 1-7)
+
 ---
 
 ## User Story

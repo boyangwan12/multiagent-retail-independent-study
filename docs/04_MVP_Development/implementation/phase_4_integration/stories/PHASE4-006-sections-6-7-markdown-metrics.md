@@ -4,9 +4,14 @@
 **Story Name:** Integrate Sections 6-7 - Markdown Decision Analysis + Performance Metrics Dashboard
 **Phase:** Phase 4 - Frontend/Backend Integration
 **Dependencies:** PHASE4-001, PHASE4-002, PHASE4-003, PHASE4-005
-**Estimated Effort:** 6 hours
+**Estimated Effort:** 7 hours
 **Assigned To:** Developer (Frontend + Backend Integration)
 **Status:** Not Started
+
+**Planning References:**
+- PRD v3.3: Section 4.2 (Markdown Decision & Performance Metrics)
+- Technical Architecture v3.3: Section 4.6 (Markdown & Metrics APIs)
+- Frontend Spec v3.3: Sections 3.7-3.8 (Sections 6-7 Design)
 
 ---
 
@@ -70,59 +75,76 @@ Since we haven't built the Pricing Agent yet, mock responses must:
 
 ## Acceptance Criteria
 
+### Context Integration & Data Flow
+
+- [ ] **AC1:** Components use forecastId, workflowId, parameters from ParameterContext (not props)
+- [ ] **AC2:** Components wait for workflowComplete before fetching data
+- [ ] **AC3:** Markdown checkpoint week from backend validated against Context parameters
+
 ### Section 6: Markdown Decision
 
-- [ ] **AC1:** Section 6 only displays when `markdown_checkpoint_week !== null`
-- [ ] **AC2:** GET /api/markdowns/{id} is called successfully when markdown applies
-- [ ] **AC3:** Gap × Elasticity formula is displayed:
+- [ ] **AC4:** Section 6 only displays when `markdown_checkpoint_week !== null`
+- [ ] **AC5:** GET /api/markdowns/{id} is called successfully when markdown applies
+- [ ] **AC6:** Gap × Elasticity formula is displayed:
   - Gap = (markdown_threshold - actual_sell_through) e.g., (0.40 - 0.35 = 0.05)
   - Elasticity coefficient displayed (e.g., -1.5)
   - Impact calculation shown (e.g., 0.05 × -1.5 = -0.075 → -7.5% sales impact)
-- [ ] **AC4:** Markdown recommendation is displayed:
+- [ ] **AC7:** Markdown recommendation is displayed:
   - Recommended markdown percentage (e.g., 20%)
   - Expected outcome (e.g., "Boost sell-through from 35% to 48%")
   - Risk assessment (e.g., "Margin reduction: $15,000")
-- [ ] **AC5:** Justification text adapts to sell-through vs. threshold comparison
-- [ ] **AC6:** Section 6 is hidden/collapsed if markdown_checkpoint_week is null
-- [ ] **AC7:** Frontend handles 404 gracefully if markdown endpoint returns no data
+- [ ] **AC8:** Justification text adapts to sell-through vs. threshold comparison
+- [ ] **AC9:** Section 6 is hidden/collapsed if markdown_checkpoint_week is null
+- [ ] **AC10:** Frontend handles 404, 500, network errors gracefully with specific error messages
 
 ### Section 7: Performance Metrics
 
-- [ ] **AC8:** GET /api/forecasts/{id} is called to extract MAPE
-- [ ] **AC9:** GET /api/variance/{id}/summary is called to get average variance
-- [ ] **AC10:** Sell-through percentage is calculated from allocations data
-- [ ] **AC11:** Four key metrics are displayed:
+- [ ] **AC11:** GET /api/forecasts/{id} is called to extract MAPE
+- [ ] **AC12:** GET /api/variance/{id}/summary is called to get average variance
+- [ ] **AC13:** Sell-through percentage is calculated from allocations data
+- [ ] **AC14:** Four key metrics are displayed:
   - Forecast MAPE (e.g., "12.5%") with color coding (green <15%, yellow 15-25%, red >25%)
   - Average Variance (e.g., "8.2%") with color coding (green <10%, yellow 10-20%, red >20%)
   - Sell-Through % (e.g., "65%") with color coding (green >60%, yellow 40-60%, red <40%)
   - System Status (e.g., "Healthy" or "Needs Attention")
-- [ ] **AC12:** System Status badge aggregates all metrics:
+- [ ] **AC15:** System Status badge aggregates all metrics:
   - "Healthy" (green) if MAPE <15%, variance <10%, sell-through >60%
   - "Moderate" (yellow) if 1-2 metrics in yellow range
   - "Needs Attention" (red) if any metric in red range
-- [ ] **AC13:** Each metric has a tooltip explaining what it measures
-- [ ] **AC14:** Section 7 displays even if markdown is not applicable
+- [ ] **AC16:** Each metric has a tooltip explaining what it measures
+- [ ] **AC17:** Section 7 displays even if markdown is not applicable
 
 ### Mock Agent Integration
 
-- [ ] **AC15:** Mock Pricing Agent returns parameter-aware markdown data:
+- [ ] **AC18:** Mock Pricing Agent returns parameter-aware markdown data:
   - Gap calculation based on actual sell-through from allocations
   - Realistic elasticity coefficient (-1.2 to -2.0 range)
   - Markdown recommendation adapts to gap size
-- [ ] **AC16:** Mock returns null/404 if markdown_checkpoint_week is null
-- [ ] **AC17:** Performance metrics aggregate real data from Forecast/Inventory Agents
+- [ ] **AC19:** Mock returns null/404 if markdown_checkpoint_week is null
+- [ ] **AC20:** Performance metrics aggregate real data from Forecast/Inventory Agents
+
+### Accessibility
+
+- [ ] **AC21:** Section 6 markdown decision badge includes aria-label
+- [ ] **AC22:** Gap × Elasticity formula has aria-describedby for screen readers
+- [ ] **AC23:** Error messages have role="alert" for screen readers
+- [ ] **AC24:** Section 7 metric cards have aria-label describing each metric
+- [ ] **AC25:** Tooltips have proper aria-describedby associations
+- [ ] **AC26:** Color indicators include text labels (not color-only)
+- [ ] **AC27:** System Status badge includes accessible text description
 
 ### Testing
 
-- [ ] **AC18:** Backend markdown endpoint tested in Postman:
+- [ ] **AC28:** Backend markdown endpoint tested in Postman:
   - Test Case 1: workflow_id with markdown_checkpoint_week set
   - Test Case 2: workflow_id with markdown_checkpoint_week = null
   - Test Case 3: Invalid workflow_id (should return 404)
-- [ ] **AC19:** Backend variance summary endpoint tested in Postman
-- [ ] **AC20:** Frontend Section 6 manually tested with markdown enabled/disabled
-- [ ] **AC21:** Frontend Section 7 metrics calculation verified with sample data
-- [ ] **AC22:** Color coding thresholds validated for all metrics
-- [ ] **AC23:** System Status badge logic tested with edge cases
+- [ ] **AC29:** Backend variance summary endpoint tested in Postman
+- [ ] **AC30:** Frontend Section 6 manually tested with markdown enabled/disabled
+- [ ] **AC31:** Frontend Section 7 metrics calculation verified with sample data
+- [ ] **AC32:** Color coding thresholds validated for all metrics
+- [ ] **AC33:** System Status badge logic tested with edge cases
+- [ ] **AC34:** Accessibility requirements validated with screen reader testing
 
 ---
 
@@ -288,17 +310,43 @@ Since we haven't built the Pricing Agent yet, mock responses must:
 
 ---
 
+### Task 2.5: Add API Endpoints to Configuration
+
+**Objective:** Add markdown and variance summary endpoints to API configuration.
+
+**File:** `frontend/src/config/api.ts`
+
+**Subtasks:**
+- [ ] Add markdown and variance summary endpoint constants:
+  ```typescript
+  // frontend/src/config/api.ts
+  export const API_ENDPOINTS = {
+    // ... existing endpoints
+    MARKDOWNS_GET: (workflowId: string) => `/api/markdowns/${workflowId}`,
+    VARIANCE_SUMMARY_GET: (workflowId: string) => `/api/variance/${workflowId}/summary`,
+  };
+  ```
+
+- [ ] Update MarkdownService to use new endpoint constant
+- [ ] Update PerformanceService to use new endpoint constant
+
+**Validation:**
+- [ ] Endpoints added to API_ENDPOINTS configuration
+- [ ] Services use configuration constants instead of hardcoded strings
+
+---
+
 ### Task 3: Create Frontend MarkdownService
 
 **Objective:** Create service to fetch markdown analysis from backend.
 
-**File:** `src/services/markdownService.ts`
+**File:** `frontend/src/services/markdown-service.ts`
 
 **Implementation:**
 
 ```typescript
-import { ApiClient } from './apiClient';
-import { API_ENDPOINTS } from '../config/api.config';
+import { ApiClient } from '@/utils/api-client';
+import { API_ENDPOINTS } from '@/config/api';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -337,7 +385,7 @@ export class MarkdownService {
   ): Promise<MarkdownAnalysis | null> {
     try {
       const response = await ApiClient.get<MarkdownAnalysis>(
-        API_ENDPOINTS.MARKDOWNS.replace('{id}', workflowId)
+        API_ENDPOINTS.MARKDOWNS_GET(workflowId)
       );
 
       // If decision is NOT_APPLICABLE, return null to hide Section 6
@@ -444,15 +492,15 @@ export class MarkdownService {
 
 **Objective:** Aggregate performance metrics from multiple backend endpoints.
 
-**File:** `src/services/performanceService.ts`
+**File:** `frontend/src/services/performance-service.ts`
 
 **Implementation:**
 
 ```typescript
-import { ApiClient } from './apiClient';
-import { API_ENDPOINTS } from '../config/api.config';
-import { ForecastSummary } from './forecastService';
-import { AllocationSummary } from './allocationService';
+import { ApiClient } from '@/utils/api-client';
+import { API_ENDPOINTS } from '@/config/api';
+import type { ForecastSummary } from '@/types/forecast';
+import type { AllocationPlan } from '@/types/allocation';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -502,7 +550,7 @@ export class PerformanceService {
     workflowId: string
   ): Promise<VarianceSummary> {
     return ApiClient.get<VarianceSummary>(
-      API_ENDPOINTS.VARIANCE_SUMMARY.replace('{id}', workflowId)
+      API_ENDPOINTS.VARIANCE_SUMMARY_GET(workflowId)
     );
   }
 
@@ -515,14 +563,14 @@ export class PerformanceService {
     workflowId: string
   ): Promise<PerformanceMetrics> {
     // Fetch data from multiple endpoints in parallel
-    const [forecastSummary, varianceSummary, allocationSummary] =
+    const [forecastSummary, varianceSummary, allocationPlan] =
       await Promise.all([
         ApiClient.get<ForecastSummary>(
-          API_ENDPOINTS.FORECASTS.replace('{id}', workflowId)
+          API_ENDPOINTS.FORECASTS_GET(workflowId)
         ),
         PerformanceService.getVarianceSummary(workflowId),
-        ApiClient.get<AllocationSummary>(
-          API_ENDPOINTS.ALLOCATIONS.replace('{id}', workflowId)
+        ApiClient.get<AllocationPlan>(
+          API_ENDPOINTS.ALLOCATIONS_GET(workflowId)
         ),
       ]);
 
@@ -534,7 +582,7 @@ export class PerformanceService {
 
     // Calculate sell-through percentage
     const sell_through_percentage = PerformanceService.calculateSellThrough(
-      allocationSummary
+      allocationPlan
     );
 
     // Determine system status
@@ -555,14 +603,16 @@ export class PerformanceService {
 
   /**
    * Calculate sell-through percentage from allocation data
-   * @param allocationSummary - Allocation summary from backend
+   * @param allocationPlan - Allocation plan from backend
    * @returns Sell-through percentage (0-100)
    */
   private static calculateSellThrough(
-    allocationSummary: AllocationSummary
+    allocationPlan: AllocationPlan
   ): number {
-    const totalAllocated = allocationSummary.total_units_allocated;
-    const totalSold = allocationSummary.total_units_sold || 0;
+    const totalAllocated = allocationPlan.initial_allocation_total;
+    // In mock data, sell-through is simulated based on store allocations
+    // TODO: Replace with actual sold units when available from backend
+    const totalSold = Math.floor(totalAllocated * 0.65); // Mock: 65% sell-through
 
     if (totalAllocated === 0) return 0;
 
@@ -712,7 +762,7 @@ export class PerformanceService {
 
 **Objective:** Create MarkdownDecision component to display Pricing Agent's recommendations.
 
-**File:** `src/components/MarkdownDecision.tsx`
+**File:** `frontend/src/components/MarkdownDecision/MarkdownDecision.tsx`
 
 **Implementation:**
 
@@ -721,53 +771,73 @@ import React, { useEffect, useState } from 'react';
 import {
   MarkdownService,
   MarkdownAnalysis,
-} from '../services/markdownService';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import { AlertCircle, TrendingDown, DollarSign, Target } from 'lucide-react';
+} from '@/services/markdown-service';
+import { useParameters } from '@/contexts/ParameterContext';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, TrendingDown, DollarSign, Target, Loader2 } from 'lucide-react';
 
-interface MarkdownDecisionProps {
-  workflowId: string;
-}
-
-export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
-  workflowId,
-}) => {
-  const [markdownData, setMarkdownData] = useState<MarkdownAnalysis | null>(
-    null
-  );
-  const [loading, setLoading] = useState<boolean>(true);
+export function MarkdownDecision() {
+  const { workflowId, forecastId, parameters, workflowComplete } = useParameters();
+  const [markdownData, setMarkdownData] = useState<MarkdownAnalysis | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchMarkdownAnalysis = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    // Wait for workflow completion and check if markdown checkpoint is set
+    if (!workflowComplete || !workflowId || !parameters) return;
 
+    // If no markdown checkpoint week, don't fetch (Section 6 will be hidden)
+    if (!parameters.markdown_checkpoint_week) {
+      setMarkdownData(null);
+      return;
+    }
+
+    const fetchMarkdownAnalysis = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
         const data = await MarkdownService.getMarkdownAnalysis(workflowId);
+
+        // Validate markdown checkpoint week matches parameters
+        if (data && parameters.markdown_checkpoint_week &&
+            data.markdown_checkpoint_week !== parameters.markdown_checkpoint_week) {
+          console.warn(
+            `Markdown checkpoint week mismatch: expected ${parameters.markdown_checkpoint_week}, got ${data.markdown_checkpoint_week}`
+          );
+        }
+
         setMarkdownData(data);
       } catch (err: any) {
-        console.error('Error fetching markdown analysis:', err);
-        setError(
-          err.message || 'Failed to load markdown analysis. Please try again.'
-        );
+        console.error('Failed to fetch markdown analysis:', err);
+
+        // Handle specific error types
+        let errorMessage = 'Failed to load markdown analysis';
+        if (err.status === 404) {
+          errorMessage = 'Markdown analysis not available. Workflow may not have completed.';
+        } else if (err.status === 500) {
+          errorMessage = 'Server error loading markdown analysis.';
+        } else if (err.status === 0) {
+          errorMessage = 'Cannot connect to backend.';
+        }
+
+        setError(errorMessage);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    if (workflowId) {
-      fetchMarkdownAnalysis();
-    }
-  }, [workflowId]);
+    fetchMarkdownAnalysis();
+  }, [workflowComplete, workflowId, forecastId, parameters]);
 
   // If markdown is not applicable (checkpoint week not set), don't render anything
-  if (!loading && !markdownData) {
+  if (!isLoading && !markdownData && !parameters?.markdown_checkpoint_week) {
     return null; // Section 6 hidden
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -777,8 +847,8 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
+            <Loader2 className="h-5 w-5 animate-spin" />
             <span className="ml-3 text-gray-600">
               Loading markdown analysis...
             </span>
@@ -790,12 +860,12 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
 
   if (error) {
     return (
-      <Card className="w-full border-red-200 bg-red-50">
+      <Card className="w-full">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-2 text-red-800">
-            <AlertCircle className="w-5 h-5" />
-            <span>{error}</span>
-          </div>
+          <Alert variant="destructive" role="alert">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -831,6 +901,7 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
           <Badge
             className={MarkdownService.getDecisionBadgeColor(decision)}
             variant="outline"
+            aria-label={`Markdown decision: ${MarkdownService.getDecisionLabel(decision)}`}
           >
             {MarkdownService.getDecisionLabel(decision)}
           </Badge>
@@ -843,7 +914,11 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
 
       <CardContent className="space-y-6">
         {/* Gap × Elasticity Formula */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div
+          className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+          role="region"
+          aria-label="Gap times Elasticity analysis formula"
+        >
           <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
             <Target className="w-4 h-4" />
             Gap × Elasticity Analysis
@@ -961,12 +1036,16 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
 ```
 
 **Validation:**
-- [ ] Component fetches markdown data on mount
+- [ ] Component uses Context (workflowId, forecastId, parameters, workflowComplete) instead of props
+- [ ] Component waits for workflowComplete before fetching data
+- [ ] Markdown checkpoint week validated against parameters
 - [ ] Section 6 is hidden when markdown_checkpoint_week is null
-- [ ] Gap × Elasticity formula is displayed correctly
+- [ ] Gap × Elasticity formula is displayed correctly with aria-label
 - [ ] Recommendation shows markdown percentage and expected sell-through
-- [ ] Badge color adapts to decision type
-- [ ] Loading and error states are handled
+- [ ] Badge color adapts to decision type with aria-label
+- [ ] Loading state has role="status" and aria-live="polite"
+- [ ] Error state has role="alert"
+- [ ] 404, 500, and network errors handled with specific messages
 - [ ] Responsive layout works on mobile and desktop
 
 ---
@@ -975,7 +1054,7 @@ export const MarkdownDecision: React.FC<MarkdownDecisionProps> = ({
 
 **Objective:** Create PerformanceMetrics component to display system-wide KPIs.
 
-**File:** `src/components/PerformanceMetrics.tsx`
+**File:** `frontend/src/components/PerformanceMetrics/PerformanceMetrics.tsx`
 
 **Implementation:**
 
@@ -985,9 +1064,11 @@ import {
   PerformanceService,
   PerformanceMetrics as PerformanceMetricsType,
   MetricDetail,
-} from '../services/performanceService';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
+} from '@/services/performance-service';
+import { useParameters } from '@/contexts/ParameterContext';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Activity,
   TrendingUp,
@@ -995,53 +1076,67 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
+  Loader2,
 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from './ui/tooltip';
+} from '@/components/ui/tooltip';
 
-interface PerformanceMetricsProps {
-  workflowId: string;
-}
-
-export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
-  workflowId,
-}) => {
-  const [metricsData, setMetricsData] =
-    useState<PerformanceMetricsType | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+export function PerformanceMetrics() {
+  const { workflowId, forecastId, workflowComplete } = useParameters();
+  const [metricsData, setMetricsData] = useState<PerformanceMetricsType | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPerformanceMetrics = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    // Wait for workflow completion before fetching metrics
+    if (!workflowComplete || !workflowId || !forecastId) return;
 
-        const data = await PerformanceService.getPerformanceMetrics(
-          workflowId
-        );
+    const fetchPerformanceMetrics = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const data = await PerformanceService.getPerformanceMetrics(workflowId);
         setMetricsData(data);
       } catch (err: any) {
-        console.error('Error fetching performance metrics:', err);
-        setError(
-          err.message ||
-            'Failed to load performance metrics. Please try again.'
-        );
+        console.error('Failed to fetch performance metrics:', err);
+
+        // Handle specific error types
+        let errorMessage = 'Failed to load performance metrics';
+        if (err.status === 404) {
+          errorMessage = 'Performance data not available. Workflow may not have completed.';
+        } else if (err.status === 500) {
+          errorMessage = 'Server error loading performance metrics.';
+        } else if (err.status === 0) {
+          errorMessage = 'Cannot connect to backend.';
+        }
+
+        setError(errorMessage);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    if (workflowId) {
-      fetchPerformanceMetrics();
-    }
-  }, [workflowId]);
+    fetchPerformanceMetrics();
+  }, [workflowComplete, workflowId, forecastId]);
 
-  if (loading) {
+  if (!workflowId) {
+    return (
+      <Card className="w-full">
+        <CardContent className="py-8">
+          <p className="text-center text-gray-500">
+            Complete workflow to view performance metrics
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
     return (
       <Card className="w-full">
         <CardHeader>
@@ -1051,8 +1146,8 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
+            <Loader2 className="h-5 w-5 animate-spin" />
             <span className="ml-3 text-gray-600">
               Loading performance metrics...
             </span>
@@ -1064,12 +1159,12 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
 
   if (error) {
     return (
-      <Card className="w-full border-red-200 bg-red-50">
+      <Card className="w-full">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-2 text-red-800">
-            <AlertCircle className="w-5 h-5" />
-            <span>{error}</span>
-          </div>
+          <Alert variant="destructive" role="alert">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -1096,6 +1191,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           <Badge
             className={PerformanceService.getSystemStatusColor(system_status)}
             variant="outline"
+            aria-label={`System status: ${system_status}`}
           >
             System Status: {system_status}
           </Badge>
@@ -1191,9 +1287,14 @@ const MetricCard: React.FC<MetricCardProps> = ({ icon, label, detail }) => {
     detail.status
   );
 
+  const statusLabel = detail.status === 'healthy' ? 'Healthy' :
+                      detail.status === 'warning' ? 'Moderate' : 'Critical';
+
   return (
     <div
       className={`rounded-lg border p-4 transition-colors ${statusColorClass}`}
+      role="region"
+      aria-label={`${label}: ${detail.displayValue} - ${statusLabel}`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -1203,10 +1304,10 @@ const MetricCard: React.FC<MetricCardProps> = ({ icon, label, detail }) => {
 
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger aria-describedby={`tooltip-${label.replace(/\s+/g, '-')}`}>
               <Info className="w-4 h-4 text-gray-400 hover:text-gray-600" />
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent id={`tooltip-${label.replace(/\s+/g, '-')}`}>
               <p className="max-w-xs">{detail.tooltip}</p>
             </TooltipContent>
           </Tooltip>
@@ -1216,9 +1317,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ icon, label, detail }) => {
       <div className="text-3xl font-bold">{detail.displayValue}</div>
 
       <div className="mt-2 text-xs font-semibold uppercase">
-        {detail.status === 'healthy' && 'Healthy'}
-        {detail.status === 'warning' && 'Moderate'}
-        {detail.status === 'critical' && 'Critical'}
+        {statusLabel}
       </div>
     </div>
   );
@@ -1226,11 +1325,17 @@ const MetricCard: React.FC<MetricCardProps> = ({ icon, label, detail }) => {
 ```
 
 **Validation:**
-- [ ] Component fetches performance metrics from 3 endpoints
+- [ ] Component uses Context (workflowId, forecastId, workflowComplete) instead of props
+- [ ] Component waits for workflowComplete before fetching metrics
+- [ ] Component fetches performance metrics from 3 endpoints in parallel
 - [ ] MAPE, Variance, and Sell-Through displayed correctly
-- [ ] Color coding matches thresholds (green/yellow/red)
-- [ ] System Status badge updates based on aggregation logic
-- [ ] Tooltips explain each metric
+- [ ] Color coding matches thresholds (green/yellow/red) with text labels
+- [ ] System Status badge updates based on aggregation logic with aria-label
+- [ ] Metric cards have aria-label describing value and status
+- [ ] Tooltips have proper aria-describedby associations
+- [ ] Loading state has role="status" and aria-live="polite"
+- [ ] Error state has role="alert"
+- [ ] 404, 500, and network errors handled with specific messages
 - [ ] Responsive grid layout works on all screen sizes
 
 ---
@@ -1239,77 +1344,68 @@ const MetricCard: React.FC<MetricCardProps> = ({ icon, label, detail }) => {
 
 **Objective:** Add MarkdownDecision and PerformanceMetrics to main dashboard.
 
-**File:** `src/pages/Dashboard.tsx` (or equivalent main page)
+**File:** `frontend/src/pages/Dashboard.tsx` (or equivalent main page)
 
 **Implementation:**
 
 ```typescript
 import React from 'react';
-import { ParameterGathering } from '../components/ParameterGathering';
-import { AgentCards } from '../components/AgentCards';
-import { ForecastSummary } from '../components/ForecastSummary';
-import { ClusterCards } from '../components/ClusterCards';
-import { WeeklyPerformanceChart } from '../components/WeeklyPerformanceChart';
-import { ReplenishmentQueue } from '../components/ReplenishmentQueue';
-import { MarkdownDecision } from '../components/MarkdownDecision'; // NEW
-import { PerformanceMetrics } from '../components/PerformanceMetrics'; // NEW
+import { ParameterProvider } from '@/contexts/ParameterContext';
+import { ParameterGathering } from '@/components/ParameterGathering';
+import { AgentCards } from '@/components/AgentCards';
+import { ForecastSummary } from '@/components/ForecastSummary';
+import { ClusterCards } from '@/components/ClusterCards';
+import { WeeklyPerformanceChart } from '@/components/WeeklyPerformanceChart';
+import { ReplenishmentQueue } from '@/components/ReplenishmentQueue';
+import { MarkdownDecision } from '@/components/MarkdownDecision'; // NEW
+import { PerformanceMetrics } from '@/components/PerformanceMetrics'; // NEW
 
-export const Dashboard: React.FC = () => {
-  const [workflowId, setWorkflowId] = useState<string | null>(null);
-  const [parameters, setParameters] = useState<SeasonParameters | null>(null);
-
-  // ... existing state management logic ...
-
+export function Dashboard() {
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Section 0: Parameter Gathering */}
-      <ParameterGathering
-        onParametersExtracted={(params, wfId) => {
-          setParameters(params);
-          setWorkflowId(wfId);
-        }}
-      />
+    <ParameterProvider>
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Section 0: Parameter Gathering */}
+        <ParameterGathering />
 
-      {workflowId && parameters && (
-        <>
-          {/* Section 1: Agent Cards */}
-          <AgentCards workflowId={workflowId} />
+        {/* Section 1: Agent Cards */}
+        <AgentCards />
 
-          {/* Section 2: Forecast Summary */}
-          <ForecastSummary workflowId={workflowId} />
+        {/* Section 2: Forecast Summary */}
+        <ForecastSummary />
 
-          {/* Section 3: Cluster Cards */}
-          <ClusterCards workflowId={workflowId} />
+        {/* Section 3: Cluster Cards */}
+        <ClusterCards />
 
-          {/* Section 4: Weekly Performance Chart */}
-          <WeeklyPerformanceChart
-            workflowId={workflowId}
-            forecastHorizonWeeks={parameters.forecast_horizon_weeks}
-          />
+        {/* Section 4: Weekly Performance Chart */}
+        <WeeklyPerformanceChart />
 
-          {/* Section 5: Replenishment Queue */}
-          {parameters.replenishment_strategy !== 'none' && (
-            <ReplenishmentQueue workflowId={workflowId} />
-          )}
+        {/* Section 5: Replenishment Queue */}
+        <ReplenishmentQueue />
 
-          {/* Section 6: Markdown Decision (Conditional) */}
-          <MarkdownDecision workflowId={workflowId} />
+        {/* Section 6: Markdown Decision (Conditional - hidden if no markdown checkpoint) */}
+        <MarkdownDecision />
 
-          {/* Section 7: Performance Metrics */}
-          <PerformanceMetrics workflowId={workflowId} />
-        </>
-      )}
-    </div>
+        {/* Section 7: Performance Metrics */}
+        <PerformanceMetrics />
+      </div>
+    </ParameterProvider>
   );
-};
+}
 ```
+
+**Notes:**
+- All components read from ParameterContext, no props needed
+- MarkdownDecision will hide itself if `markdown_checkpoint_week` is null
+- ReplenishmentQueue will hide itself if `replenishment_strategy === "none"`
+- All components wait for `workflowComplete` before fetching data
 
 **Validation:**
 - [ ] MarkdownDecision renders after ReplenishmentQueue
 - [ ] MarkdownDecision hidden when markdown_checkpoint_week is null
 - [ ] PerformanceMetrics always displays (last section)
-- [ ] All sections receive correct workflowId prop
+- [ ] All components read from Context (no props needed)
 - [ ] Dashboard layout is responsive
+- [ ] Context provides forecastId, workflowId, parameters, workflowComplete
 
 ---
 
@@ -1477,14 +1573,29 @@ export const Dashboard: React.FC = () => {
 
 ## Definition of Done
 
-- [ ] All 10 tasks completed and validated
+- [ ] All tasks (1-10) completed and validated
 - [ ] Backend endpoints tested in Postman with all test cases passing
+- [ ] API endpoints added to frontend configuration
 - [ ] Frontend services created with complete type definitions
+- [ ] Components use Context (forecastId, workflowId, parameters, workflowComplete) instead of props
+- [ ] Components wait for workflowComplete before fetching data
+- [ ] Markdown checkpoint week validated against Context parameters
 - [ ] MarkdownDecision component displays all required information
-- [ ] PerformanceMetrics component aggregates data correctly
+- [ ] MarkdownDecision hidden when markdown_checkpoint_week is null
+- [ ] PerformanceMetrics component aggregates data from 3 endpoints correctly
 - [ ] Conditional display logic works for Section 6
-- [ ] Color coding thresholds match acceptance criteria
-- [ ] Dashboard integrates both new sections
+- [ ] Color coding thresholds match acceptance criteria with text labels (not color-only)
+- [ ] Dashboard integrates both new sections using Context
+- [ ] Accessibility requirements met:
+  - [ ] ARIA labels added to badges, cards, and regions
+  - [ ] role="alert" for error messages
+  - [ ] role="status" for loading states
+  - [ ] aria-describedby for tooltips
+  - [ ] Text labels accompany all color indicators
+- [ ] Error handling implemented:
+  - [ ] 404 errors handled with specific messages
+  - [ ] 500 errors handled with specific messages
+  - [ ] Network errors (status 0) handled
 - [ ] Manual testing completed with all test cases passing
 - [ ] End-to-end workflow tested with markdown enabled/disabled
 - [ ] No console errors or warnings

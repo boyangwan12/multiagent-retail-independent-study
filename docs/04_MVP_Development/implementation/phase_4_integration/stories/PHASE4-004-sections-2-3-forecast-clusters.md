@@ -3,9 +3,14 @@
 **Epic:** Phase 4 - Frontend/Backend Integration
 **Story ID:** PHASE4-004
 **Status:** Ready for Implementation
-**Estimate:** 5 hours
+**Estimate:** 6 hours
 **Agent:** `*agent dev`
 **Dependencies:** PHASE4-003 (Section 1 - WebSocket)
+
+**Planning References:**
+- PRD v3.3: Section 4.1 (Forecast Display & Manufacturing Order)
+- Technical Architecture v3.3: Section 4.4 (Forecast & Cluster APIs)
+- Frontend Spec v3.3: Sections 3.3-3.4 (Sections 2-3 Design)
 
 ---
 
@@ -27,22 +32,40 @@ So that I can understand the demand forecast and how inventory will be allocated
 
 1. ✅ GET /api/forecasts/{id} endpoint tested with Postman (returns forecast data)
 2. ✅ GET /api/stores/clusters endpoint tested with Postman (returns cluster data)
-3. ✅ Section 2 (Forecast Summary) displays backend forecast data
-4. ✅ Forecast metrics display correctly (total demand, Prophet/ARIMA values, ensemble)
-5. ✅ Manufacturing order displays with approval status
-6. ✅ Mini forecast chart renders with backend data
-7. ✅ Section 3 (Cluster Cards) displays backend cluster data
-8. ✅ All 3 clusters display (Fashion_Forward, Mainstream, Value_Conscious)
-9. ✅ Store table expands/collapses correctly
-10. ✅ Export CSV button works (downloads cluster data)
+3. ✅ forecast_id passed from workflow_complete message to ForecastSummary via Context
+4. ✅ Section 2 (Forecast Summary) displays backend forecast data
+5. ✅ Forecast metrics display correctly (total demand, Prophet/ARIMA values, ensemble)
+6. ✅ Manufacturing order displays with approval status
+7. ✅ Manufacturing order calculation validated (demand × (1 + safety_stock))
+8. ✅ Mini forecast chart renders with backend data
+9. ✅ Section 3 (Cluster Cards) displays backend cluster data after workflow completion
+10. ✅ All 3 clusters display (Fashion_Forward, Mainstream, Value_Conscious)
+11. ✅ Store table expands/collapses correctly
+12. ✅ Export CSV button works (downloads cluster data)
+
+### Data Validation & Error Handling
+
+13. ✅ Forecast category matches category selected in Section 0
+14. ✅ 404 error handled if forecast_id not found
+15. ✅ Peak week array bounds checked before access
+16. ✅ Error message displays if forecast fetch fails
+17. ✅ Error message displays if clusters fetch fails
+18. ✅ ClusterCards waits for workflow completion before fetching
 
 ### Quality Requirements
 
-11. ✅ JSON structure matches TypeScript types exactly
-12. ✅ No console errors during data display
-13. ✅ Data updates when workflow completes (reactive)
-14. ✅ Loading states show while fetching data
-15. ✅ Test with different parameter combinations (mock agents return different data)
+19. ✅ JSON structure matches TypeScript types exactly
+20. ✅ No console errors during data display
+21. ✅ Data updates reactively when workflow_complete message received
+22. ✅ Loading states show while fetching data
+23. ✅ Test with different parameter combinations (mock agents return different data)
+
+### Accessibility
+
+24. ✅ Metric cards have descriptive aria-labels
+25. ✅ Chart has aria-label and accessible description
+26. ✅ Export CSV button has aria-label
+27. ✅ Collapsible store tables accessible via keyboard (Enter/Space to expand)
 
 ---
 
@@ -325,21 +348,180 @@ So that I can understand the demand forecast and how inventory will be allocated
 
 ---
 
-### Task 5: Update ForecastSummary Component (Section 2)
+### Task 5: Extend ParameterContext to Include Workflow Results
+
+**Goal:** Make forecast_id and workflowComplete status available across components via Context.
+
+**Subtasks:**
+- [ ] Update ParameterContext to include workflow results:
+  ```typescript
+  // frontend/src/contexts/ParameterContext.tsx
+  import React, { createContext, useContext, useState, ReactNode } from 'react';
+  import type { SeasonParameters } from '@/types/parameters';
+  import type { Category } from '@/types/category';
+
+  interface ParameterContextState {
+    parameters: SeasonParameters | null;
+    category: Category | null;
+    isConfirmed: boolean;
+
+    // Workflow results (added)
+    workflowId: string | null;
+    forecastId: string | null;
+    workflowComplete: boolean;
+
+    setParameters: (params: SeasonParameters) => void;
+    setCategory: (cat: Category) => void;
+    confirmParameters: () => void;
+    resetParameters: () => void;
+
+    // Workflow result setters (added)
+    setWorkflowId: (id: string) => void;
+    setForecastId: (id: string) => void;
+    setWorkflowComplete: (complete: boolean) => void;
+  }
+
+  const ParameterContext = createContext<ParameterContextState | undefined>(undefined);
+
+  export function ParameterProvider({ children }: { children: ReactNode }) {
+    const [parameters, setParametersState] = useState<SeasonParameters | null>(null);
+    const [category, setCategoryState] = useState<Category | null>(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
+
+    // Workflow results state
+    const [workflowId, setWorkflowIdState] = useState<string | null>(null);
+    const [forecastId, setForecastIdState] = useState<string | null>(null);
+    const [workflowComplete, setWorkflowCompleteState] = useState(false);
+
+    const setParameters = (params: SeasonParameters) => {
+      setParametersState(params);
+    };
+
+    const setCategory = (cat: Category) => {
+      setCategoryState(cat);
+    };
+
+    const confirmParameters = () => {
+      setIsConfirmed(true);
+    };
+
+    const resetParameters = () => {
+      setParametersState(null);
+      setCategoryState(null);
+      setIsConfirmed(false);
+      setWorkflowIdState(null);
+      setForecastIdState(null);
+      setWorkflowCompleteState(false);
+    };
+
+    const setWorkflowId = (id: string) => {
+      setWorkflowIdState(id);
+    };
+
+    const setForecastId = (id: string) => {
+      setForecastIdState(id);
+    };
+
+    const setWorkflowComplete = (complete: boolean) => {
+      setWorkflowCompleteState(complete);
+    };
+
+    return (
+      <ParameterContext.Provider
+        value={{
+          parameters,
+          category,
+          isConfirmed,
+          workflowId,
+          forecastId,
+          workflowComplete,
+          setParameters,
+          setCategory,
+          confirmParameters,
+          resetParameters,
+          setWorkflowId,
+          setForecastId,
+          setWorkflowComplete,
+        }}
+      >
+        {children}
+      </ParameterContext.Provider>
+    );
+  }
+
+  export function useParameters() {
+    const context = useContext(ParameterContext);
+    if (!context) {
+      throw new Error('useParameters must be used within a ParameterProvider');
+    }
+    return context;
+  }
+  ```
+
+- [ ] Update useWebSocket hook to set workflow results in Context:
+  ```typescript
+  // In useWebSocket hook (PHASE4-003)
+  import { useParameters } from '@/contexts/ParameterContext';
+
+  export function useWebSocket(workflowId: string | null) {
+    const { setForecastId, setWorkflowComplete } = useParameters();
+
+    // ... existing state
+
+    const handleMessage = (message: WebSocketMessageType) => {
+      switch (message.type) {
+        // ... other cases
+
+        case 'workflow_complete':
+          console.log('✅ Workflow complete:', message);
+          setWorkflowComplete(true);
+          setWorkflowResult(message.result);
+
+          // Extract forecast_id from result and store in Context
+          if (message.result?.forecast_id) {
+            setForecastId(message.result.forecast_id);
+            console.log('📊 Forecast ID set in Context:', message.result.forecast_id);
+          }
+          break;
+      }
+    };
+  ```
+
+- [ ] Update ParameterGathering to set workflowId in Context:
+  ```typescript
+  // After workflow creation succeeds
+  const { setWorkflowId } = useParameters();
+
+  const response = await WorkflowService.createForecastWorkflow({
+    parameters: parameters,
+    category_name: category.category_name,
+  });
+
+  setWorkflowId(response.workflow_id);
+  setWorkflowIdState(response.workflow_id); // Local state for WebSocket
+  ```
+
+**Validation:**
+- ParameterContext exposes forecastId and workflowComplete
+- useWebSocket hook sets forecastId when workflow_complete received
+- Components can access forecastId via useParameters()
+- ForecastSummary and ClusterCards can react to workflow completion
+
+---
+
+### Task 6: Update ForecastSummary Component (Section 2)
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/ForecastSummary/ForecastSummary.tsx`
 
-- [ ] Add state for forecast data:
+- [ ] Update to use forecast_id from Context with validation:
   ```typescript
   import { ForecastService } from '@/services/forecast-service';
+  import { useParameters } from '@/contexts/ParameterContext';
   import type { Forecast } from '@/types/forecast';
 
-  interface ForecastSummaryProps {
-    forecastId: string | null;
-  }
-
-  export function ForecastSummary({ forecastId }: ForecastSummaryProps) {
+  export function ForecastSummary() {
+    const { forecastId, category, parameters } = useParameters();
     const [forecast, setForecast] = useState<Forecast | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -353,17 +535,36 @@ So that I can understand the demand forecast and how inventory will be allocated
 
         try {
           const data = await ForecastService.getForecast(forecastId);
+
+          // Validate forecast category matches selected category
+          if (category && data.category_name !== category.category_name) {
+            console.warn(
+              `Forecast category (${data.category_name}) doesn't match selected category (${category.category_name})`
+            );
+          }
+
           setForecast(data);
         } catch (err) {
           console.error('Failed to fetch forecast:', err);
-          setError('Failed to load forecast data');
+
+          // Handle specific error types
+          let errorMessage = 'Failed to load forecast data';
+          if (err.status === 404) {
+            errorMessage = 'Forecast not found. Please restart the workflow.';
+          } else if (err.status === 500) {
+            errorMessage = 'Server error loading forecast. Please try again.';
+          } else if (err.status === 0) {
+            errorMessage = 'Cannot connect to backend. Is the server running?';
+          }
+
+          setError(errorMessage);
         } finally {
           setIsLoading(false);
         }
       };
 
       fetchForecast();
-    }, [forecastId]);
+    }, [forecastId, category]);
 
     if (!forecastId) {
       return (
@@ -467,7 +668,10 @@ So that I can understand the demand forecast and how inventory will be allocated
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={60}>
-                <LineChart data={forecast.weekly_demand_curve.map((value, week) => ({ week: week + 1, demand: value }))}>
+                <LineChart
+                  data={forecast.weekly_demand_curve.map((value, week) => ({ week: week + 1, demand: value }))}
+                  aria-label={`Weekly demand curve for ${forecast.category_name}`}
+                >
                   <Line type="monotone" dataKey="demand" stroke="#3b82f6" strokeWidth={2} dot={false} />
                   <XAxis dataKey="week" hide />
                   <YAxis hide />
@@ -475,7 +679,15 @@ So that I can understand the demand forecast and how inventory will be allocated
                 </LineChart>
               </ResponsiveContainer>
               <p className="text-xs text-gray-600 mt-2">
-                Peak demand at Week {forecast.peak_week}: {forecast.weekly_demand_curve[forecast.peak_week - 1]} units
+                {/* Peak week bounds checking */}
+                {forecast.peak_week > 0 && forecast.peak_week <= forecast.weekly_demand_curve.length ? (
+                  <>
+                    Peak demand at Week {forecast.peak_week}:{' '}
+                    {forecast.weekly_demand_curve[forecast.peak_week - 1].toLocaleString()} units
+                  </>
+                ) : (
+                  <>Peak demand: {Math.max(...forecast.weekly_demand_curve).toLocaleString()} units</>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -483,6 +695,16 @@ So that I can understand the demand forecast and how inventory will be allocated
       </Card>
     );
   }
+  ```
+
+- [ ] Add accessibility attributes to metric cards:
+  ```typescript
+  <MetricCard
+    label="Total Season Demand"
+    value={forecast.total_season_demand.toLocaleString()}
+    icon={<TrendingUp />}
+    ariaLabel={`Total season demand: ${forecast.total_season_demand.toLocaleString()} units`}
+  />
   ```
 
 **Validation:**
@@ -495,22 +717,29 @@ So that I can understand the demand forecast and how inventory will be allocated
 
 ---
 
-### Task 6: Update ClusterCards Component (Section 3)
+### Task 7: Update ClusterCards Component (Section 3)
 
 **Subtasks:**
 - [ ] Locate `frontend/src/components/ClusterCards/ClusterCards.tsx`
 
-- [ ] Add state for cluster data:
+- [ ] Update to wait for workflow completion before fetching:
   ```typescript
   import { ClusterService } from '@/services/cluster-service';
+  import { useParameters } from '@/contexts/ParameterContext';
   import type { Cluster } from '@/types/cluster';
 
   export function ClusterCards() {
+    const { workflowComplete } = useParameters();
     const [clusters, setClusters] = useState<Cluster[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+      // Wait for workflow to complete before fetching clusters
+      if (!workflowComplete) {
+        return;
+      }
+
       const fetchClusters = async () => {
         setIsLoading(true);
         setError(null);
@@ -520,14 +749,23 @@ So that I can understand the demand forecast and how inventory will be allocated
           setClusters(data.clusters);
         } catch (err) {
           console.error('Failed to fetch clusters:', err);
-          setError('Failed to load cluster data');
+
+          // Handle specific error types
+          let errorMessage = 'Failed to load cluster data';
+          if (err.status === 500) {
+            errorMessage = 'Server error loading clusters. Please try again.';
+          } else if (err.status === 0) {
+            errorMessage = 'Cannot connect to backend. Is the server running?';
+          }
+
+          setError(errorMessage);
         } finally {
           setIsLoading(false);
         }
       };
 
       fetchClusters();
-    }, []);
+    }, [workflowComplete]);
 
     if (isLoading) {
       return (
@@ -562,7 +800,7 @@ So that I can understand the demand forecast and how inventory will be allocated
   }
   ```
 
-- [ ] Update ClusterCard to display cluster data:
+- [ ] Update ClusterCard to display cluster data with accessibility:
   ```typescript
   function ClusterCard({ cluster }: { cluster: Cluster }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -602,16 +840,28 @@ So that I can understand the demand forecast and how inventory will be allocated
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                <Download className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                aria-label={`Export ${cluster.cluster_name} stores to CSV`}
+              >
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" />
                 Export CSV
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${cluster.cluster_name} store list`}
+                aria-controls={`cluster-${cluster.cluster_id}-stores`}
               >
-                {isExpanded ? <ChevronUp /> : <ChevronDown />}
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                )}
               </Button>
             </div>
           </div>
@@ -813,31 +1063,75 @@ describe('ClusterCards Component', () => {
 
 ## Definition of Done
 
+**Backend Integration:**
 - [ ] GET /api/forecasts/{id} tested with Postman
 - [ ] GET /api/stores/clusters tested with Postman
 - [ ] TypeScript types created for forecast and clusters
 - [ ] API services created and tested
-- [ ] Section 2 (ForecastSummary) updated with real data
-- [ ] Section 3 (ClusterCards) updated with real data
+
+**Context Integration:**
+- [ ] ParameterContext extended to include workflowId, forecastId, workflowComplete
+- [ ] useWebSocket hook sets forecastId when workflow_complete received
+- [ ] ParameterGathering sets workflowId in Context after workflow creation
+- [ ] ForecastSummary uses forecastId from Context (not props)
+- [ ] ClusterCards uses workflowComplete from Context
+
+**Data Display:**
+- [ ] Section 2 (ForecastSummary) displays backend forecast data
+- [ ] Section 3 (ClusterCards) displays backend cluster data
 - [ ] Loading states work correctly
-- [ ] Error handling implemented
-- [ ] Manufacturing order calculates correctly
+- [ ] Manufacturing order calculates correctly (demand × (1 + safety_stock))
 - [ ] Adaptation reasoning displays
-- [ ] Mini chart renders
+- [ ] Mini chart renders with weekly data
 - [ ] All 3 clusters display
 - [ ] Store table expands/collapses
 - [ ] Export CSV works
+
+**Validation & Error Handling:**
+- [ ] Forecast category validated against selected category
+- [ ] 404 error handled (forecast not found)
+- [ ] 500 and network errors handled
+- [ ] Peak week array bounds checked
+- [ ] ClusterCards waits for workflow completion before fetching
+- [ ] Error messages displayed for failed fetches
+
+**Reactivity:**
+- [ ] Data updates reactively when workflow_complete message received
+- [ ] ForecastSummary fetches when forecastId changes
+- [ ] ClusterCards fetches when workflowComplete becomes true
+
+**Accessibility:**
+- [ ] Metric cards have aria-labels
+- [ ] Chart has aria-label
+- [ ] Export CSV button has aria-label
+- [ ] Collapsible toggle has aria-expanded and aria-controls
+- [ ] Icons have aria-hidden="true"
+
+**Quality:**
 - [ ] All manual tests passing
 - [ ] No console errors
-- [ ] Data updates reactively when workflow completes
+- [ ] TypeScript compiles without errors
 
 ---
 
 ## Time Tracking
 
-- **Estimated:** 5 hours
+- **Estimated:** 6 hours
 - **Actual:** ___ hours
 - **Variance:** ___ hours
+
+**Breakdown:**
+- Task 1 (Postman forecast endpoint): ___ min
+- Task 2 (Postman clusters endpoint): ___ min
+- Task 3 (TypeScript types): ___ min
+- Task 4 (API services): ___ min
+- Task 5 (Extend ParameterContext): ___ min
+- Task 6 (ForecastSummary with Context): ___ min
+- Task 7 (ClusterCards with workflow wait): ___ min
+- Additional: Validation and error handling: ___ min
+- Additional: Accessibility: ___ min
+- Testing: ___ min
+- Documentation: ___ min
 
 ---
 

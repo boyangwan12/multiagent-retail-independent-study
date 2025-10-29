@@ -19,11 +19,328 @@ Phase 4 implements an **integration-first approach**, connecting all 8 dashboard
 - Tests parameter-driven architecture (v3.3)
 
 **What's Included:**
-- 9 detailed user stories (~9,000 lines total)
-- 48 hours estimated effort (6 days)
+- 9 detailed user stories (~10,000+ lines total, updated 2025-10-29)
+- **55 hours** estimated effort (~7 days) - Updated by PO validation
+- React Context architecture (replaces prop drilling)
+- WCAG accessibility compliance (ARIA labels, keyboard navigation)
 - Integration tests (backend + frontend)
 - Complete API documentation
 - Mock agents with dynamic, parameter-driven behavior
+
+---
+
+## 🚨 COWORKER HANDOVER - START HERE! 🚨
+
+### Welcome to Phase 4!
+
+This section is specifically for **Henry** (or any coworker) taking over this project. Follow these steps carefully to get up and running.
+
+### What Was Just Completed (PO Validation - 2025-10-29)
+
+Before you start implementation, **the Product Owner (Sarah) just completed a comprehensive validation of all 9 Phase 4 stories**. Here's what changed:
+
+✅ **All Stories Updated** (Stories 1-9):
+- Added planning document references (PRD v3.3, Tech Arch v3.3, Frontend Spec v3.3)
+- **CRITICAL ARCHITECTURE CHANGE**: Converted from props to React Context API
+  - All components now use `ParameterContext` for global state
+  - No more prop drilling for `forecastId`, `workflowId`, `parameters`
+  - Components wait for `workflowComplete` before fetching data
+- Added comprehensive WCAG accessibility requirements (ARIA labels, keyboard navigation)
+- Implemented specific error handling (401, 404, 422, 429, 500, network errors)
+- Fixed all import paths to use `@/` aliases
+- Added parameter validation across all components
+
+**Total Time Estimate**: Updated from 48h → **55h** (+7h for Context, accessibility, validation)
+
+**⚠️ IMPORTANT**: The stories you'll implement reflect these updates. Follow them carefully!
+
+---
+
+### Step-by-Step Handover Checklist
+
+#### ✅ Step 1: Clone & Branch Setup
+
+```bash
+# 1. Clone the repository (if you haven't already)
+git clone [REPOSITORY_URL]
+cd independent_study
+
+# 2. Checkout the phase4-integration branch
+git checkout phase4-integration
+
+# 3. Verify you're on the correct branch
+git branch --show-current
+# Should output: phase4-integration
+```
+
+---
+
+#### ✅ Step 2: Set Up Backend .env File (CRITICAL!)
+
+**Location**: `backend/.env` (create this file, it doesn't exist yet)
+
+**Template**:
+```env
+# ============================================================================
+# BACKEND ENVIRONMENT CONFIGURATION
+# ============================================================================
+
+# OpenAI API Configuration
+# Get your API key from: https://platform.openai.com/api-keys
+# IMPORTANT: Keep this secret! Never commit this file to git!
+OPENAI_API_KEY=sk-proj-your_actual_api_key_here
+
+# Database Configuration
+DATABASE_URL=sqlite:///./forecast.db
+
+# CORS Configuration (allows frontend to connect)
+# IMPORTANT: Must include frontend URL for CORS to work!
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Server Configuration
+HOST=0.0.0.0
+PORT=8000
+
+# WebSocket Configuration
+# IMPORTANT: Must allow WebSocket connections from frontend!
+WEBSOCKET_CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Environment
+ENVIRONMENT=development
+
+# Logging
+LOG_LEVEL=INFO
+```
+
+**How to Get OpenAI API Key**:
+1. Go to https://platform.openai.com/
+2. Sign in (or create account if needed)
+3. Navigate to API Keys section (https://platform.openai.com/api-keys)
+4. Click "Create new secret key"
+5. Name it "Multi-Agent Forecast - Dev"
+6. Copy the key (starts with `sk-proj-...` or `sk-...`)
+7. Paste it into `backend/.env` replacing `sk-proj-your_actual_api_key_here`
+
+**⚠️ SECURITY**:
+- Never commit `.env` file to git (already in `.gitignore`)
+- Never share your API key publicly
+- If key is compromised, revoke it and create a new one
+
+---
+
+#### ✅ Step 3: Set Up Frontend .env File
+
+**Location**: `frontend/.env` (create this file)
+
+**Template**:
+```env
+# ============================================================================
+# FRONTEND ENVIRONMENT CONFIGURATION
+# ============================================================================
+
+# Backend API URL
+# This tells the frontend where to find the backend
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+**Note**: Vite uses `VITE_` prefix for environment variables.
+
+---
+
+#### ✅ Step 4: Install Dependencies
+
+**Backend**:
+```bash
+cd backend
+
+# Install UV (Python package manager) if not already installed
+pip install uv
+
+# Install dependencies using UV
+uv pip install -r requirements.txt
+
+# Verify installation
+python --version  # Should be 3.11+
+```
+
+**Frontend**:
+```bash
+cd frontend
+
+# Install Node.js dependencies
+npm install
+
+# Verify installation
+node --version  # Should be 18+
+npm --version   # Should be 9+
+```
+
+---
+
+#### ✅ Step 5: Verify Setup
+
+**Test Backend**:
+```bash
+cd backend
+
+# Start the backend server
+uvicorn app.main:app --reload
+
+# Should see:
+# INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+# INFO:     Started reloader process [PID]
+
+# Open browser and visit:
+# http://localhost:8000/docs  (OpenAPI docs)
+# http://localhost:8000/health  (Health check endpoint)
+```
+
+**Test Frontend**:
+```bash
+cd frontend
+
+# Start the frontend dev server
+npm run dev
+
+# Should see:
+# VITE v5.x.x  ready in XXX ms
+# ➜  Local:   http://localhost:5173/
+# ➜  Network: use --host to expose
+
+# Open browser and visit:
+# http://localhost:5173/
+```
+
+**Test Connection**:
+1. Keep both backend and frontend running
+2. Open browser to http://localhost:5173/
+3. Open browser console (F12)
+4. Check for CORS errors:
+   - ✅ No CORS errors = Setup correct!
+   - ❌ CORS errors = Check `CORS_ORIGINS` in backend/.env
+
+---
+
+#### ✅ Step 6: Read Updated Stories
+
+**⚠️ CRITICAL**: The stories have been updated by the Product Owner (see "What Was Just Completed" above).
+
+**Start with these in order**:
+1. `stories/PHASE4-001-environment-configuration.md` (Environment setup)
+2. `stories/PHASE4-002-section-0-parameter-gathering.md` (Parameter extraction)
+3. `stories/PHASE4-003-section-1-agent-cards-websocket.md` (WebSocket integration)
+
+**Key Changes to Watch For**:
+- All components use `ParameterContext` (not props)
+- Components wait for `workflowComplete` before fetching
+- Accessibility attributes required (aria-label, role, etc.)
+- Specific error handling for different HTTP status codes
+- Import paths use `@/` aliases (e.g., `@/services/forecast-service`)
+
+---
+
+#### ✅ Step 7: Tools You'll Need
+
+**Required**:
+- Python 3.11+ (for backend)
+- Node.js 18+ (for frontend)
+- UV (Python package manager): `pip install uv`
+- Git (for version control)
+
+**Highly Recommended**:
+- **Postman** (for API testing): https://www.postman.com/downloads/
+- **VS Code** with extensions:
+  - Python (Microsoft)
+  - ESLint (Dirk Baeumer)
+  - Prettier (Prettier)
+  - TypeScript Vue Plugin (Vue)
+- **wscat** (for WebSocket testing): `npm install -g wscat`
+
+---
+
+#### ✅ Step 8: First Task - Start Here!
+
+**Your first task is PHASE4-001**: Environment Configuration
+
+**Location**: `stories/PHASE4-001-environment-configuration.md`
+
+**What you'll do**:
+1. Verify .env files are set up correctly (you just did this!)
+2. Create `frontend/src/config/api.ts` (API endpoint configuration)
+3. Create `frontend/src/utils/api-client.ts` (HTTP client with error handling)
+4. Test backend connection from frontend
+5. Test WebSocket connection with wscat
+
+**Time estimate**: 3 hours
+
+**Validation**:
+- Backend runs at http://localhost:8000
+- Frontend runs at http://localhost:5173
+- No CORS errors in console
+- Can call backend `/health` endpoint from frontend
+
+---
+
+### Common Issues & Fixes
+
+#### Issue: "OPENAI_API_KEY not set"
+**Fix**:
+1. Check `backend/.env` file exists
+2. Check API key starts with `sk-` or `sk-proj-`
+3. Restart backend after editing .env
+
+#### Issue: CORS errors in browser console
+**Fix**:
+1. Check `backend/.env` has `CORS_ORIGINS=http://localhost:5173`
+2. Restart backend server
+3. Clear browser cache (Ctrl+Shift+R)
+
+#### Issue: "Cannot connect to backend"
+**Fix**:
+1. Check backend is running: `curl http://localhost:8000/health`
+2. Check `frontend/.env` has correct `VITE_API_BASE_URL`
+3. Check firewall isn't blocking port 8000
+
+#### Issue: WebSocket connection fails
+**Fix**:
+1. Check `WEBSOCKET_CORS_ORIGINS` in backend/.env
+2. Restart backend
+3. Verify workflow_id is valid
+
+---
+
+### Questions? Need Help?
+
+**During setup**:
+- Check this handoff document first
+- Check story files (they're very detailed!)
+- Check `technical_decisions.md` for architecture decisions
+
+**During implementation**:
+- Each story has detailed tasks with code examples
+- Postman test cases included in stories
+- Manual testing checklists at end of each story
+
+**If something doesn't work**:
+1. Document the issue
+2. Check "Common Issues & Troubleshooting" section below
+3. Ask for clarification (create issue or PR comment)
+
+---
+
+### Ready to Start?
+
+Once you've completed Steps 1-7 above:
+
+✅ You have the code
+✅ You have .env files configured
+✅ Dependencies installed
+✅ Backend and frontend running
+✅ Connection verified
+
+**→ You're ready to start PHASE4-001!**
+
+Good luck! 🚀
 
 ---
 
@@ -44,15 +361,18 @@ Phase 4 implements an **integration-first approach**, connecting all 8 dashboard
 
 | Order | Story ID | Story Name | Effort | Dependencies |
 |-------|----------|------------|--------|--------------|
-| 1 | PHASE4-001 | Environment Configuration | 4h | None |
-| 2 | PHASE4-002 | Section 0 - Parameter Gathering | 6h | PHASE4-001 |
-| 3 | PHASE4-003 | Section 1 - Agent Cards + WebSocket | 8h | PHASE4-001, PHASE4-002 |
-| 4 | PHASE4-004 | Sections 2-3 - Forecast + Clusters | 6h | PHASE4-001 |
-| 5 | PHASE4-005 | Sections 4-5 - Weekly Chart + Replenishment | 6h | PHASE4-001 |
-| 6 | PHASE4-006 | Sections 6-7 - Markdown + Performance Metrics | 6h | PHASE4-001 |
-| 7 | PHASE4-007 | CSV Upload Workflows | 8h | PHASE4-001, PHASE4-002, PHASE4-003 |
+| 1 | PHASE4-001 | Environment Configuration | **3h** ✨ | None |
+| 2 | PHASE4-002 | Section 0 - Parameter Gathering | **5h** ✨ | PHASE4-001 |
+| 3 | PHASE4-003 | Section 1 - Agent Cards + WebSocket | **7h** ✨ | PHASE4-001, PHASE4-002 |
+| 4 | PHASE4-004 | Sections 2-3 - Forecast + Clusters | **6h** ✨ | PHASE4-001 |
+| 5 | PHASE4-005 | Sections 4-5 - Weekly Chart + Replenishment | **6h** ✨ | PHASE4-001 |
+| 6 | PHASE4-006 | Sections 6-7 - Markdown + Performance Metrics | **7h** ✨ | PHASE4-001 |
+| 7 | PHASE4-007 | CSV Upload Workflows | **9h** ✨ | PHASE4-001, PHASE4-002, PHASE4-003 |
 | 8 | PHASE4-008 | Integration Tests | 8h | PHASE4-001 through PHASE4-007 |
 | 9 | PHASE4-009 | Documentation Updates | 4h | PHASE4-001 through PHASE4-008 |
+
+**✨ = Updated by PO validation (2025-10-29)**
+**Total: 55 hours** (was 48 hours)
 
 **Parallelization Opportunities:**
 - After PHASE4-001 completes: Stories 2, 4, 5, 6 can run in parallel (different sections)
