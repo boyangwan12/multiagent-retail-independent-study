@@ -1,8 +1,8 @@
 # Independent Study: Multi-Agent Demand Forecasting System
 
-**Institution:** Concordia University
-**Program:** Master of Engineering in Quality Systems Engineering
-**Timeline:** September 2025 - January 2026
+**Institution:** McGill University
+**Program:** Master of Management in Analytics
+**Timeline:** September 2025 - Dec 2025
 **Focus:** LLM-powered multi-agent system for retail demand forecasting and inventory allocation
 
 ---
@@ -188,10 +188,10 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 ## Contact
 
-**Student:** [Your Name]
-**Supervisor:** [Supervisor Name]
-**Institution:** Concordia University
-**Program:** MEng Quality Systems Engineering
+**Students:** Boyang Wang, Jintao Li, Yina Liang Li, Jaeyoon Lee, and Henry Tang.
+**Supervisor:** Fatih Nayebi
+**Institution:** McGill University
+**Program:** MMA
 
 ---
 

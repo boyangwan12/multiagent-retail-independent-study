@@ -71,7 +71,7 @@
    - Data preprocessing utilities
 
 9. **Configuration & Testing**
-   - Azure OpenAI API integration
+   - OpenAI API integration
    - Environment variables (.env.example)
    - Basic health checks
    - API endpoint tests (pytest)
@@ -195,11 +195,9 @@ dev = [
 
 **Environment Variables (.env):**
 ```bash
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com/
-AZURE_OPENAI_API_KEY=your_api_key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-10-21
+# OpenAI
+OPENAI_API_KEY=sk-your_api_key_here
+OPENAI_MODEL=gpt-4o-mini
 
 # Database
 DATABASE_URL=sqlite:///./fashion_forecast.db
@@ -221,7 +219,7 @@ DEBUG=true
 - [ ] Create `backend/app/services/parameter_extractor.py`
 - [ ] Implement LLM prompt for parameter extraction
 - [ ] Create `POST /api/parameters/extract` endpoint
-- [ ] Parse natural language input and call Azure OpenAI
+- [ ] Parse natural language input and call OpenAI
 - [ ] Extract 5 parameters to `SeasonParameters` object
 - [ ] Add confidence scoring (high/medium/low)
 - [ ] Implement fallback logic (default to 12 weeks if unclear)
@@ -402,7 +400,7 @@ orchestrator = Agent(
 
 **Subtasks:**
 - [ ] Create `.env.example` with all required variables
-- [ ] Configure Azure OpenAI API client
+- [ ] Configure OpenAI API client
 - [ ] Test API connection (list models)
 - [ ] Set up logging (file + console)
 - [ ] Configure CORS for frontend origin
@@ -494,7 +492,7 @@ orchestrator = Agent(
 - [ ] Parameter extraction endpoint works (test with Zara-style input)
 - [ ] Health check endpoint returns 200 OK
 - [ ] Environment variables loaded correctly
-- [ ] Azure OpenAI connection working
+- [ ] OpenAI connection working
 
 ### Checkpoint 2: Pre-Completion (80% complete)
 **After:** Task 11 complete
@@ -523,7 +521,7 @@ orchestrator = Agent(
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Azure OpenAI API quota limits | Medium | High | Use exponential backoff, implement rate limiting, fallback to mock responses |
+| OpenAI API quota limits | Medium | High | Use exponential backoff, implement rate limiting, fallback to mock responses |
 | SQLAlchemy JSON column issues | Low | Medium | Test JSON serialization early, use hybrid approach (normalized + JSON) |
 | WebSocket connection drops | Medium | Medium | Implement reconnection logic, heartbeat ping/pong |
 | UV package manager unfamiliar | Medium | Low | Follow official docs, fallback to pip if needed |
