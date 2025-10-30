@@ -8,10 +8,7 @@ from io import StringIO
 import logging
 
 from app.database.db import get_db
-from app.models.category import Category
-from app.models.store import Store
-from app.models.allocation import Allocation
-from app.models.markdown import Markdown
+from app.database.models import Category, Store, Allocation, Markdown
 from app.services.variance_check import check_variance_and_trigger_reforecast
 
 logger = logging.getLogger(__name__)

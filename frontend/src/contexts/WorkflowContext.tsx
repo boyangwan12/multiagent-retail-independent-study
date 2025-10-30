@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { AgentState } from '@/types/agent';
+import type { AgentState } from '@/types';
 
 interface WorkflowContextType {
   currentAgent: AgentState | null;

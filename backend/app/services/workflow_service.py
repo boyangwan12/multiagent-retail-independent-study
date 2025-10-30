@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.workflow import Workflow, WorkflowStatus
-from app.schemas.workflow import (
+from app.database.models import Workflow, WorkflowStatus
+from app.schemas.workflow_schemas import (
     WorkflowCreateRequest,
     ReforecastRequest,
     WorkflowResponse,

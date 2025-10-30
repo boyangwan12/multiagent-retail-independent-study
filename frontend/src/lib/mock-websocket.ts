@@ -1,4 +1,4 @@
-import type { AgentState } from '@/types/agent';
+import type { AgentState } from '@/types';
 
 type MessageHandler = (data: AgentState) => void;
 

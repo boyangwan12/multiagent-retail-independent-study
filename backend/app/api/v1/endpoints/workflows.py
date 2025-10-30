@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.database.db import get_db
-from app.schemas.workflow import (
+from app.schemas.workflow_schemas import (
     WorkflowCreateRequest,
     ReforecastRequest,
     WorkflowResponse,

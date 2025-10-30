@@ -3,8 +3,7 @@
 from sqlalchemy.orm import Session
 import logging
 
-from app.models.forecast import Forecast
-from app.models.actual_sales import ActualSales
+from app.database.models import Forecast, ActualSales
 
 
 logger = logging.getLogger(__name__)

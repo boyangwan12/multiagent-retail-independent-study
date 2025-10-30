@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockFetch } from '@/lib/mock-api';
 import storesData from '@/mocks/stores.json';
-import type { Store } from '@/types/store';
+import type { Store } from '@/types';
 
 export function useStores() {
   return useQuery({

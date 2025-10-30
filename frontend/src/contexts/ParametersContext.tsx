@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { SeasonParameters } from '@/types/parameters';
+import type { SeasonParameters } from '@/types';
 
 interface ParametersContextType {
   parameters: SeasonParameters | null;

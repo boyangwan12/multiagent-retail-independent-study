@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MockWebSocket } from '@/lib/mock-websocket';
-import type { AgentState } from '@/types/agent';
+import type { AgentState } from '@/types';
 
 export function useAgentStatus() {
   const [agentState, setAgentState] = useState<AgentState | null>(null);

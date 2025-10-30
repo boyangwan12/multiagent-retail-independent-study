@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.db import get_db
-from app.schemas.approval import (
+from app.schemas.workflow_schemas import (
     ManufacturingApprovalRequest,
     ManufacturingApprovalResponse,
     MarkdownApprovalRequest,

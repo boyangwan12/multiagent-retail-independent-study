@@ -1,8 +1,8 @@
 """Service for processing human-in-the-loop approvals."""
 
 from sqlalchemy.orm import Session
-from ..models.workflow import Workflow, WorkflowStatus
-from ..schemas.approval import (
+from app.database.models import Workflow, WorkflowStatus
+from app.schemas.workflow_schemas import (
     ManufacturingApprovalRequest,
     ManufacturingApprovalResponse,
     MarkdownApprovalRequest,

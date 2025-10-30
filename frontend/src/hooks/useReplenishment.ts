@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockFetch } from '@/lib/mock-api';
 import replenishmentData from '@/mocks/replenishment.json';
-import type { ReplenishmentItem } from '@/types/replenishment';
+import type { ReplenishmentItem } from '@/types';
 
 export function useReplenishment() {
   return useQuery({

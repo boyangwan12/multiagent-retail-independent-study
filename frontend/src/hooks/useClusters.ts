@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockFetch } from '@/lib/mock-api';
 import clustersData from '@/mocks/clusters.json';
-import type { StoreCluster } from '@/types/store';
+import type { StoreCluster } from '@/types';
 
 export function useClusters() {
   return useQuery({

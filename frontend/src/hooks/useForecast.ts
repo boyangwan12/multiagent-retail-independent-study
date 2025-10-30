@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockFetch } from '@/lib/mock-api';
 import forecastData from '@/mocks/forecast.json';
-import type { ForecastResult } from '@/types/forecast';
+import type { ForecastResult } from '@/types';
 
 export function useForecast(forecastId?: string) {
   return useQuery({

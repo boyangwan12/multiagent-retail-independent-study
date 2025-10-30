@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 from app.agents.config import AgentConfig
-from app.schemas.parameters import SeasonParameters
+from app.schemas.workflow_schemas import SeasonParameters
 import logging
 
 logger = logging.getLogger("fashion_forecast")

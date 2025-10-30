@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockFetch } from '@/lib/mock-api';
 import markdownData from '@/mocks/markdown.json';
-import type { MarkdownDecision } from '@/types/markdown';
+import type { MarkdownDecision } from '@/types';
 
 export function useMarkdown() {
   return useQuery({

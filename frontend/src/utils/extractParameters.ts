@@ -1,4 +1,4 @@
-import type { SeasonParameters } from '@/types/parameters';
+import type { SeasonParameters } from '@/types';
 
 export interface ExtractionResult {
   success: boolean;

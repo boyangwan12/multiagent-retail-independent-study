@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DASHBOARD_SECTIONS } from '../../types/navigation';
+import { DASHBOARD_SECTIONS } from '../../types';
 
 export const Sidebar = () => {
   const [activeSection, setActiveSection] = useState('parameters');

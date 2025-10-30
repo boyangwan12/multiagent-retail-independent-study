@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 import logging
 
-from app.schemas.parameters import (
+from app.schemas.workflow_schemas import (
     ParameterExtractionRequest,
     ParameterExtractionResponse,
 )

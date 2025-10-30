@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { PerformanceMetrics } from '../types/performance';
+import type { PerformanceMetrics } from '../types';
 
 export const usePerformance = () => {
   return useQuery<PerformanceMetrics>({

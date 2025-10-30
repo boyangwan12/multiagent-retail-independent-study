@@ -1,3 +1,6 @@
+"""Schemas package - exports all Pydantic models from consolidated schema files."""
+
+# Enums (kept separate as used across domains)
 from app.schemas.enums import (
     RetailArchetype,
     ReplenishmentStrategy,
@@ -9,23 +12,64 @@ from app.schemas.enums import (
     WorkflowStatus
 )
 
-from app.schemas.parameters import (
-    SeasonParameters,
-    ParameterExtractionRequest,
-    ParameterExtractionResponse
+# Forecast domain (forecast, allocation, markdown)
+from app.schemas.forecast_schemas import (
+    WeeklyDemand,
+    ClusterDistribution,
+    ForecastBase,
+    ForecastCreate,
+    Forecast,
+    StoreAllocation,
+    AllocationBase,
+    AllocationCreate,
+    AllocationPlan,
+    MarkdownBase,
+    MarkdownCreate,
+    MarkdownDecision,
+    MarkdownRequest,
 )
 
-from app.schemas.category import Category, CategoryCreate
-from app.schemas.store import Store, StoreCreate, StoreCluster, StoreClusterCreate
-from app.schemas.forecast import Forecast, ForecastCreate, WeeklyDemand, ClusterDistribution
-from app.schemas.allocation import AllocationPlan, AllocationCreate, StoreAllocation
-from app.schemas.markdown import MarkdownDecision, MarkdownCreate, MarkdownRequest
-from app.schemas.workflow import (
+# Workflow domain (workflow, approval, parameters, websocket)
+from app.schemas.workflow_schemas import (
+    SeasonParameters,
+    ParameterExtractionRequest,
+    ParameterExtractionResponse,
     WorkflowCreateRequest,
     ReforecastRequest,
     WorkflowResponse,
     WorkflowStatusResponse,
-    WorkflowResultsResponse
+    WorkflowResultsResponse,
+    ManufacturingApprovalRequest,
+    ManufacturingApprovalResponse,
+    MarkdownApprovalRequest,
+    MarkdownApprovalResponse,
+    AgentStartedMessage,
+    AgentProgressMessage,
+    AgentCompletedMessage,
+    HumanInputRequiredMessage,
+    WorkflowCompleteMessage,
+    ErrorMessage,
+    WebSocketMessage,
+)
+
+# Data domain (category, store, upload, variance)
+from app.schemas.data_schemas import (
+    CategoryBase,
+    CategoryCreate,
+    Category,
+    CategorySummary,
+    StoreClusterBase,
+    StoreClusterCreate,
+    StoreCluster,
+    ClusterSummary,
+    StoreBase,
+    StoreCreate,
+    Store,
+    StoreDetail,
+    HistoricalSalesUploadResponse,
+    VarianceCheckResult,
+    WeeklySalesUploadResponse,
+    VarianceAnalysisDetail,
 )
 
 __all__ = [
@@ -38,35 +82,55 @@ __all__ = [
     "Region",
     "MarkdownStatus",
     "WorkflowStatus",
-    # Parameters
+    # Forecast domain
+    "WeeklyDemand",
+    "ClusterDistribution",
+    "ForecastBase",
+    "ForecastCreate",
+    "Forecast",
+    "StoreAllocation",
+    "AllocationBase",
+    "AllocationCreate",
+    "AllocationPlan",
+    "MarkdownBase",
+    "MarkdownCreate",
+    "MarkdownDecision",
+    "MarkdownRequest",
+    # Workflow domain
     "SeasonParameters",
     "ParameterExtractionRequest",
     "ParameterExtractionResponse",
-    # Category
-    "Category",
-    "CategoryCreate",
-    # Store
-    "Store",
-    "StoreCreate",
-    "StoreCluster",
-    "StoreClusterCreate",
-    # Forecast
-    "Forecast",
-    "ForecastCreate",
-    "WeeklyDemand",
-    "ClusterDistribution",
-    # Allocation
-    "AllocationPlan",
-    "AllocationCreate",
-    "StoreAllocation",
-    # Markdown
-    "MarkdownDecision",
-    "MarkdownCreate",
-    "MarkdownRequest",
-    # Workflow
     "WorkflowCreateRequest",
     "ReforecastRequest",
     "WorkflowResponse",
     "WorkflowStatusResponse",
     "WorkflowResultsResponse",
+    "ManufacturingApprovalRequest",
+    "ManufacturingApprovalResponse",
+    "MarkdownApprovalRequest",
+    "MarkdownApprovalResponse",
+    "AgentStartedMessage",
+    "AgentProgressMessage",
+    "AgentCompletedMessage",
+    "HumanInputRequiredMessage",
+    "WorkflowCompleteMessage",
+    "ErrorMessage",
+    "WebSocketMessage",
+    # Data domain
+    "CategoryBase",
+    "CategoryCreate",
+    "Category",
+    "CategorySummary",
+    "StoreClusterBase",
+    "StoreClusterCreate",
+    "StoreCluster",
+    "ClusterSummary",
+    "StoreBase",
+    "StoreCreate",
+    "Store",
+    "StoreDetail",
+    "HistoricalSalesUploadResponse",
+    "VarianceCheckResult",
+    "WeeklySalesUploadResponse",
+    "VarianceAnalysisDetail",
 ]

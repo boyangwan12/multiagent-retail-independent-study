@@ -5,7 +5,7 @@ from typing import Tuple, Optional
 from pydantic import ValidationError
 
 from app.core.openai_client import openai_client
-from app.schemas.parameters import (
+from app.schemas.workflow_schemas import (
     SeasonParameters,
     ParameterExtractionRequest,
     ParameterExtractionResponse,

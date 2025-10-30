@@ -1,4 +1,4 @@
-import type { Store, StoreCluster, StoreForecast, ClusterWithStores } from '@/types/store';
+import type { Store, StoreCluster, StoreForecast, ClusterWithStores } from '@/types';
 
 // City names for generating store locations
 const CITIES = [

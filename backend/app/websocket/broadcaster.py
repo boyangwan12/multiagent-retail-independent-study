@@ -1,7 +1,7 @@
 """Helper functions for broadcasting WebSocket messages."""
 
 from .manager import manager
-from ..schemas.websocket import (
+from app.schemas.workflow_schemas import (
     AgentStartedMessage,
     AgentProgressMessage,
     AgentCompletedMessage,

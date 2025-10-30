@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database.db import get_db
-from app.models.forecast import Forecast
+from app.database.models import Forecast
 import logging
 
 logger = logging.getLogger(__name__)
