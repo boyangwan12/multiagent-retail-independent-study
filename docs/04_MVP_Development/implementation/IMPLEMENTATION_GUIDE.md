@@ -483,10 +483,10 @@ npm run dev
 **Duration:** 2-3 days
 
 **Documents:**
-- [Implementation Plan](./phase_7_pricing_agent/implementation_plan.md)
-- [Technical Decisions](./phase_7_pricing_agent/technical_decisions.md)
-- [Checklist](./phase_7_pricing_agent/checklist.md)
-- [Retrospective](./phase_7_pricing_agent/retrospective.md)
+- [Implementation Plan](./phase_7_orchestrator/implementation_plan.md)
+- [Technical Decisions](./phase_7_orchestrator/technical_decisions.md)
+- [Checklist](./phase_7_orchestrator/checklist.md)
+- [Retrospective](./phase_7_orchestrator/retrospective.md)
 
 ---
 
@@ -545,10 +545,10 @@ npm run dev
 **Duration:** 5-7 days
 
 **Documents:**
-- [Implementation Plan](./phase_8_testing_cleanup/implementation_plan.md)
-- [Technical Decisions](./phase_8_testing_cleanup/technical_decisions.md)
-- [Checklist](./phase_8_testing_cleanup/checklist.md)
-- [Retrospective](./phase_8_testing_cleanup/retrospective.md)
+- [Implementation Plan](./phase_8_pricing_agent/implementation_plan.md)
+- [Technical Decisions](./phase_8_pricing_agent/technical_decisions.md)
+- [Checklist](./phase_8_pricing_agent/checklist.md)
+- [Retrospective](./phase_8_pricing_agent/retrospective.md)
 
 ---
 
