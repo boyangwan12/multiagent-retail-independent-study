@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = Field(
         default=["http://localhost:5173", "http://localhost:5174"],
-        description="Allowed CORS origins"
+        description="Allowed CORS origins (JSON array format in .env)"
     )
 
     # OpenAI (Required)

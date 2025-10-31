@@ -12,9 +12,13 @@ import {
   ChevronUp,
   AlertCircle,
   CheckCircle,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { SeasonParameters } from '@/types';
+import { ParameterService } from '@/services/parameter-service';
+import type { ParameterValidationResult } from '@/types/parameters';
 
 interface ParameterConfirmationModalProps {
   open: boolean;
@@ -32,6 +36,16 @@ export function ParameterConfirmationModal({
   onEdit,
 }: ParameterConfirmationModalProps) {
   const [showReasoning, setShowReasoning] = useState(false);
+  const [validationResult, setValidationResult] =
+    useState<ParameterValidationResult | null>(null);
+
+  // Run validation when parameters change or modal opens
+  useEffect(() => {
+    if (parameters && open) {
+      const result = ParameterService.validateParameters(parameters);
+      setValidationResult(result);
+    }
+  }, [parameters, open]);
 
   if (!parameters) return null;
 
@@ -49,12 +63,21 @@ export function ParameterConfirmationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-border">
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-border"
+        aria-describedby="modal-description"
+      >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-text-primary">
+          <DialogTitle
+            id="modal-title"
+            className="text-2xl font-bold text-text-primary"
+          >
             Confirm Season Parameters
           </DialogTitle>
-          <DialogDescription className="text-text-secondary">
+          <DialogDescription
+            id="modal-description"
+            className="text-text-secondary"
+          >
             Review the extracted parameters before proceeding with the forecast
             workflow.
           </DialogDescription>
@@ -124,23 +147,107 @@ export function ParameterConfirmationModal({
             )}
           </div>
 
+          {/* Validation Errors */}
+          {validationResult && validationResult.errors.length > 0 && (
+            <div
+              role="alert"
+              aria-live="polite"
+              aria-atomic="true"
+              className="flex items-start gap-3 px-4 py-3 rounded-lg border border-error/20 bg-error/10"
+            >
+              <XCircle
+                className="w-5 h-5 text-error flex-shrink-0 mt-0.5"
+                aria-hidden="true"
+              />
+              <div className="flex-1">
+                <h4 className="font-semibold text-error mb-2">
+                  Validation Errors
+                </h4>
+                <ul className="space-y-2 text-sm text-text-secondary">
+                  {validationResult.errors.map((error, index) => (
+                    <li key={index} className="flex flex-col gap-1">
+                      <span className="font-medium text-text-primary">
+                        {error.field}:
+                      </span>
+                      <span>{error.message}</span>
+                      {error.currentValue !== undefined &&
+                        error.currentValue !== null && (
+                          <span className="text-xs text-text-secondary">
+                            Current value: {String(error.currentValue)}
+                          </span>
+                        )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Validation Warnings */}
+          {validationResult && validationResult.warnings.length > 0 && (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="flex items-start gap-3 px-4 py-3 rounded-lg border border-warning/20 bg-warning/10"
+            >
+              <AlertTriangle
+                className="w-5 h-5 text-warning flex-shrink-0 mt-0.5"
+                aria-hidden="true"
+              />
+              <div className="flex-1">
+                <h4 className="font-semibold text-warning mb-2">
+                  Validation Warnings
+                </h4>
+                <ul className="space-y-2 text-sm text-text-secondary">
+                  {validationResult.warnings.map((warning, index) => (
+                    <li key={index} className="flex flex-col gap-1">
+                      <span className="font-medium text-text-primary">
+                        {warning.field}:
+                      </span>
+                      <span>{warning.message}</span>
+                      {warning.suggestion && (
+                        <span className="text-xs text-warning">
+                          💡 {warning.suggestion}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           {/* Extraction Reasoning (Expandable) */}
           <div className="border border-border rounded-lg overflow-hidden">
             <button
               onClick={() => setShowReasoning(!showReasoning)}
+              aria-expanded={showReasoning}
+              aria-controls="extraction-reasoning-content"
               className="w-full px-4 py-3 bg-muted hover:bg-muted/80 transition-colors flex items-center justify-between text-left"
             >
               <span className="font-medium text-text-primary">
                 Extraction Reasoning
               </span>
               {showReasoning ? (
-                <ChevronUp className="w-5 h-5 text-text-secondary" />
+                <ChevronUp
+                  className="w-5 h-5 text-text-secondary"
+                  aria-hidden="true"
+                />
               ) : (
-                <ChevronDown className="w-5 h-5 text-text-secondary" />
+                <ChevronDown
+                  className="w-5 h-5 text-text-secondary"
+                  aria-hidden="true"
+                />
               )}
             </button>
             {showReasoning && (
-              <div className="px-4 py-3 bg-card text-sm text-text-secondary">
+              <div
+                id="extraction-reasoning-content"
+                className="px-4 py-3 bg-card text-sm text-text-secondary"
+                role="region"
+                aria-label="Extraction reasoning details"
+              >
                 {parameters.extraction_reasoning}
               </div>
             )}
@@ -150,13 +257,30 @@ export function ParameterConfirmationModal({
         <DialogFooter className="flex gap-3">
           <button
             onClick={onEdit}
+            aria-label="Edit parameters and return to input form"
             className="px-6 py-2 border border-border bg-card text-text-primary rounded-lg hover:bg-muted transition-colors"
           >
             Edit Parameters
           </button>
           <button
             onClick={onConfirm}
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+            disabled={validationResult && !validationResult.isValid}
+            aria-label={
+              validationResult && !validationResult.isValid
+                ? 'Confirm button disabled due to validation errors'
+                : 'Confirm parameters and proceed with forecast workflow'
+            }
+            aria-disabled={validationResult && !validationResult.isValid}
+            className={`px-6 py-2 rounded-lg transition-opacity ${
+              validationResult && !validationResult.isValid
+                ? 'bg-muted text-text-secondary cursor-not-allowed opacity-50'
+                : 'bg-primary text-primary-foreground hover:opacity-90'
+            }`}
+            title={
+              validationResult && !validationResult.isValid
+                ? 'Please fix validation errors before confirming'
+                : 'Confirm parameters and continue'
+            }
           >
             Confirm & Continue
           </button>

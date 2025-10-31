@@ -3,9 +3,9 @@ import { ParameterTextarea } from './ParameterTextarea';
 import { ParameterConfirmationModal } from './ParameterConfirmationModal';
 import { ConfirmedBanner } from './ConfirmedBanner';
 import { AgentReasoningPreview } from './AgentReasoningPreview';
-import { extractParameters } from '@/utils/extractParameters';
+import { ParameterService } from '@/services/parameter-service';
 import { useParameters } from '@/contexts/ParametersContext';
-import { mockDelay } from '@/lib/mock-api';
+import { isAPIError, API_ERROR_TYPES } from '@/utils/api-client';
 import { AlertCircle } from 'lucide-react';
 import type { SeasonParameters } from '@/types';
 
@@ -14,17 +14,18 @@ import type { SeasonParameters } from '@/types';
  *
  * Section 0 of the Multi-Agent Retail Forecasting Dashboard.
  * Allows users to input season parameters in natural language and extracts
- * structured parameters using mock LLM extraction (regex-based).
+ * structured parameters using backend LLM (Azure OpenAI via FastAPI).
  *
  * @component
  *
  * @features
  * - Natural language input with 500 character limit
- * - Mock LLM extraction (2-5s delay simulating API call)
- * - Parameter confirmation modal with reasoning disclosure
+ * - Real LLM extraction via backend API (GPT-4o-mini)
+ * - Parameter confirmation modal with confidence levels and reasoning
  * - Edit/confirm workflow
  * - Collapsed banner after confirmation
  * - Integration with ParametersContext for global state
+ * - Comprehensive error handling for all API failure modes
  *
  * @example
  * ```tsx
@@ -33,7 +34,7 @@ import type { SeasonParameters } from '@/types';
  *
  * @see {@link ParameterTextarea} for input component
  * @see {@link ParameterConfirmationModal} for confirmation UI
- * @see {@link extractParameters} for extraction logic
+ * @see {@link ParameterService} for API integration
  */
 export function ParameterGathering() {
   const { parameters, setParameters, clearParameters } = useParameters();
@@ -42,30 +43,66 @@ export function ParameterGathering() {
   const [extractedParams, setExtractedParams] =
     useState<SeasonParameters | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastInput, setLastInput] = useState<string>('');
 
   const handleExtract = async (input: string) => {
     setIsLoading(true);
     setError(null);
+    setLastInput(input);
 
     try {
-      // Simulate API delay (2-5 seconds)
-      await mockDelay(2000, 5000);
+      // Call real backend API with LLM extraction
+      const result = await ParameterService.extractParameters(input);
 
-      const result = extractParameters(input);
+      // Successfully extracted parameters
+      setExtractedParams(result);
+      setShowModal(true);
+      setRetryCount(0); // Reset retry count on success
+    } catch (err) {
+      // Handle different types of API errors with user-friendly messages
+      if (isAPIError(err)) {
+        switch (err.errorType) {
+          case API_ERROR_TYPES.VALIDATION_ERROR:
+            setError(
+              `Invalid input: ${err.message}. Please check your input and try again.`
+            );
+            break;
 
-      if (result.success && result.parameters) {
-        setExtractedParams(result.parameters);
-        setShowModal(true);
+          case API_ERROR_TYPES.AUTHENTICATION_ERROR:
+            setError(
+              'Authentication error. Please check your API configuration.'
+            );
+            break;
+
+          case API_ERROR_TYPES.SERVER_ERROR:
+            setError(
+              'Server error. The backend service is temporarily unavailable. Please try again later.'
+            );
+            break;
+
+          case API_ERROR_TYPES.NETWORK_ERROR:
+            setError(
+              'Network error. Please check your internet connection and ensure the backend server is running.'
+            );
+            break;
+
+          case API_ERROR_TYPES.RATE_LIMIT_ERROR:
+            setError(
+              'Too many requests. Please wait a moment and try again.'
+            );
+            break;
+
+          default:
+            setError(err.message || 'An unexpected error occurred.');
+        }
       } else {
         setError(
-          `Could not extract all required parameters. Missing: ${result.missingFields.join(', ')}. Please provide more information.`
+          'An unexpected error occurred during parameter extraction. Please try again.'
         );
       }
-    } catch (err) {
-      setError(
-        'An error occurred during parameter extraction. Please try again.'
-      );
-      console.error('Extraction error:', err);
+
+      console.error('Parameter extraction error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +124,13 @@ export function ParameterGathering() {
     clearParameters();
   };
 
+  const handleRetry = () => {
+    if (lastInput && retryCount < 3) {
+      setRetryCount(retryCount + 1);
+      handleExtract(lastInput);
+    }
+  };
+
   return (
     <div className="w-full space-y-8 py-8">
       <div className="text-center space-y-2">
@@ -105,11 +149,34 @@ export function ParameterGathering() {
 
           {error && (
             <div className="w-full max-w-3xl mx-auto">
-              <div className="flex items-start gap-3 p-4 bg-error/10 border border-error/20 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
-                <div>
+              <div
+                role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
+                className="flex items-start gap-3 p-4 bg-error/10 border border-error/20 rounded-lg"
+              >
+                <AlertCircle
+                  className="w-5 h-5 text-error flex-shrink-0 mt-0.5"
+                  aria-hidden="true"
+                />
+                <div className="flex-1">
                   <p className="font-medium text-error">Extraction Error</p>
                   <p className="text-sm text-text-secondary mt-1">{error}</p>
+                  {retryCount < 3 && lastInput && (
+                    <button
+                      onClick={handleRetry}
+                      aria-label="Retry parameter extraction"
+                      className="mt-3 px-4 py-2 text-sm bg-error/20 hover:bg-error/30 text-error rounded-lg transition-colors"
+                    >
+                      Retry {retryCount > 0 && `(Attempt ${retryCount + 1}/3)`}
+                    </button>
+                  )}
+                  {retryCount >= 3 && (
+                    <p className="text-xs text-text-secondary mt-2">
+                      Maximum retry attempts reached. Please check your input
+                      or contact support.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

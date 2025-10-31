@@ -1,3 +1,14 @@
+/**
+ * @deprecated This file contains mock/regex-based parameter extraction logic.
+ *
+ * As of PHASE4-002, parameter extraction now uses real LLM via backend API.
+ * Use ParameterService.extractParameters() instead.
+ *
+ * This file is kept for reference only and should not be used in production code.
+ *
+ * @see {@link ParameterService.extractParameters} for the real implementation
+ */
+
 import type { SeasonParameters } from '@/types';
 
 export interface ExtractionResult {
@@ -7,8 +18,12 @@ export interface ExtractionResult {
 }
 
 /**
+ * @deprecated Use ParameterService.extractParameters() instead
+ *
  * Mock LLM parameter extraction from natural language input
  * Uses regex patterns to extract 5 key parameters
+ *
+ * This function is no longer used after PHASE4-002 integration.
  */
 export function extractParameters(input: string): ExtractionResult {
   const parameters: Partial<SeasonParameters> = {};

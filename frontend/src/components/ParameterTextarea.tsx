@@ -42,18 +42,25 @@ export function ParameterTextarea({
           onChange={(e) => setInput(e.target.value.slice(0, MAX_CHARS))}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
+          aria-label="Parameter description input"
+          aria-describedby="char-count keyboard-hint"
+          aria-invalid={input.trim().length === 0 && input.length > 0}
           placeholder='Example: "12-week spring season starting March 1st. No replenishment, 0% holdback. Markdown at week 6 if below 60% sell-through."'
           className="w-full h-32 px-4 py-3 bg-card text-text-primary border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-text-muted"
         />
         <div className="flex items-center justify-between text-sm">
           <span
+            id="char-count"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             className={`text-text-secondary ${
               remainingChars < 50 ? 'text-warning' : ''
             } ${remainingChars === 0 ? 'text-error' : ''}`}
           >
             {remainingChars} characters remaining
           </span>
-          <span className="text-text-muted">
+          <span id="keyboard-hint" className="text-text-muted">
             Press ⌘+Enter (Mac) or Ctrl+Enter (Windows) to extract
           </span>
         </div>
@@ -62,11 +69,19 @@ export function ParameterTextarea({
       <button
         onClick={handleExtract}
         disabled={isLoading || input.trim().length === 0}
+        aria-label={
+          isLoading
+            ? 'Extracting parameters, please wait'
+            : input.trim().length === 0
+              ? 'Extract button disabled, please enter parameters'
+              : 'Extract parameters from input'
+        }
+        aria-busy={isLoading}
         className="w-full px-6 py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
       >
         {isLoading ? (
           <>
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
             Extracting Parameters...
           </>
         ) : (

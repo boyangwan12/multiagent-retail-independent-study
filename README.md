@@ -138,6 +138,165 @@ independent_study/
 
 ---
 
+## Development Environment Setup
+
+### Prerequisites
+
+- **Backend Requirements:**
+  - Python 3.11 or higher
+  - UV package manager (`pip install uv`)
+  - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+
+- **Frontend Requirements:**
+  - Node.js 18 or higher
+  - npm 9 or higher
+
+### Quick Start
+
+#### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd multiagent-retail-independent-study
+```
+
+#### 2. Backend Setup
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create .env file from example
+cp .env.example .env
+
+# Edit .env and add your OpenAI API key
+# OPENAI_API_KEY=sk-your_actual_api_key_here
+
+# Install dependencies using UV
+uv sync
+
+# Start the backend server
+uvicorn app.main:app --reload
+
+# Server will be available at: http://localhost:8000
+# API docs available at: http://localhost:8000/docs
+```
+
+#### 3. Frontend Setup
+
+```bash
+# Open a new terminal and navigate to frontend directory
+cd frontend
+
+# Create .env file from example
+cp .env.example .env
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+
+# Frontend will be available at: http://localhost:5173
+```
+
+#### 4. Verify Setup
+
+1. **Backend Health Check:**
+   - Open http://localhost:8000/docs in your browser
+   - You should see the FastAPI Swagger documentation
+   - Try the `/api/v1/health` endpoint
+
+2. **Frontend Connection:**
+   - Open http://localhost:5173 in your browser
+   - Open browser DevTools (F12) → Console
+   - Verify no CORS errors
+
+3. **Check Backend Logs:**
+   - Look for: `✅ All required environment variables are set`
+   - If you see warnings about `OPENAI_API_KEY`, update your `.env` file
+
+### Environment Variables
+
+#### Backend (.env)
+```env
+# Required
+OPENAI_API_KEY=sk-your_actual_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+
+# Database
+DATABASE_URL=sqlite:///./fashion_forecast.db
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+DEBUG=true
+ENVIRONMENT=development
+
+# CORS (Frontend origins)
+# IMPORTANT: Must be JSON array format for pydantic-settings
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+#### Frontend (.env)
+```env
+# API URLs
+VITE_API_URL=http://localhost:8000
+VITE_WS_URL=ws://localhost:8000
+
+# Application
+VITE_ENV=development
+VITE_DEBUG=true
+VITE_USE_MOCK_DATA=false
+```
+
+### Troubleshooting
+
+#### CORS Errors
+- **Symptom:** Browser console shows "Access to fetch blocked by CORS policy"
+- **Fix:**
+  1. Ensure `CORS_ORIGINS=http://localhost:5173` in `backend/.env`
+  2. Restart the backend server
+  3. Clear browser cache (Ctrl+Shift+R)
+
+#### WebSocket Connection Failed
+- **Symptom:** Console shows "WebSocket connection failed"
+- **Fix:**
+  1. Ensure backend is running at http://localhost:8000
+  2. Check WebSocket URL uses `ws://` (not `wss://`)
+  3. Verify firewall allows WebSocket connections
+
+#### OpenAI API Key Issues
+- **Symptom:** Backend logs show "OPENAI_API_KEY is not set or using placeholder"
+- **Fix:**
+  1. Get API key from https://platform.openai.com/api-keys
+  2. Update `OPENAI_API_KEY` in `backend/.env`
+  3. Restart backend server
+
+#### Port Already in Use
+- **Symptom:** "Address already in use" error
+- **Fix:**
+  - Backend: Change `PORT` in `backend/.env` or kill process on port 8000
+  - Frontend: Vite will prompt you to use an alternative port
+
+### Recommended Tools
+
+- **API Testing:** Postman or Insomnia
+- **WebSocket Testing:** wscat (`npm install -g wscat`)
+- **VS Code Extensions:**
+  - Python
+  - ESLint
+  - Prettier - Code formatter
+  - Tailwind CSS IntelliSense
+
+### Phase 4 Integration Guide
+
+For detailed instructions on Phase 4 integration work, see:
+- **Handoff Document:** `04_MVP_Development/implementation/phase_4_integration/PHASE4_HANDOFF.md`
+- **Overview:** `04_MVP_Development/implementation/phase_4_integration/PHASE4_OVERVIEW.md`
+- **Implementation Plan:** `04_MVP_Development/implementation/phase_4_integration/implementation_plan.md`
+
+---
+
 ## Problem Addressed
 
 Based on interviews with 5 retail practitioners, the system addresses:
