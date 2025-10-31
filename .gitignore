@@ -2,6 +2,7 @@
 .bmad-core/
 .claude/
 .windsurf/
+.superdesign
 
 # Operating System Files
 .DS_Store
