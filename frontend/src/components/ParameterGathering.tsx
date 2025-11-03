@@ -4,9 +4,10 @@ import { ParameterConfirmationModal } from './ParameterConfirmationModal';
 import { ConfirmedBanner } from './ConfirmedBanner';
 import { AgentReasoningPreview } from './AgentReasoningPreview';
 import { ParameterService } from '@/services/parameter-service';
+import { WorkflowService } from '@/services/workflow-service';
 import { useParameters } from '@/contexts/ParametersContext';
 import { isAPIError, API_ERROR_TYPES } from '@/utils/api-client';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import type { SeasonParameters } from '@/types';
 
 /**
@@ -37,8 +38,9 @@ import type { SeasonParameters } from '@/types';
  * @see {@link ParameterService} for API integration
  */
 export function ParameterGathering() {
-  const { parameters, setParameters, clearParameters } = useParameters();
+  const { parameters, setParameters, clearParameters, categoryId, setCategoryId, setWorkflowId } = useParameters();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [extractedParams, setExtractedParams] =
     useState<SeasonParameters | null>(null);
@@ -108,10 +110,56 @@ export function ParameterGathering() {
     }
   };
 
-  const handleConfirm = () => {
-    if (extractedParams) {
-      setParameters(extractedParams);
-      setShowModal(false);
+  const handleConfirm = async () => {
+    if (!extractedParams) return;
+
+    // Set parameters first
+    setParameters(extractedParams);
+    setShowModal(false);
+    setIsCreatingWorkflow(true);
+    setError(null);
+
+    try {
+      // Use default category if not selected
+      const category = categoryId || 'womens_dresses';
+
+      // Create workflow
+      const response = await WorkflowService.createForecastWorkflow({
+        parameters: extractedParams,
+        category_id: category,
+      });
+
+      setWorkflowId(response.workflow_id);
+      console.log('✅ Workflow started:', response.workflow_id);
+      console.log('📡 WebSocket URL:', response.websocket_url);
+
+      // Scroll to Section 1 (Agent Cards)
+      setTimeout(() => {
+        document.getElementById('section-1-agent-cards')?.scrollIntoView({
+          behavior: 'smooth',
+        });
+      }, 500);
+    } catch (err) {
+      console.error('❌ Failed to start workflow:', err);
+
+      let errorMessage = 'Failed to start workflow. Please try again.';
+      if (isAPIError(err)) {
+        if (err.statusCode === 401) {
+          errorMessage = 'Authentication error. Please check API configuration.';
+        } else if (err.statusCode === 422) {
+          errorMessage = 'Invalid parameters. Please check your input and try again.';
+        } else if (err.statusCode === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (err.statusCode === 0) {
+          errorMessage = 'Cannot connect to backend. Is the server running?';
+        }
+      }
+
+      setError(errorMessage);
+      // Re-open modal so user can see the error
+      setShowModal(true);
+    } finally {
+      setIsCreatingWorkflow(false);
     }
   };
 
@@ -214,6 +262,7 @@ export function ParameterGathering() {
         parameters={extractedParams}
         onConfirm={handleConfirm}
         onEdit={handleEdit}
+        isCreatingWorkflow={isCreatingWorkflow}
       />
     </div>
   );

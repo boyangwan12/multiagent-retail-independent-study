@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   // ============================================
   // Workflow Management
   // ============================================
+  WORKFLOWS_FORECAST: `${API_BASE}/workflows/forecast`,
   workflows: {
     create: () => `${API_BASE}/workflows`,
     getById: (id: string) => `${API_BASE}/workflows/${id}`,
@@ -173,3 +174,13 @@ export const WS_CONFIG = {
   RECONNECT_DELAY: 2000, // 2 seconds
   HEARTBEAT_INTERVAL: 30000, // 30 seconds
 } as const;
+
+/**
+ * Build WebSocket URL
+ * Helper function to construct WebSocket URLs for workflow streams
+ */
+export const buildWsUrl = (path: string): string => {
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${API_CONFIG.WS_BASE_URL}/${cleanPath}`;
+};

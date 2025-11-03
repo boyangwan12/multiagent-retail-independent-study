@@ -14,6 +14,14 @@ interface ParametersContextType {
   workflowComplete: boolean;
   setWorkflowComplete: (complete: boolean) => void;
 
+  // Result IDs from workflow
+  forecastId: string | null;
+  setForecastId: (id: string | null) => void;
+  allocationId: string | null;
+  setAllocationId: (id: string | null) => void;
+  markdownId: string | null;
+  setMarkdownId: (id: string | null) => void;
+
   // UI state
   isConfirmed: boolean;
   setIsConfirmed: (confirmed: boolean) => void;
@@ -37,6 +45,11 @@ export function ParametersProvider({ children }: { children: ReactNode }) {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [workflowComplete, setWorkflowComplete] = useState<boolean>(false);
 
+  // Result IDs from workflow
+  const [forecastId, setForecastId] = useState<string | null>(null);
+  const [allocationId, setAllocationId] = useState<string | null>(null);
+  const [markdownId, setMarkdownId] = useState<string | null>(null);
+
   // UI state
   const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -48,6 +61,9 @@ export function ParametersProvider({ children }: { children: ReactNode }) {
     setParameters(null);
     setWorkflowId(null);
     setWorkflowComplete(false);
+    setForecastId(null);
+    setAllocationId(null);
+    setMarkdownId(null);
     setIsConfirmed(false);
     setIsEditing(false);
     setCategoryId(null);
@@ -66,6 +82,14 @@ export function ParametersProvider({ children }: { children: ReactNode }) {
         setWorkflowId,
         workflowComplete,
         setWorkflowComplete,
+
+        // Result IDs
+        forecastId,
+        setForecastId,
+        allocationId,
+        setAllocationId,
+        markdownId,
+        setMarkdownId,
 
         // UI state
         isConfirmed,

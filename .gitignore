@@ -61,4 +61,5 @@ build/
 docs/05_Progress_Reports/team_colab/
 
 # Keep docs folder visible - this contains your project documentation
-# All other folders starting with . are ignored above
+# All other folders starting with . are ignored above.roomodes
+nul

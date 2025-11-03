@@ -14,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { SeasonParameters } from '@/types';
@@ -26,6 +27,7 @@ interface ParameterConfirmationModalProps {
   parameters: SeasonParameters | null;
   onConfirm: () => void;
   onEdit: () => void;
+  isCreatingWorkflow?: boolean;
 }
 
 export function ParameterConfirmationModal({
@@ -34,6 +36,7 @@ export function ParameterConfirmationModal({
   parameters,
   onConfirm,
   onEdit,
+  isCreatingWorkflow = false,
 }: ParameterConfirmationModalProps) {
   const [showReasoning, setShowReasoning] = useState(false);
   const [validationResult, setValidationResult] =
@@ -257,22 +260,23 @@ export function ParameterConfirmationModal({
         <DialogFooter className="flex gap-3">
           <button
             onClick={onEdit}
+            disabled={isCreatingWorkflow}
             aria-label="Edit parameters and return to input form"
-            className="px-6 py-2 border border-border bg-card text-text-primary rounded-lg hover:bg-muted transition-colors"
+            className="px-6 py-2 border border-border bg-card text-text-primary rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Edit Parameters
           </button>
           <button
             onClick={onConfirm}
-            disabled={validationResult && !validationResult.isValid}
+            disabled={(validationResult && !validationResult.isValid) || isCreatingWorkflow}
             aria-label={
               validationResult && !validationResult.isValid
                 ? 'Confirm button disabled due to validation errors'
                 : 'Confirm parameters and proceed with forecast workflow'
             }
             aria-disabled={validationResult && !validationResult.isValid}
-            className={`px-6 py-2 rounded-lg transition-opacity ${
-              validationResult && !validationResult.isValid
+            className={`px-6 py-2 rounded-lg transition-opacity flex items-center gap-2 ${
+              (validationResult && !validationResult.isValid) || isCreatingWorkflow
                 ? 'bg-muted text-text-secondary cursor-not-allowed opacity-50'
                 : 'bg-primary text-primary-foreground hover:opacity-90'
             }`}
@@ -282,7 +286,8 @@ export function ParameterConfirmationModal({
                 : 'Confirm parameters and continue'
             }
           >
-            Confirm & Continue
+            {isCreatingWorkflow && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isCreatingWorkflow ? 'Creating Workflow...' : 'Confirm & Start Workflow'}
           </button>
         </DialogFooter>
       </DialogContent>

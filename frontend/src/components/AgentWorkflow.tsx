@@ -1,15 +1,29 @@
-import { useEffect, useState } from 'react';
 import { FixedHeader } from './FixedHeader';
 import { AgentCard } from './AgentCard';
-import { useAgentStatus } from '@/hooks/useAgentStatus';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { useParameters } from '@/contexts/ParametersContext';
 import type { AgentStatus } from '@/types';
+import type { AgentState as WSAgentState } from '@/types/websocket';
 
 interface AgentState {
   name: 'Demand Agent' | 'Inventory Agent' | 'Pricing Agent';
   status: AgentStatus;
   progress: number;
   message: string;
+}
+
+// Map WebSocket agent status to UI agent status
+function mapWebSocketStatus(wsStatus: WSAgentState['status']): AgentStatus {
+  switch (wsStatus) {
+    case 'running':
+      return 'thinking';
+    case 'complete':
+      return 'complete';
+    case 'error':
+      return 'error';
+    default:
+      return 'idle';
+  }
 }
 
 /**
@@ -24,65 +38,33 @@ interface AgentState {
  * @component
  *
  * @features
- * - Real-time agent status updates via mock WebSocket
+ * - Real-time agent status updates via WebSocket
  * - Progress tracking for each agent (0-100%)
  * - Status animations (idle → running → success → error)
  * - Overall progress calculation
  * - Workflow completion message
+ * - Connection status indicator
  * - Fixed header with season parameters
  *
  * @example
  * ```tsx
- * <AgentWorkflow />
+ * <AgentWorkflow workflowId="wf_abc123" />
  * ```
  *
  * @see {@link AgentCard} for individual agent display
- * @see {@link useAgentStatus} for WebSocket integration
+ * @see {@link useWebSocket} for WebSocket integration
  */
-export function AgentWorkflow() {
+export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
   const { parameters } = useParameters();
-  const { agentState } = useAgentStatus();
+  const { isConnected, agents: wsAgents, workflowComplete, workflowResult } = useWebSocket(workflowId);
 
-  const [agents, setAgents] = useState<AgentState[]>([
-    {
-      name: 'Demand Agent',
-      status: 'idle',
-      progress: 0,
-      message: 'Waiting to start forecast analysis...',
-    },
-    {
-      name: 'Inventory Agent',
-      status: 'idle',
-      progress: 0,
-      message: 'Waiting for demand forecast...',
-    },
-    {
-      name: 'Pricing Agent',
-      status: 'idle',
-      progress: 0,
-      message: 'Waiting for inventory allocation...',
-    },
-  ]);
-
-  // Update agent states based on WebSocket updates
-  useEffect(() => {
-    if (agentState) {
-      setAgents((prev) => {
-        const updated = prev.map((agent) => {
-          if (agent.name === agentState.agent_name) {
-            return {
-              ...agent,
-              status: agentState.status,
-              progress: agentState.progress_pct,
-              message: agentState.message,
-            };
-          }
-          return agent;
-        });
-        return updated;
-      });
-    }
-  }, [agentState]);
+  // Map WebSocket agents to UI agents
+  const agents: AgentState[] = wsAgents.map(wsAgent => ({
+    name: wsAgent.name,
+    status: mapWebSocketStatus(wsAgent.status),
+    progress: wsAgent.progress,
+    message: wsAgent.messages[wsAgent.messages.length - 1] || 'Waiting...',
+  }));
 
   // Calculate overall progress
   const overallProgress = Math.round(
@@ -97,7 +79,7 @@ export function AgentWorkflow() {
     <div className="w-full">
       <FixedHeader parameters={parameters} overallProgress={overallProgress} />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8" id="section-1-agent-cards">
         <div className="space-y-4 mb-8">
           <h2 className="text-2xl font-bold text-text-primary">
             Section 1: Multi-Agent Workflow
@@ -107,6 +89,21 @@ export function AgentWorkflow() {
             forecast.
           </p>
         </div>
+
+        {/* Connection Status Indicator */}
+        {workflowId && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg border mb-6">
+            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-success' : 'bg-error'}`} />
+            <span className="text-xs text-text-secondary">
+              {isConnected ? '✅ Connected to workflow' : '❌ Disconnected'}
+            </span>
+            {workflowId && (
+              <span className="text-xs text-text-muted ml-auto">
+                ID: {workflowId}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Agent Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -122,7 +119,7 @@ export function AgentWorkflow() {
         </div>
 
         {/* Workflow Complete Message */}
-        {overallProgress === 100 && (
+        {workflowComplete && (
           <div className="mt-8 p-6 bg-success/10 border-2 border-success/30 rounded-lg">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-success rounded-full flex items-center justify-center">
@@ -147,6 +144,11 @@ export function AgentWorkflow() {
                 <p className="text-sm text-text-secondary">
                   All agents have finished processing. Your forecast is ready.
                 </p>
+                {workflowResult && (
+                  <p className="text-xs text-text-muted mt-1">
+                    Forecast ID: {workflowResult.forecast_id}
+                  </p>
+                )}
               </div>
             </div>
           </div>

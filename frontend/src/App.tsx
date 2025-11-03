@@ -14,7 +14,7 @@ import { useParameters } from './contexts/ParametersContext';
 import { ReportPage } from './pages/ReportPage';
 
 function Dashboard() {
-  const { parameters } = useParameters();
+  const { parameters, workflowId } = useParameters();
 
   // Parameters gathering page (no sidebar)
   if (!parameters) {
@@ -85,7 +85,7 @@ function Dashboard() {
           icon="🤖"
         />
         <ErrorBoundary>
-          <AgentWorkflow />
+          <AgentWorkflow workflowId={workflowId} />
         </ErrorBoundary>
       </section>
 
