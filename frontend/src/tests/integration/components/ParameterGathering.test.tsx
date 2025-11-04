@@ -5,20 +5,34 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/server';
 
 // Mock component for testing (simplified version)
-function ParameterGatheringMock({ onSuccess }: { onSuccess: (data: any) => void }) {
+function ParameterGatheringMock({ onSuccess, onError }: { onSuccess: (data: any) => void; onError?: (error: string) => void }) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const userInput = formData.get('userInput') as string;
 
-    const response = await fetch('http://localhost:8000/api/v1/parameters/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_input: userInput }),
-    });
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/parameters/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_input: userInput }),
+      });
 
-    const data = await response.json();
-    onSuccess(data);
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (onError) {
+          onError(data.detail || 'Extraction failed');
+        }
+        return;
+      }
+
+      onSuccess(data);
+    } catch (error) {
+      if (onError) {
+        onError('Network error');
+      }
+    }
   };
 
   return (
@@ -68,18 +82,19 @@ describe('ParameterGathering Component Integration', () => {
     );
 
     const mockOnSuccess = vi.fn();
+    const mockOnError = vi.fn();
     const user = userEvent.setup();
 
-    render(<ParameterGatheringMock onSuccess={mockOnSuccess} />);
+    render(<ParameterGatheringMock onSuccess={mockOnSuccess} onError={mockOnError} />);
 
-    const textarea = screen.getByTestId('user-input');
     const submitButton = screen.getByRole('button', { name: /extract/i });
 
-    await user.type(textarea, '');
+    // Submit without typing (textarea is already empty)
     await user.click(submitButton);
 
     await waitFor(() => {
       expect(mockOnSuccess).not.toHaveBeenCalled();
+      expect(mockOnError).toHaveBeenCalledWith('Invalid input');
     });
   });
 });
