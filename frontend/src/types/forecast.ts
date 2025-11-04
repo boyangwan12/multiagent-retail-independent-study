@@ -27,6 +27,17 @@ export interface ForecastData {
     Value_Conscious?: number;
   };
   created_at?: string;
+  mape_percentage?: number;
+}
+
+export interface ForecastSummary {
+  forecast_id: string;
+  workflow_id?: string;
+  category_name: string;
+  total_season_demand: number;
+  forecasting_method: string;
+  mape_percentage: number;
+  created_at?: string;
 }
 
 export interface StoreCluster {

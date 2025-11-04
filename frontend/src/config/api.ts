@@ -128,6 +128,7 @@ export const API_ENDPOINTS = {
       `${API_BASE}/workflows/${workflowId}/approvals/${approvalId}`,
     respond: (workflowId: string, approvalId: string) =>
       `${API_BASE}/workflows/${workflowId}/approvals/${approvalId}/respond`,
+    replenishment: () => `${API_BASE}/approvals/replenishment`,
   },
 } as const;
 
