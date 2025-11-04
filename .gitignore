@@ -1,8 +1,19 @@
 # IDE and Tool Configurations
 .bmad-core/
+bmad/
 .claude/
 .windsurf/
 .superdesign
+
+# Backup directories
+v4-backup/
+backups/
+
+# Logs
+logs/
+
+# Workflow status tracking
+docs/bmm-workflow-status.yaml
 
 # Operating System Files
 .DS_Store
