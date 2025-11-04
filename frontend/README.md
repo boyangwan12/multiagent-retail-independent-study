@@ -335,6 +335,51 @@ function MyComponent() {
 
 ## 🧪 Testing
 
+### Phase 4 Integration Tests (NEW)
+
+**Integration Test Suite** with Vitest + MSW (Mock Service Worker):
+
+```bash
+# Run all integration tests
+npm run test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+**Test Coverage (Phase 4):**
+- 13 integration tests created
+- 13 passed (100%)
+- MSW for API mocking
+- Coverage report: `coverage/index.html`
+
+**Integration Test Files:**
+- `ParameterService.test.ts` - Parameter extraction service (2 tests)
+- `ForecastService.test.ts` - Forecast data service (2 tests)
+- `WorkflowService.test.ts` - Workflow management service (2 tests)
+- `UploadService.test.ts` - CSV upload service (2 tests)
+- `ParameterGathering.test.tsx` - Parameter component (2 tests)
+- `AgentCards.test.tsx` - Agent status component (1 test)
+- `ForecastSummary.test.tsx` - Forecast display component (1 test)
+- `UploadZone.test.tsx` - CSV upload component (1 test)
+
+**MSW Mock Handlers:**
+All 11 API endpoints mocked:
+- POST `/api/v1/parameters/extract`
+- POST `/api/v1/workflows/forecast`
+- GET `/api/v1/workflows/{id}`
+- GET `/api/v1/forecasts/{id}`
+- GET `/api/v1/stores/clusters`
+- GET `/api/v1/variance/{id}/week/{week}`
+- GET `/api/v1/allocations/{id}`
+- GET `/api/v1/markdowns/{id}`
+- POST `/api/v1/workflows/{id}/demand/upload`
+- POST `/api/v1/workflows/{id}/inventory/upload`
+- POST `/api/v1/workflows/{id}/pricing/upload`
+
 ### Manual Testing Checklist
 
 See [TESTING_CHECKLIST.md](../docs/TESTING_CHECKLIST.md) for comprehensive test cases.
@@ -400,26 +445,41 @@ npm run preview
 
 ## 🚀 Current Project Status
 
-**Phase 4 Integration (October 29, 2025)**:
+**Phase 4 Integration Complete (November 4, 2025)**:
 - ✅ Frontend foundation complete (Phase 2)
 - ✅ Backend architecture complete (Phase 3)
-- 🚀 **Phase 4 PO Validation Complete** - Ready for backend integration
-- ⏳ Next: Connect frontend to FastAPI backend (55 hours, 9 stories)
+- ✅ **Phase 4 Complete** - All 8 sections integrated with backend
+- ⏳ Next: Phase 5 - Demand Agent Implementation
 
 **Key Phase 4 Updates**:
-- React Context API for global state (eliminates prop drilling)
+- All 8 dashboard sections connected to backend APIs
+- React Context API for global state management
 - WCAG 2.1 Level AA accessibility compliance
 - Comprehensive error handling (401, 404, 422, 429, 500, network)
-- Real WebSocket integration (replacing mock setTimeout)
+- Real WebSocket integration for agent status updates
+- CSV upload workflows with drag-and-drop
+- 13 integration tests (100% pass rate) with MSW
 - Parameter validation across all components
 
 **Integration Status**:
-- Current: Frontend uses mock data (7 JSON files in `src/mocks/`)
-- Phase 4: Will connect to FastAPI backend at `http://localhost:8000`
-- See: `docs/04_MVP_Development/implementation/phase_4_integration/PHASE4_HANDOFF.md`
+- ✅ Connected: Frontend integrated with FastAPI backend at `http://localhost:8000`
+- ✅ Testing: 13 integration tests with MSW (Mock Service Worker)
+- ✅ Documentation: Complete API documentation and developer guide
+- See: `docs/04_MVP_Development/implementation/phase_4_integration/`
+
+**Component Integration:**
+- Section 0: ParameterGathering → `/api/v1/parameters/extract`
+- Section 1: AgentCards → WebSocket `/api/v1/workflows/{id}/stream`
+- Section 2: ForecastSummary → `/api/v1/forecasts/{id}`
+- Section 3: ClusterCards → `/api/v1/stores/clusters`
+- Section 4: WeeklyChart → `/api/v1/variance/{id}/week/{week}`
+- Section 5: ReplenishmentQueue → `/api/v1/allocations/{id}`
+- Section 6: MarkdownDecision → `/api/v1/markdowns/{id}`
+- Section 7: PerformanceMetrics → Multiple endpoints
+- CSV Uploads: UploadModal → `/api/v1/workflows/{id}/{agent}/upload`
 
 ---
 
-**Last Updated**: October 29, 2025
+**Last Updated**: November 4, 2025
 **Version**: 1.0.0
-**Status**: Phase 2 Complete ✅ | Phase 4 Ready 🚀
+**Status**: Phase 4 Complete ✅ | Phase 5 Ready 🚀
