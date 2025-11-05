@@ -201,3 +201,51 @@ async def get_workflow_results(
     except Exception as e:
         logger.error(f"Failed to get workflow results: {e}")
         raise HTTPException(status_code=500, detail=f"Results retrieval failed: {str(e)}")
+
+
+@router.post("/{workflow_id}/execute", response_model=WorkflowStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+async def execute_workflow(
+    workflow_id: str,
+    service: WorkflowService = Depends(get_workflow_service)
+):
+    """
+    Execute a workflow (trigger agents to run).
+
+    **Use Case:**
+    - User clicks "Run Forecast" button to start agent execution
+    - Workflow must be in "pending" status
+    - Returns updated workflow status
+
+    **Example Response:**
+    ```json
+    {
+      "workflow_id": "wf_abc123",
+      "workflow_type": "forecast",
+      "status": "running",
+      "current_agent": "Demand Agent",
+      "progress_pct": 0,
+      "started_at": "2025-10-12T10:30:00Z",
+      "updated_at": "2025-10-12T10:30:00Z",
+      "completed_at": null,
+      "error_message": null
+    }
+    ```
+    """
+    try:
+        # For now, just return mock status - actual execution will be Phase 8
+        logger.info(f"Execute workflow requested: {workflow_id}")
+
+        # Get current workflow status
+        workflow_status = service.get_workflow_status(workflow_id)
+
+        # TODO: Phase 8 - Trigger actual agent execution via orchestrator
+        # For now, just log that execution was requested
+        logger.warning(f"Workflow execution not yet implemented (Phase 8). Workflow {workflow_id} remains in status: {workflow_status.status}")
+
+        return workflow_status
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to execute workflow: {e}")
+        raise HTTPException(status_code=500, detail=f"Workflow execution failed: {str(e)}")

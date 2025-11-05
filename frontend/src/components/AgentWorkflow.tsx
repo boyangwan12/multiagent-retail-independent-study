@@ -2,6 +2,10 @@ import { FixedHeader } from './FixedHeader';
 import { AgentCard } from './AgentCard';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useParameters } from '@/contexts/ParametersContext';
+import { WorkflowService } from '@/services/workflow-service';
+import { Button } from './ui/button';
+import { Play, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import type { AgentStatus } from '@/types';
 import type { AgentState as WSAgentState } from '@/types/websocket';
 
@@ -57,6 +61,8 @@ function mapWebSocketStatus(wsStatus: WSAgentState['status']): AgentStatus {
 export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
   const { parameters } = useParameters();
   const { isConnected, agents: wsAgents, workflowComplete, workflowResult } = useWebSocket(workflowId);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executeError, setExecuteError] = useState<string | null>(null);
 
   // Map WebSocket agents to UI agents
   const agents: AgentState[] = wsAgents.map(wsAgent => ({
@@ -70,6 +76,23 @@ export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
   const overallProgress = Math.round(
     agents.reduce((sum, agent) => sum + agent.progress, 0) / agents.length
   );
+
+  const handleExecuteWorkflow = async () => {
+    if (!workflowId) return;
+
+    setIsExecuting(true);
+    setExecuteError(null);
+
+    try {
+      await WorkflowService.executeWorkflow(workflowId);
+      // WebSocket will handle status updates
+    } catch (error: any) {
+      setExecuteError(error.message || 'Failed to execute workflow');
+      console.error('Execute workflow error:', error);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
 
   if (!parameters) {
     return null;
@@ -101,6 +124,35 @@ export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
               <span className="text-xs text-text-muted ml-auto">
                 ID: {workflowId}
               </span>
+            )}
+          </div>
+        )}
+
+        {/* Run Forecast Button */}
+        {workflowId && !workflowComplete && (
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <Button
+              onClick={handleExecuteWorkflow}
+              disabled={isExecuting}
+              size="lg"
+              className="gap-2 px-8"
+            >
+              {isExecuting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Executing Workflow...
+                </>
+              ) : (
+                <>
+                  <Play className="w-5 h-5" />
+                  Run Forecast
+                </>
+              )}
+            </Button>
+            {executeError && (
+              <div className="text-sm text-error bg-error/10 px-4 py-2 rounded-lg">
+                {executeError}
+              </div>
             )}
           </div>
         )}

@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
     create: () => `${API_BASE}/workflows`,
     getById: (id: string) => `${API_BASE}/workflows/${id}`,
     getStatus: (id: string) => `${API_BASE}/workflows/${id}/status`,
+    execute: (id: string) => `${API_BASE}/workflows/${id}/execute`,
     cancel: (id: string) => `${API_BASE}/workflows/${id}/cancel`,
     // WebSocket endpoint for real-time updates
     stream: (id: string) => `${API_CONFIG.WS_BASE_URL}/api/${API_CONFIG.API_VERSION}/workflows/${id}/stream`,

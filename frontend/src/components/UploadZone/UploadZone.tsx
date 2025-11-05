@@ -1,6 +1,6 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { Upload, File, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import { UploadService, ValidationError } from '@/services/upload-service';
+import { UploadService, type ValidationError } from '@/services/upload-service';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
