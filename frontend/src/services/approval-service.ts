@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 
 /**
@@ -30,7 +30,7 @@ export class ApprovalService {
   static async approveReplenishment(
     request: ApprovalRequest
   ): Promise<ApprovalResponse> {
-    return ApiClient.post<ApprovalResponse>(
+    return apiClient.post<ApprovalResponse>(
       API_ENDPOINTS.approvals.replenishment(),
       request
     );

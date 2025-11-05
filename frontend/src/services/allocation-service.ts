@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 import type { AllocationPlan } from '@/types/allocation';
 
@@ -9,7 +9,7 @@ export class AllocationService {
    * @returns Promise<AllocationPlan>
    */
   static async getAllocation(forecastId: string): Promise<AllocationPlan> {
-    return ApiClient.get<AllocationPlan>(
+    return apiClient.get<AllocationPlan>(
       API_ENDPOINTS.allocations.getById(forecastId)
     );
   }
@@ -24,7 +24,7 @@ export class AllocationService {
     workflowId: string,
     weekNumber: number
   ) {
-    return ApiClient.post(
+    return apiClient.post(
       API_ENDPOINTS.allocations.approve(workflowId),
       {
         week_number: weekNumber,
@@ -42,7 +42,7 @@ export class AllocationService {
     workflowId: string,
     weekNumber: number
   ) {
-    return ApiClient.post(
+    return apiClient.post(
       API_ENDPOINTS.allocations.reject(workflowId),
       {
         week_number: weekNumber,

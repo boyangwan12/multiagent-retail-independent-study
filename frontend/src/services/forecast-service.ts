@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 import type { ForecastData, StoreCluster } from '@/types/forecast';
 
@@ -8,7 +8,8 @@ export class ForecastService {
    */
   static async getForecast(forecastId: string): Promise<ForecastData> {
     const url = API_ENDPOINTS.forecasts.getById(forecastId);
-    return ApiClient.get<ForecastData>(url);
+    const response = await apiClient.get<ForecastData>(url);
+    return response.data;
   }
 
   /**
@@ -16,6 +17,7 @@ export class ForecastService {
    */
   static async getClusters(): Promise<StoreCluster[]> {
     const url = API_ENDPOINTS.stores.getClusters();
-    return ApiClient.get<StoreCluster[]>(url);
+    const response = await apiClient.get<StoreCluster[]>(url);
+    return response.data;
   }
 }

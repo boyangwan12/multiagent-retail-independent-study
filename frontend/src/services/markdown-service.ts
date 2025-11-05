@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 
 // ============================================================================
@@ -34,7 +34,7 @@ export class MarkdownService {
    */
   static async getMarkdownAnalysis(workflowId: string): Promise<MarkdownAnalysis | null> {
     try {
-      const response = await ApiClient.get<MarkdownAnalysis>(
+      const response = await apiClient.get<MarkdownAnalysis>(
         API_ENDPOINTS.markdowns.getById(workflowId)
       );
 

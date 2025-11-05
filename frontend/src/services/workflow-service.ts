@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 import type { SeasonParameters } from '@/types/parameters';
 
@@ -17,9 +17,10 @@ export class WorkflowService {
   static async createForecastWorkflow(
     request: CreateForecastWorkflowRequest
   ): Promise<CreateForecastWorkflowResponse> {
-    return ApiClient.post<CreateForecastWorkflowResponse>(
+    const response = await apiClient.post<CreateForecastWorkflowResponse>(
       API_ENDPOINTS.WORKFLOWS_FORECAST,
       request
     );
+    return response.data;
   }
 }

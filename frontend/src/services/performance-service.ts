@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 import { VarianceService } from './variance-service';
 import { AllocationService } from './allocation-service';
@@ -28,7 +28,7 @@ export class PerformanceService {
    * Fetch variance summary from backend
    */
   static async getVarianceSummary(workflowId: string): Promise<VarianceSummary> {
-    return ApiClient.get<VarianceSummary>(
+    return apiClient.get<VarianceSummary>(
       API_ENDPOINTS.variance.getSummary(workflowId)
     );
   }
@@ -43,7 +43,7 @@ export class PerformanceService {
   ): Promise<PerformanceMetrics> {
     // Fetch data from multiple endpoints in parallel
     const [forecastSummary, varianceSummary, allocationPlan] = await Promise.all([
-      ApiClient.get<ForecastSummary>(
+      apiClient.get<ForecastSummary>(
         API_ENDPOINTS.forecasts.getById(workflowId)
       ),
       PerformanceService.getVarianceSummary(workflowId),

@@ -1,4 +1,4 @@
-import { ApiClient } from '@/utils/api-client';
+import { apiClient } from '@/utils/api-client';
 import { API_ENDPOINTS } from '@/config/api';
 import type { WeeklyVariance } from '@/types/variance';
 
@@ -13,7 +13,7 @@ export class VarianceService {
     forecastId: string,
     weekNumber: number
   ): Promise<WeeklyVariance> {
-    return ApiClient.get<WeeklyVariance>(
+    return apiClient.get<WeeklyVariance>(
       API_ENDPOINTS.variance.getByWeek(forecastId, weekNumber)
     );
   }
@@ -37,6 +37,7 @@ export class VarianceService {
    * @returns Promise<VarianceSummary>
    */
   static async getVarianceSummary(forecastId: string) {
-    return ApiClient.get(API_ENDPOINTS.variance.getSummary(forecastId));
+    const response = await apiClient.get(API_ENDPOINTS.variance.getSummary(forecastId));
+    return response.data;
   }
 }
