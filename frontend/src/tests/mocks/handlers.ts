@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'http://localhost:8001/api/v1';
 
 export const handlers = [
   // Parameter extraction
@@ -26,7 +26,6 @@ export const handlers = [
     return HttpResponse.json({
       workflow_id: 'test_wf_123',
       status: 'pending',
-      websocket_url: 'ws://localhost:8000/api/v1/workflows/test_wf_123/stream',
     }, { status: 201 });
   }),
 

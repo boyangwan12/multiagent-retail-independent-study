@@ -10,7 +10,6 @@ interface CreateForecastWorkflowRequest {
 interface CreateForecastWorkflowResponse {
   workflow_id: string;
   status: string;
-  websocket_url: string;
 }
 
 interface WorkflowStatusResponse {
@@ -23,6 +22,26 @@ interface WorkflowStatusResponse {
   updated_at: string;
   completed_at: string | null;
   error_message: string | null;
+  workflow_status?: string; // Alias for status field
+}
+
+interface WorkflowResultsResponse {
+  workflow_id: string;
+  status: string;
+  output_data: {
+    demand?: {
+      forecast_id: string;
+      total_forecast: number;
+    };
+    inventory?: {
+      allocation_id: string;
+    };
+    pricing?: {
+      markdown_id: string;
+    };
+  };
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export class WorkflowService {
@@ -40,6 +59,20 @@ export class WorkflowService {
     const response = await apiClient.post<WorkflowStatusResponse>(
       API_ENDPOINTS.workflows.execute(workflowId),
       {}
+    );
+    return response.data;
+  }
+
+  static async getWorkflowStatus(workflowId: string): Promise<WorkflowStatusResponse> {
+    const response = await apiClient.get<WorkflowStatusResponse>(
+      API_ENDPOINTS.workflows.getById(workflowId)
+    );
+    return response.data;
+  }
+
+  static async getWorkflowResults(workflowId: string): Promise<WorkflowResultsResponse> {
+    const response = await apiClient.get<WorkflowResultsResponse>(
+      API_ENDPOINTS.workflows.getById(workflowId)
     );
     return response.data;
   }

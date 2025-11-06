@@ -131,7 +131,6 @@ export function ParameterGathering() {
 
       setWorkflowId(response.workflow_id);
       console.log('✅ Workflow started:', response.workflow_id);
-      console.log('📡 WebSocket URL:', response.websocket_url);
 
       // Scroll to Section 1 (Agent Cards)
       setTimeout(() => {

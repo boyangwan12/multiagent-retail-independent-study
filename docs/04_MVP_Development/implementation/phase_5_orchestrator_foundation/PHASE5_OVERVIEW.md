@@ -5,6 +5,8 @@
 **Approach:** Backend-Only Infrastructure (No Frontend Changes)
 **Estimated Effort:** 28 hours (3.5 days)
 
+**⚠️ Phase 4.5 Update:** This phase was updated to use database queries instead of CSV files after Phase 4.5 implemented data upload infrastructure. Historical sales and store data are now queried from SQLite database tables (`historical_sales`, `stores`) instead of loading from CSV files.
+
 ---
 
 ## Table of Contents
@@ -143,12 +145,12 @@ result = await handoff_manager.handoff_chain(
 ---
 
 #### 4. Context-Rich Agent Handoffs
-- **Technology:** ContextAssembler class + Historical data loaders
+- **Technology:** ContextAssembler class + Database query loaders
 - **Data Sources:**
-  - Phase 1 CSV files (historical_sales.csv, stores.csv)
+  - Phase 4.5 Database tables (historical_sales, stores, categories)
   - Runtime parameters (SeasonParameters)
   - Previous agent results (for chaining)
-- **Performance:** Context assembly completes in <2 seconds (with caching)
+- **Performance:** Context assembly completes in <2 seconds (with query caching)
 
 **Three Context Types:**
 
@@ -529,12 +531,12 @@ async def run_workflow(session_id: str, parameters: SeasonParameters):
 **File:** `backend/app/orchestrator/context_assembly.py`
 
 **Responsibilities:**
-1. Load historical sales data from CSV (52+ weeks)
-2. Load stores data from CSV (50 stores, 7 features)
+1. Load historical sales data from database (52+ weeks)
+2. Load stores data from database (50 stores, 7 features)
 3. Assemble Demand Agent context (parameters + historical + stores)
 4. Assemble Inventory Agent context (parameters + forecast + stores)
 5. Assemble Pricing Agent context (parameters + forecast + inventory + actuals)
-6. Cache data to avoid repeated file reads
+6. Cache data to avoid repeated database queries
 7. Complete assembly in <2 seconds
 
 **Class:** `ContextAssembler`
@@ -542,17 +544,17 @@ async def run_workflow(session_id: str, parameters: SeasonParameters):
 **Methods:**
 ```python
 class ContextAssembler:
-    def __init__(self, data_dir: str):
-        self.data_dir = data_dir
+    def __init__(self, db_session: Session):
+        self.db = db_session
         self._historical_cache = None
         self._stores_cache = None
 
-    def load_historical_sales(self) -> pd.DataFrame:
-        """Load historical sales CSV with caching"""
+    def load_historical_sales(self, category_id: str = None) -> pd.DataFrame:
+        """Load historical sales from database with caching"""
         pass
 
     def load_stores_data(self) -> pd.DataFrame:
-        """Load stores CSV with caching"""
+        """Load stores from database with caching"""
         pass
 
     def assemble_demand_context(
@@ -920,26 +922,32 @@ graph LR
     style H fill:#e1ffe1
 ```
 
-### CSV File Requirements
+### Database Table Requirements (Phase 4.5)
 
-| File | Required Columns | Data Types | Min Rows |
+| Table | Required Columns | Data Types | Min Rows |
 |------|-----------------|------------|----------|
-| **historical_sales.csv** | date, store_id, category_id, units_sold | date, string, string, int | 52 (1 year) |
-| **stores.csv** | store_id, store_name, region, size_sqft, cluster_id, latitude, longitude | string, string, string, int, string, float, float | 50 |
+| **historical_sales** | week_start_date, store_id, category_id, units_sold | DATE, VARCHAR, VARCHAR, INTEGER | 52 (1 year) |
+| **stores** | store_id, store_name, region, store_size_sqft, location_tier, median_income, store_format | VARCHAR, VARCHAR, VARCHAR, INTEGER, VARCHAR, INTEGER, VARCHAR | 50 |
 
 ### Performance Optimization
 
 **Caching Strategy:**
-- Load historical_sales.csv once → cache in memory
-- Load stores.csv once → cache in memory
+- Query historical_sales table once → cache DataFrame in memory
+- Query stores table once → cache DataFrame in memory
 - Reuse cached data for all subsequent context assemblies
-- Target: <1 second for first load, <100ms for cached loads
+- Target: <1 second for first query, <100ms for cached loads
 
 **Validation:**
-- Verify required columns present
-- Verify data types correct
+- Verify database tables exist (historical_sales, stores, categories)
+- Verify required columns present in query results
+- Verify data types correct from SQLAlchemy models
 - Verify minimum row count met (52 weeks for historical data)
 - Raise DataNotFoundError if validation fails
+
+**Database Connection:**
+- Use SQLAlchemy Session for database queries
+- Connection pooling handled by SQLAlchemy engine
+- Database path: `sqlite:///./fashion_forecast.db` (configured in .env)
 
 ---
 

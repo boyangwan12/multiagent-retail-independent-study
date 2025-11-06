@@ -16,7 +16,7 @@ describe('WorkflowService Integration', () => {
       },
     };
 
-    const response = await fetch('http://localhost:8000/api/v1/workflows/forecast', {
+    const response = await fetch('http://localhost:8001/api/v1/workflows/forecast', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestData),
@@ -27,13 +27,12 @@ describe('WorkflowService Integration', () => {
     expect(response.status).toBe(201);
     expect(data.workflow_id).toBe('test_wf_123');
     expect(data.status).toBe('pending');
-    expect(data.websocket_url).toContain('test_wf_123');
   });
 
   it('should get workflow status', async () => {
     const workflowId = 'test_wf_123';
 
-    const response = await fetch(`http://localhost:8000/api/v1/workflows/${workflowId}`);
+    const response = await fetch(`http://localhost:8001/api/v1/workflows/${workflowId}`);
     const data = await response.json();
 
     expect(response.status).toBe(200);

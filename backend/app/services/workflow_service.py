@@ -32,10 +32,10 @@ class WorkflowService:
 
         Args:
             request: Workflow creation request with parameters
-            host: Server host for WebSocket URL construction
+            host: Server host (unused, kept for backward compatibility)
 
         Returns:
-            WorkflowResponse with workflow_id and WebSocket URL
+            WorkflowResponse with workflow_id and status
         """
         # Generate unique workflow ID
         workflow_id = f"wf_{uuid.uuid4().hex[:12]}"
@@ -66,9 +66,6 @@ class WorkflowService:
 
         logger.info(f"Created forecast workflow {workflow_id} for category {request.category_id}")
 
-        # Construct WebSocket URL
-        websocket_url = f"ws://{host}/api/workflows/{workflow_id}/stream"
-
         # TODO (Phase 8): Execute orchestrator workflow with OpenAI Agents SDK
         # This will be implemented in Phase 8 with:
         # 1. Background task execution (asyncio/celery)
@@ -90,8 +87,7 @@ class WorkflowService:
 
         return WorkflowResponse(
             workflow_id=workflow_id,
-            status="pending",
-            websocket_url=websocket_url
+            status="pending"
         )
 
     def create_reforecast_workflow(
@@ -104,10 +100,10 @@ class WorkflowService:
 
         Args:
             request: Re-forecast request with actuals and variance
-            host: Server host for WebSocket URL construction
+            host: Server host (unused, kept for backward compatibility)
 
         Returns:
-            WorkflowResponse with workflow_id and WebSocket URL
+            WorkflowResponse with workflow_id and status
         """
         # Generate unique workflow ID
         workflow_id = f"wf_{uuid.uuid4().hex[:12]}"
@@ -142,9 +138,6 @@ class WorkflowService:
 
         logger.info(f"Created re-forecast workflow {workflow_id} for forecast {request.forecast_id} (variance: {request.variance_pct:.1%})")
 
-        # Construct WebSocket URL
-        websocket_url = f"ws://{host}/api/workflows/{workflow_id}/stream"
-
         # TODO (Phase 8): Execute re-forecast workflow with dynamic handoff
         # This will be implemented in Phase 8 with:
         # 1. Dynamic handoff enabling for re-forecast
@@ -168,8 +161,7 @@ class WorkflowService:
 
         return WorkflowResponse(
             workflow_id=workflow_id,
-            status="pending",
-            websocket_url=websocket_url
+            status="pending"
         )
 
     def get_workflow_status(self, workflow_id: str) -> WorkflowStatusResponse:

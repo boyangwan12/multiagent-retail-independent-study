@@ -1,6 +1,6 @@
 import { FixedHeader } from './FixedHeader';
 import { AgentCard } from './AgentCard';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWorkflowPolling } from '@/hooks/useWorkflowPolling';
 import { useParameters } from '@/contexts/ParametersContext';
 import { WorkflowService } from '@/services/workflow-service';
 import { Button } from './ui/button';
@@ -42,7 +42,7 @@ function mapWebSocketStatus(wsStatus: WSAgentState['status']): AgentStatus {
  * @component
  *
  * @features
- * - Real-time agent status updates via WebSocket
+ * - Real-time agent status updates via polling (1-second intervals)
  * - Progress tracking for each agent (0-100%)
  * - Status animations (idle → running → success → error)
  * - Overall progress calculation
@@ -56,11 +56,11 @@ function mapWebSocketStatus(wsStatus: WSAgentState['status']): AgentStatus {
  * ```
  *
  * @see {@link AgentCard} for individual agent display
- * @see {@link useWebSocket} for WebSocket integration
+ * @see {@link useWorkflowPolling} for polling integration
  */
 export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
   const { parameters } = useParameters();
-  const { isConnected, agents: wsAgents, workflowComplete, workflowResult } = useWebSocket(workflowId);
+  const { isConnected, agents: wsAgents, workflowComplete, workflowResult } = useWorkflowPolling(workflowId);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executeError, setExecuteError] = useState<string | null>(null);
 
@@ -85,7 +85,7 @@ export function AgentWorkflow({ workflowId }: { workflowId: string | null }) {
 
     try {
       await WorkflowService.executeWorkflow(workflowId);
-      // WebSocket will handle status updates
+      // Polling will handle status updates
     } catch (error: any) {
       setExecuteError(error.message || 'Failed to execute workflow');
       console.error('Execute workflow error:', error);

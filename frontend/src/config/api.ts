@@ -6,8 +6,8 @@
  */
 
 // Get environment variables (Vite exposes these as import.meta.env)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
 
 /**
  * API Base URLs

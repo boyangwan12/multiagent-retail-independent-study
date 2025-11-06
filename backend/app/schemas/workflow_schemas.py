@@ -152,14 +152,12 @@ class WorkflowResponse(BaseModel):
 
     workflow_id: str = Field(..., description="Unique workflow identifier")
     status: Literal["pending", "running", "completed", "failed", "awaiting_approval"]
-    websocket_url: str = Field(..., description="WebSocket URL for real-time updates")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "workflow_id": "wf_abc123",
-                "status": "pending",
-                "websocket_url": "ws://localhost:8000/api/workflows/wf_abc123/stream"
+                "status": "pending"
             }
         }
     )

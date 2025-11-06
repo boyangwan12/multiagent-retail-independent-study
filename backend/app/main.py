@@ -16,7 +16,7 @@ logger = setup_logging()
 async def lifespan(app: FastAPI):
     """Application lifespan events (startup/shutdown)"""
     # Startup
-    logger.info("🚀 Fashion Forecast Backend starting...")
+    logger.info("Fashion Forecast Backend starting...")
 
     # Validate critical environment variables
     _validate_environment()
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    logger.info("👋 Fashion Forecast Backend shutting down...")
+    logger.info("Fashion Forecast Backend shutting down...")
 
 def _validate_environment():
     """Validate that all required environment variables are set"""
@@ -39,13 +39,13 @@ def _validate_environment():
     # Check OpenAI API key
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "sk-placeholder-replace-with-actual-key":
         errors.append(
-            "⚠️  OPENAI_API_KEY is not set or using placeholder. "
+            "WARNING: OPENAI_API_KEY is not set or using placeholder. "
             "Get your key from https://platform.openai.com/api-keys"
         )
 
     # Check CORS origins
     if not settings.CORS_ORIGINS:
-        errors.append("⚠️  CORS_ORIGINS is empty. Frontend will not be able to connect.")
+        errors.append("WARNING: CORS_ORIGINS is empty. Frontend will not be able to connect.")
 
     # Log warnings but don't block startup (allow development with placeholder)
     if errors:
@@ -57,9 +57,9 @@ def _validate_environment():
         if settings.ENVIRONMENT == "production":
             raise ValueError("Cannot start in production with missing environment variables")
         else:
-            logger.warning("⚠️  Starting in development mode with warnings. Some features may not work.")
+            logger.warning("WARNING: Starting in development mode with warnings. Some features may not work.")
     else:
-        logger.info("✅ All required environment variables are set")
+        logger.info("All required environment variables are set")
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -72,20 +72,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS middleware (must be first middleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,  # ["http://localhost:5173"]
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
-)
+# Add error handling middleware (catches all exceptions)
+app.add_middleware(ErrorHandlerMiddleware)
 
 # Add request logging middleware
 app.add_middleware(RequestLoggerMiddleware)
 
-# Add error handling middleware (catches all exceptions)
-app.add_middleware(ErrorHandlerMiddleware)
+# Configure CORS middleware - allow all origins in development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include API router (all endpoints under /api/v1)
 app.include_router(api_router, prefix="/api/v1")
@@ -99,6 +99,7 @@ async def root():
         "docs": "/docs",
         "health": "/api/v1/health",
     }
+
 
 if __name__ == "__main__":
     import uvicorn

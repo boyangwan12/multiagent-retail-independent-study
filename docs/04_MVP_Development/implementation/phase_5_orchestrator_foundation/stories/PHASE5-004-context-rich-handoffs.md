@@ -5,7 +5,7 @@
 **Status:** Ready for Implementation
 **Estimate:** 4 hours
 **Agent:** `*agent dev`
-**Dependencies:** PHASE5-001, PHASE5-002
+**Dependencies:** PHASE5-001, PHASE5-002, PHASE4.5-003 (Database Schema)
 
 **Planning References:**
 - PRD v3.3: Section 4.1 (Context-Rich Handoffs Between Agents)
@@ -22,7 +22,7 @@ So that agents receive all necessary information to make intelligent forecasting
 
 **Business Value:** Context-rich handoffs are what make the agent system intelligent. Without full context, the Demand Agent would only see parameters but not the historical sales patterns it needs for forecasting. This story ensures each agent receives everything it needs: parameters define "what to do," historical data provides "what happened before," and agent results flow forward for cumulative intelligence.
 
-**Epic Context:** This is Story 4 of 6 in Phase 5 (Orchestrator Foundation). It builds on Stories 5.1 (parameters) and 5.2 (handoff framework) to create the complete context assembly pipeline. In Phase 6, when we build the real Demand Agent, this context structure will enable Prophet/ARIMA to run on actual historical data instead of mocks.
+**Epic Context:** This is Story 4 of 6 in Phase 5 (Orchestrator Foundation). It builds on Stories 5.1 (parameters) and 5.2 (handoff framework) to create the complete context assembly pipeline. This story was updated to use database queries instead of CSV file loading after Phase 4.5 implemented data upload infrastructure. Historical sales and store data are now stored in SQLite database tables (`historical_sales`, `stores`), providing a production-ready data layer. In Phase 6, when we build the real Demand Agent, this context structure will enable Prophet/ARIMA to run on actual historical data from the database.
 
 ---
 
@@ -31,7 +31,7 @@ So that agents receive all necessary information to make intelligent forecasting
 ### Functional Requirements
 
 1. ✅ `ContextAssembler` class created to package agent context
-2. ✅ Historical data loader fetches sales data from Phase 1 CSV files
+2. ✅ Historical data loader fetches sales data from database (uploaded in Phase 4.5)
 3. ✅ Context package for Demand Agent includes:
    - `parameters`: SeasonParameters object
    - `historical_data`: pandas DataFrame with sales history
@@ -68,9 +68,10 @@ Before implementing this story, ensure the following are ready:
 - [x] `AgentHandoffManager` class exists
 
 **Data Dependencies:**
-- [x] Phase 1 CSV files exist with historical sales data
-- [ ] Path to Phase 1 CSV files configured in `.env` or settings
-- [ ] CSV files have required columns: date, store_id, category_id, units_sold
+- [x] Phase 4.5 complete (database schema & data uploads implemented)
+- [x] Database tables exist: `historical_sales`, `stores`, `categories`
+- [x] Historical sales data uploaded via Phase 4.5 data upload workflows
+- [ ] Database connection configured in `.env` or settings
 
 **Python Libraries:**
 - [ ] pandas installed for DataFrame operations
@@ -166,116 +167,155 @@ Without historical data, the Demand Agent can't forecast. This story bridges the
 
 ---
 
-### Task 2: Create Historical Data Loader
+### Task 2: Create Historical Data Loader (Database-Based)
 
-**Goal:** Load Phase 1 CSV files into pandas DataFrames
+**Goal:** Query historical sales and store data from database (uploaded in Phase 4.5)
 
 **Subtasks:**
 - [ ] Create file: `backend/app/data/historical_loader.py`
-- [ ] Define configuration for data paths:
-  ```python
-  import os
-  from pathlib import Path
-
-  # Data directory from environment or default
-  DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
-  SALES_DATA_PATH = DATA_DIR / "historical_sales.csv"
-  STORES_DATA_PATH = DATA_DIR / "stores.csv"
-  ```
-- [ ] Implement `load_historical_sales()` function:
+- [ ] Import database dependencies:
   ```python
   import pandas as pd
   import logging
+  from sqlalchemy.orm import Session
+  from app.database.db import SessionLocal
+  from app.database.models import HistoricalSales, Store, Category
 
   logger = logging.getLogger(__name__)
-
-  def load_historical_sales(category_id: str = None) -> pd.DataFrame:
+  ```
+- [ ] Implement `load_historical_sales()` function (database query):
+  ```python
+  def load_historical_sales(
+      db: Session = None,
+      category_id: str = None
+  ) -> pd.DataFrame:
       """
-      Load historical sales data from Phase 1 CSV
+      Load historical sales data from database
 
       Args:
-          category_id: Optional category filter (e.g., 'CAT001')
+          db: Database session (creates new session if None)
+          category_id: Optional category filter (e.g., 'womens_dresses')
                       If None, load all categories
 
       Returns:
-          DataFrame with columns: date, store_id, category_id, units_sold
+          DataFrame with columns: week_start_date, store_id, category_id, units_sold
 
       Raises:
-          FileNotFoundError: If CSV file doesn't exist
-          ValueError: If required columns missing
+          ValueError: If no data found or required columns missing
       """
-      if not SALES_DATA_PATH.exists():
-          raise FileNotFoundError(
-              f"Historical sales data not found at {SALES_DATA_PATH}"
-          )
+      close_session = False
+      if db is None:
+          db = SessionLocal()
+          close_session = True
 
-      logger.info(f"Loading historical sales from {SALES_DATA_PATH}")
-      df = pd.read_csv(SALES_DATA_PATH)
+      try:
+          logger.info(f"Loading historical sales from database (category={category_id or 'all'})")
 
-      # Validate required columns
-      required_columns = ["date", "store_id", "category_id", "units_sold"]
-      missing = set(required_columns) - set(df.columns)
-      if missing:
-          raise ValueError(f"Missing required columns: {missing}")
+          # Query historical_sales table
+          query = db.query(HistoricalSales)
 
-      # Parse date column
-      df["date"] = pd.to_datetime(df["date"])
+          # Filter by category if specified
+          if category_id:
+              query = query.filter(HistoricalSales.category_id == category_id)
 
-      # Filter by category if specified
-      if category_id:
-          df = df[df["category_id"] == category_id].copy()
-          logger.info(f"Filtered to category {category_id}: {len(df)} rows")
+          # Execute query and convert to DataFrame
+          results = query.all()
 
-      return df
+          if not results:
+              raise ValueError(
+                  f"No historical data found" +
+                  (f" for category {category_id}" if category_id else "")
+              )
+
+          # Convert SQLAlchemy objects to DataFrame
+          df = pd.DataFrame([{
+              'week_start_date': row.week_start_date,
+              'store_id': row.store_id,
+              'category_id': row.category_id,
+              'units_sold': row.units_sold
+          } for row in results])
+
+          # Parse date column
+          df["week_start_date"] = pd.to_datetime(df["week_start_date"])
+
+          logger.info(f"Loaded {len(df)} historical sales records")
+
+          return df
+
+      finally:
+          if close_session:
+              db.close()
   ```
-- [ ] Implement `load_stores_data()` function:
+- [ ] Implement `load_stores_data()` function (database query):
   ```python
-  def load_stores_data() -> pd.DataFrame:
+  def load_stores_data(db: Session = None) -> pd.DataFrame:
       """
-      Load store attributes from Phase 1 CSV
+      Load store attributes from database
+
+      Args:
+          db: Database session (creates new session if None)
 
       Returns:
           DataFrame with columns: store_id, store_size_sqft, median_income,
-                                  location_tier, fashion_tier, store_format, region
+                                  location_tier, store_format, region, etc.
 
       Raises:
-          FileNotFoundError: If CSV file doesn't exist
-          ValueError: If required columns missing
+          ValueError: If no stores found or required columns missing
       """
-      if not STORES_DATA_PATH.exists():
-          raise FileNotFoundError(
-              f"Stores data not found at {STORES_DATA_PATH}"
-          )
+      close_session = False
+      if db is None:
+          db = SessionLocal()
+          close_session = True
 
-      logger.info(f"Loading stores data from {STORES_DATA_PATH}")
-      df = pd.read_csv(STORES_DATA_PATH)
+      try:
+          logger.info("Loading stores data from database")
 
-      # Validate required columns (7 features for clustering)
-      required_columns = [
-          "store_id",
-          "store_size_sqft",
-          "median_income",
-          "location_tier",
-          "fashion_tier",
-          "store_format",
-          "region"
-      ]
-      missing = set(required_columns) - set(df.columns)
-      if missing:
-          raise ValueError(f"Missing required store columns: {missing}")
+          # Query stores table
+          stores = db.query(Store).all()
 
-      return df
+          if not stores:
+              raise ValueError("No stores found in database")
+
+          # Convert SQLAlchemy objects to DataFrame
+          df = pd.DataFrame([{
+              'store_id': store.store_id,
+              'store_name': store.store_name,
+              'store_size_sqft': store.store_size_sqft,
+              'location_tier': store.location_tier,
+              'median_income': store.median_income,
+              'store_format': store.store_format,
+              'region': store.region,
+              'avg_weekly_sales_12mo': store.avg_weekly_sales_12mo
+          } for store in stores])
+
+          logger.info(f"Loaded {len(df)} stores")
+
+          return df
+
+      finally:
+          if close_session:
+              db.close()
   ```
-- [ ] Add caching to avoid repeated file reads:
+- [ ] Add caching to avoid repeated database queries:
   ```python
   from functools import lru_cache
 
-  @lru_cache(maxsize=1)
-  def load_stores_data_cached() -> pd.DataFrame:
-      """Cached version of load_stores_data()"""
+  @lru_cache(maxsize=128)
+  def load_stores_data_cached(db_id: int = None) -> pd.DataFrame:
+      """
+      Cached version of load_stores_data()
+
+      Note: Cache key uses db_id (hash of session) to ensure cache invalidation
+            when using different database sessions
+      """
       return load_stores_data()
+
+  @lru_cache(maxsize=128)
+  def load_historical_sales_cached(category_id: str = None, db_id: int = None) -> pd.DataFrame:
+      """Cached version of load_historical_sales()"""
+      return load_historical_sales(category_id=category_id)
   ```
-- [ ] Test data loading with Phase 1 CSV files
+- [ ] Test data loading with database (requires Phase 4.5 data upload complete)
 
 ---
 
@@ -332,13 +372,13 @@ Without historical data, the Demand Agent can't forecast. This story bridges the
           """
           self.logger.info(f"Assembling Demand Agent context for {category_id}")
 
-          # Load historical sales for category
-          historical_data = load_historical_sales(category_id)
+          # Load historical sales for category from database
+          historical_data = load_historical_sales(category_id=category_id)
 
           if historical_data.empty:
               raise ValueError(f"No historical data found for category {category_id}")
 
-          # Load store attributes (cached)
+          # Load store attributes from database (cached)
           stores_data = load_stores_data_cached()
 
           # Assemble context
@@ -677,18 +717,36 @@ Without historical data, the Demand Agent can't forecast. This story bridges the
 
 ## Implementation Notes
 
-**Data Path Configuration (.env):**
+**Database Configuration (.env):**
 ```bash
 # backend/.env
-DATA_DIR=data
+DATABASE_URL=sqlite:///./fashion_forecast.db
 ```
 
-**Expected CSV Structure:**
+**Expected Database Tables (Created in Phase 4.5):**
 ```
-data/
-  historical_sales.csv      # Columns: date, store_id, category_id, units_sold
-  stores.csv                # Columns: store_id, store_size_sqft, median_income, location_tier, fashion_tier, store_format, region
+historical_sales:
+  - sale_id (PK)
+  - week_start_date (DATE)
+  - store_id (FK → stores.store_id)
+  - category_id (FK → categories.category_id)
+  - units_sold (INTEGER)
+
+stores:
+  - store_id (PK)
+  - store_name
+  - store_size_sqft
+  - location_tier
+  - median_income
+  - store_format
+  - region
+  - avg_weekly_sales_12mo
 ```
+
+**Prerequisites:**
+- Phase 4.5 complete (database schema created, historical data uploaded)
+- Database contains historical_sales data (uploaded via Phase 4.5 workflows)
+- Database contains stores data (uploaded via Phase 4.5 workflows)
 
 **Context Flow Through Agents:**
 ```

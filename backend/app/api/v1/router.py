@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, parameters, workflows, websocket_stream, approvals, forecasts_endpoints, resources, uploads
+from app.api.v1.endpoints import health, parameters, workflows, approvals, forecasts_endpoints, resources, uploads
 
 api_router = APIRouter()
 
@@ -14,9 +14,6 @@ api_router.include_router(workflows.router, prefix="/workflows", tags=["Workflow
 
 # Include CSV upload endpoints
 api_router.include_router(uploads.router, prefix="/workflows", tags=["Uploads"])
-
-# Include WebSocket endpoint for real-time agent updates
-api_router.include_router(websocket_stream.router, tags=["WebSocket"])
 
 # Include approval endpoints for human-in-the-loop decisions
 api_router.include_router(approvals.router, tags=["Approvals"])

@@ -12,6 +12,10 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     """Catch all exceptions and return JSON error responses"""
 
     async def dispatch(self, request: Request, call_next):
+        # Skip WebSocket connections (BaseHTTPMiddleware doesn't support them)
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+
         try:
             response = await call_next(request)
             return response
