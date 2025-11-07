@@ -445,21 +445,33 @@ npm run preview
 
 ## 🚀 Current Project Status
 
-**Phase 4 Integration Complete (November 4, 2025)**:
+**Phase 4 Complete | Phase 4.5 In Progress (November 6, 2025)**:
 - ✅ Frontend foundation complete (Phase 2)
 - ✅ Backend architecture complete (Phase 3)
 - ✅ **Phase 4 Complete** - All 8 sections integrated with backend
-- ⏳ Next: Phase 5 - Demand Agent Implementation
+- 🔄 **Phase 4.5 In Progress** - Data upload infrastructure (1/3 stories)
+- ⏳ Next: Complete Phase 4.5, then Phase 5 - Demand Agent Implementation
 
 **Key Phase 4 Updates**:
 - All 8 dashboard sections connected to backend APIs
 - React Context API for global state management
 - WCAG 2.1 Level AA accessibility compliance
 - Comprehensive error handling (401, 404, 422, 429, 500, network)
-- Real WebSocket integration for agent status updates
-- CSV upload workflows with drag-and-drop
+- Polling-based workflow monitoring (replaced WebSocket)
+- Real LLM parameter extraction (OpenAI gpt-4o-mini)
+- CSV upload workflows with drag-and-drop (agent supplementary data)
 - 13 integration tests (100% pass rate) with MSW
 - Parameter validation across all components
+
+**Phase 4.5 Updates** (Data Upload Infrastructure):
+- ✅ Weekly actuals upload with variance monitoring (PHASE4.5-002)
+  - WeeklyActualsUploadModal component (445 lines)
+  - Upload button in Section 4 (Weekly Performance Chart)
+  - Variance calculation with color-coded status (Normal/Elevated/High)
+  - Auto re-forecast trigger at >20% variance
+  - Endpoint: `POST /api/v1/data/upload-weekly-sales`
+- ⏳ Historical training data upload (PHASE4.5-001) - pending
+- ⏳ Store attributes upload (PHASE4.5-001) - pending
 
 **Integration Status**:
 - ✅ Connected: Frontend integrated with FastAPI backend at `http://localhost:8000`
@@ -469,17 +481,18 @@ npm run preview
 
 **Component Integration:**
 - Section 0: ParameterGathering → `/api/v1/parameters/extract`
-- Section 1: AgentCards → WebSocket `/api/v1/workflows/{id}/stream`
+- Section 1: AgentCards → Polling `/api/v1/workflows/{id}` (replaces WebSocket)
 - Section 2: ForecastSummary → `/api/v1/forecasts/{id}`
 - Section 3: ClusterCards → `/api/v1/stores/clusters`
 - Section 4: WeeklyChart → `/api/v1/variance/{id}/week/{week}`
+  - **NEW**: WeeklyActualsUploadModal → `/api/v1/data/upload-weekly-sales` (Phase 4.5)
 - Section 5: ReplenishmentQueue → `/api/v1/allocations/{id}`
 - Section 6: MarkdownDecision → `/api/v1/markdowns/{id}`
 - Section 7: PerformanceMetrics → Multiple endpoints
-- CSV Uploads: UploadModal → `/api/v1/workflows/{id}/{agent}/upload`
+- CSV Uploads: UploadModal → `/api/v1/workflows/{id}/{agent}/upload` (Phase 4)
 
 ---
 
-**Last Updated**: November 4, 2025
-**Version**: 1.0.0
-**Status**: Phase 4 Complete ✅ | Phase 5 Ready 🚀
+**Last Updated**: November 6, 2025
+**Version**: 1.0.1
+**Status**: Phase 4 Complete ✅ | Phase 4.5 In Progress 🔄 (33%) | Phase 5 Pending ⏳

@@ -323,7 +323,7 @@ Based on interviews with 5 retail practitioners, the system addresses:
 
 ## Current Status
 
-**November 4, 2025 - Phase 4 Implementation Complete:**
+**November 6, 2025 - Phase 4 Complete | Phase 4.5 In Progress:**
 
 ### Implementation Progress
 | Phase | Status | Completion |
@@ -333,6 +333,7 @@ Based on interviews with 5 retail practitioners, the system addresses:
 | Phase 3: Backend Architecture | ✅ Complete | 100% |
 | Phase 3.5: Testing & Cleanup | ✅ Complete | 100% |
 | **Phase 4: Frontend/Backend Integration** | **✅ Complete** | **100%** |
+| **Phase 4.5: Data Upload Infrastructure** | **🔄 In Progress** | **33%** |
 | Phase 5: Demand Agent | ⏳ Pending | 0% |
 | Phase 6: Inventory Agent | ⏳ Pending | 0% |
 | Phase 7: Orchestrator | ⏳ Pending | 0% |
@@ -346,14 +347,20 @@ Based on interviews with 5 retail practitioners, the system addresses:
   - All 9 stories implemented (PHASE4-001 through PHASE4-009)
   - 8 dashboard sections integrated with backend APIs
   - 36 integration tests created (88% pass rate: 23/28 backend, 13/13 frontend)
-  - CSV upload workflows with validation
-  - Real-time WebSocket integration
+  - CSV upload workflows with validation (agent supplementary data)
+  - Polling-based workflow monitoring (WebSocket replaced)
+  - Real LLM parameter extraction (OpenAI gpt-4o-mini)
   - Comprehensive documentation complete
   - Git branch: `phase4-integration`
+- 🔄 **Phase 4.5 In Progress (Nov 6, 2025)**:
+  - ✅ Weekly actuals upload with variance monitoring (PHASE4.5-002)
+  - ⏳ Historical training data upload (PHASE4.5-001) - pending
+  - ⏳ Database schema migration (PHASE4.5-003) - pending
+  - Purpose: Bridge Phase 4 and Phase 5 with required training data infrastructure
 
-**Next:** Phase 5 Implementation - Demand Agent (Prophet + ARIMA)
+**Next:** Complete Phase 4.5, then Phase 5 Implementation - Demand Agent (Prophet + ARIMA)
 
-**Progress:** Planning 100% complete | Phases 1-4 complete | Phase 5 ready for development
+**Progress:** Planning 100% complete | Phases 1-4 complete | Phase 4.5 in progress
 
 ---
 
@@ -398,20 +405,20 @@ Phase 4 implemented an **integration-first approach**, connecting all 8 dashboar
 
 ### API Endpoints Integrated
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/v1/parameters/extract` | POST | Extract parameters from natural language |
-| `/api/v1/workflows/forecast` | POST | Create forecast workflow |
-| `/api/v1/workflows/{id}` | GET | Get workflow status |
-| `/api/v1/workflows/{id}/stream` | WS | Real-time agent updates |
-| `/api/v1/forecasts/{id}` | GET | Get forecast summary |
-| `/api/v1/stores/clusters` | GET | Get store clusters |
-| `/api/v1/variance/{id}/week/{week}` | GET | Get weekly variance |
-| `/api/v1/allocations/{id}` | GET | Get store allocations |
-| `/api/v1/markdowns/{id}` | GET | Get markdown analysis |
-| `/api/v1/workflows/{id}/demand/upload` | POST | Upload Demand Agent CSVs |
-| `/api/v1/workflows/{id}/inventory/upload` | POST | Upload Inventory Agent CSVs |
-| `/api/v1/workflows/{id}/pricing/upload` | POST | Upload Pricing Agent CSVs |
+| Endpoint | Method | Purpose | Phase |
+|----------|--------|---------|-------|
+| `/api/v1/parameters/extract` | POST | Extract parameters from natural language | 4 |
+| `/api/v1/workflows/forecast` | POST | Create forecast workflow | 4 |
+| `/api/v1/workflows/{id}` | GET | Get workflow status (polling) | 4 |
+| `/api/v1/forecasts/{id}` | GET | Get forecast summary | 4 |
+| `/api/v1/stores/clusters` | GET | Get store clusters | 4 |
+| `/api/v1/variance/{id}/week/{week}` | GET | Get weekly variance | 4 |
+| `/api/v1/allocations/{id}` | GET | Get store allocations | 4 |
+| `/api/v1/markdowns/{id}` | GET | Get markdown analysis | 4 |
+| `/api/v1/workflows/{id}/demand/upload` | POST | Upload Demand Agent supplementary CSVs | 4 |
+| `/api/v1/workflows/{id}/inventory/upload` | POST | Upload Inventory Agent supplementary CSVs | 4 |
+| `/api/v1/workflows/{id}/pricing/upload` | POST | Upload Pricing Agent supplementary CSVs | 4 |
+| `/api/v1/data/upload-weekly-sales` | POST | Upload weekly actuals for variance monitoring | 4.5 |
 
 **Full API Documentation:** http://localhost:8000/docs (when backend running)
 

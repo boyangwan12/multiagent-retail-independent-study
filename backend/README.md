@@ -958,9 +958,9 @@ Phase 4 added comprehensive frontend/backend integration endpoints:
 ### Workflow Management
 ```bash
 POST /api/v1/workflows/forecast         # Create forecast workflow
-GET  /api/v1/workflows/{id}             # Get workflow status
+GET  /api/v1/workflows/{id}             # Get workflow status (polling, replaces WebSocket)
 GET  /api/v1/workflows/{id}/results     # Get workflow results
-WS   /api/v1/workflows/{id}/stream      # Real-time agent updates via WebSocket
+POST /api/v1/workflows/{id}/execute     # Execute forecast workflow
 ```
 
 ### Forecast & Analysis
@@ -972,11 +972,11 @@ GET /api/v1/allocations/{id}            # Get store-level allocations
 GET /api/v1/markdowns/{id}              # Get markdown recommendations (conditional)
 ```
 
-### CSV Upload Endpoints
+### CSV Upload Endpoints (Phase 4)
 ```bash
-POST /api/v1/workflows/{id}/demand/upload     # Upload Demand Agent CSVs
-POST /api/v1/workflows/{id}/inventory/upload  # Upload Inventory Agent CSVs
-POST /api/v1/workflows/{id}/pricing/upload    # Upload Pricing Agent CSVs
+POST /api/v1/workflows/{id}/demand/upload     # Upload Demand Agent supplementary CSVs
+POST /api/v1/workflows/{id}/inventory/upload  # Upload Inventory Agent supplementary CSVs
+POST /api/v1/workflows/{id}/pricing/upload    # Upload Pricing Agent supplementary CSVs
 ```
 
 **Supported CSV Types:**
@@ -990,10 +990,23 @@ POST /api/v1/workflows/{id}/pricing/upload    # Upload Pricing Agent CSVs
 - Schema validation with detailed error messages
 - Response includes: `validation_status`, `rows_uploaded`, `errors[]`
 
+### Data Upload Endpoints (Phase 4.5)
+```bash
+POST /api/v1/data/upload-weekly-sales          # Upload weekly actuals for variance monitoring
+POST /api/v1/data/upload/historical-sales      # (Pending) Upload historical training data
+POST /api/v1/data/upload/store-attributes      # (Pending) Upload store attributes
+```
+
+**Phase 4.5 Status:**
+- ✅ Weekly actuals upload with variance monitoring (PHASE4.5-002)
+- ⏳ Historical sales upload (PHASE4.5-001) - pending
+- ⏳ Store attributes upload (PHASE4.5-001) - pending
+- ⏳ Database schema migration (PHASE4.5-003) - pending
+
 ---
 
-**Backend Status:** ✅ Phase 4 Complete (All 9 Stories + Integration Tests)
+**Backend Status:** ✅ Phase 4 Complete | 🔄 Phase 4.5 In Progress (1/3 stories)
 
-**Configuration:** OpenAI API (standard, not Azure)
+**Configuration:** OpenAI API (gpt-4o-mini for parameter extraction)
 
-**Next Phase:** Phase 5 - Demand Agent Implementation
+**Next Phase:** Complete Phase 4.5, then Phase 5 - Demand Agent Implementation
