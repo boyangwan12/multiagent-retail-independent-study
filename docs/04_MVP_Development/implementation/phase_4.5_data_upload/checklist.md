@@ -12,7 +12,7 @@
 ### Environment Setup
 - [ ] Create `phase4.5-data-upload` branch from `phase4-integration`
 - [ ] Verify Phase 4 is fully merged and tested
-- [ ] Ensure backend running on http://localhost:8000
+- [ ] Ensure backend running on http://localhost:8001
 - [ ] Ensure frontend running on http://localhost:5173
 - [ ] Verify database initialized (fashion_forecast.db exists)
 
@@ -751,7 +751,7 @@
 ### API Documentation
 
 - [ ] OpenAPI docs auto-generated (FastAPI)
-- [ ] Test all endpoints at http://localhost:8000/docs
+- [ ] Test all endpoints at http://localhost:8001/docs
 
 ---
 

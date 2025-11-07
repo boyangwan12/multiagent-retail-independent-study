@@ -111,7 +111,7 @@ async def list_clusters(db: Session = Depends(get_db)):
             clusters[cluster_id] = {
                 "cluster_id": cluster_id,
                 "cluster_name": cluster_id.replace("_", " ").title(),
-                "fashion_tier": store.fashion_tier or "mainstream",
+                "fashion_tier": getattr(store, 'fashion_tier', 'mainstream') or "mainstream",
                 "store_count": 0,
                 "stores": []
             }
@@ -163,6 +163,62 @@ async def upload_historical_sales(file: UploadFile = File(...), db: Session = De
 
     except Exception as e:
         logger.error(f"Error uploading: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/data/upload-store-attributes", response_model=dict)
+async def upload_store_attributes(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Upload store attributes CSV."""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=422, detail="File must be CSV")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(StringIO(contents.decode('utf-8')))
+
+        # Check if this is the user-friendly format or machine-readable format
+        user_friendly_columns = ['store_id', 'store_name', 'avg_weekly_sales_12mo', 'store_size_sqft',
+                                 'median_income', 'location_tier', 'fashion_tier', 'store_format', 'region']
+        machine_columns = ['store_id', 'size_sqft', 'income_level', 'foot_traffic', 'competitor_density',
+                          'online_penetration', 'population_density', 'mall_location']
+
+        # Determine format
+        if all(col in df.columns for col in user_friendly_columns[:3]):
+            # User-friendly format - use test_store_attributes.csv structure
+            for _, row in df.iterrows():
+                store_id = row['store_id']
+                existing = db.query(Store).filter(Store.store_id == store_id).first()
+                if not existing:
+                    store = Store(
+                        store_id=store_id,
+                        store_name=row.get('store_name', store_id),
+                        region=row.get('region', 'UNKNOWN')
+                    )
+                    db.add(store)
+        elif 'store_id' in df.columns:
+            # Machine-readable format or minimal format
+            for _, row in df.iterrows():
+                store_id = row['store_id']
+                existing = db.query(Store).filter(Store.store_id == store_id).first()
+                if not existing:
+                    store = Store(
+                        store_id=store_id,
+                        store_name=f"Store {store_id}",
+                        region='UNKNOWN'
+                    )
+                    db.add(store)
+        else:
+            raise HTTPException(status_code=422, detail="Missing 'store_id' column")
+
+        db.commit()
+
+        return {
+            "rows_imported": len(df),
+            "message": "Store attributes uploaded successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error uploading store attributes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

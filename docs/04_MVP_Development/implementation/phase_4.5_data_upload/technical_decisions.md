@@ -691,7 +691,7 @@ User                Frontend              Backend API           DataUploadServic
 
 1. **Async Background Processing:**
    - Use Celery for large CSV uploads
-   - Show progress bar via WebSocket
+   - Show progress bar via polling-based updates
    - Email notification on completion
 
 2. **Data Validation Report:**

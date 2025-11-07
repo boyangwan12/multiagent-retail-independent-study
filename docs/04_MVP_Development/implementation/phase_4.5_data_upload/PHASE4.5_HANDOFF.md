@@ -34,7 +34,7 @@ Phase 4.5 bridges Phase 4 (Agent Workflow) and Phase 5 (Multi-Agent Orchestrator
 ### Implemented Features
 1. ✅ Parameter Extraction (PHASE4-001)
 2. ✅ Workflow Orchestration (PHASE4-002, 003)
-3. ✅ WebSocket Integration (PHASE4-004)
+3. ✅ Polling-based Workflow Monitoring (PHASE4-004)
 4. ✅ Forecast Display (PHASE4-005)
 5. ✅ Weekly Performance Chart (PHASE4-005)
 6. ✅ Replenishment Queue (PHASE4-005)
@@ -192,7 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_weekly_actuals_date ON weekly_actuals(week_start_
 1. **Phase 4 Complete:**
    - All Phase 4 stories implemented
    - Database initialized (backend/scripts/init_db.py run)
-   - Backend running on http://localhost:8000
+   - Backend running on http://localhost:8001
    - Frontend running on http://localhost:5173
 
 2. **Dependencies Installed:**
@@ -297,7 +297,7 @@ sqlite3 backend/fashion_forecast.db
 ```bash
 # Terminal 1: Backend
 cd backend
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 
 # Terminal 2: Frontend
 cd frontend
@@ -308,12 +308,12 @@ npm run dev
 
 ```bash
 # Health check
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8001/api/v1/health
 
 # Test upload endpoints (should return 422 - validation error expected)
-curl -X POST http://localhost:8000/api/v1/data/upload/historical-sales
-curl -X POST http://localhost:8000/api/v1/data/upload/store-attributes
-curl -X POST http://localhost:8000/api/v1/data/upload/weekly-actuals
+curl -X POST http://localhost:8001/api/v1/data/upload/historical-sales
+curl -X POST http://localhost:8001/api/v1/data/upload/store-attributes
+curl -X POST http://localhost:8001/api/v1/data/upload/weekly-actuals
 ```
 
 ---
@@ -430,7 +430,7 @@ date,store_id,quantity_sold
 
 ### Future Enhancements (Post-Phase 4.5)
 - Background job processing with Celery
-- Upload progress bar (WebSocket updates)
+- Upload progress bar (polling-based updates)
 - Data validation report (downloadable)
 - CSV preview before upload
 - Bulk delete/overwrite option

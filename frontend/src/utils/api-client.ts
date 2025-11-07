@@ -76,9 +76,9 @@ async function request<T = any>(
     fullUrl = `${url}${queryString ? `?${queryString}` : ''}`;
   }
 
-  // Set default headers
+  // Set default headers (but not for FormData - browser will set it with boundary)
   const defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(fetchOptions.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...headers as Record<string, string>,
   };
 
@@ -253,7 +253,7 @@ export const apiClient = {
     return request<T>(url, {
       ...options,
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined),
     });
   },
 

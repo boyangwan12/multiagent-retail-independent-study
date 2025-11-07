@@ -3,6 +3,7 @@ import { ParameterTextarea } from './ParameterTextarea';
 import { ParameterConfirmationModal } from './ParameterConfirmationModal';
 import { ConfirmedBanner } from './ConfirmedBanner';
 import { AgentReasoningPreview } from './AgentReasoningPreview';
+import { HistoricalDataUpload } from './HistoricalDataUpload';
 import { ParameterService } from '@/services/parameter-service';
 import { WorkflowService } from '@/services/workflow-service';
 import { useParameters } from '@/contexts/ParametersContext';
@@ -179,10 +180,24 @@ export function ParameterGathering() {
   };
 
   return (
-    <div className="w-full space-y-8 py-8">
+    <div className="w-full space-y-12 py-8">
+      {/* Historical Data Upload Section */}
+      <HistoricalDataUpload />
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-300" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-background px-4 text-gray-500">Then</span>
+        </div>
+      </div>
+
+      {/* Parameter Gathering Section */}
       <div className="text-center space-y-2">
         <h2 className="text-3xl font-bold text-text-primary">
-          Section 0: Parameter Gathering
+          Step 2: Parameter Extraction
         </h2>
         <p className="text-text-secondary max-w-2xl mx-auto">
           Describe your season parameters in natural language, and our AI will

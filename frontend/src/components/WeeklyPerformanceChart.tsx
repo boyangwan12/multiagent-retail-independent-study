@@ -12,7 +12,9 @@ import {
 } from 'recharts';
 import { VarianceService } from '@/services/variance-service';
 import { useParameters } from '@/contexts/ParametersContext';
-import { AlertCircle, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
+import { AlertCircle, Loader2, ChevronUp, ChevronDown, Upload as UploadIcon } from 'lucide-react';
+import { WeeklyActualsUploadModal } from './WeeklyActualsUploadModal';
+import { Button } from '@/components/ui/button';
 import type { WeeklyVariance } from '@/types/variance';
 
 // Custom tooltip for the chart
@@ -39,6 +41,8 @@ export function WeeklyPerformanceChart() {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadWeekNumber, setUploadWeekNumber] = useState<number>(1);
 
   useEffect(() => {
     // Wait for workflow completion and validate parameters
@@ -116,15 +120,68 @@ export function WeeklyPerformanceChart() {
     variance_pct: week.variance_pct,
   }));
 
+  // Calculate week dates based on season start and week number
+  const calculateWeekDates = (weekNum: number) => {
+    if (!parameters?.season_start_date) {
+      return { start: '', end: '' };
+    }
+
+    const seasonStart = new Date(parameters.season_start_date);
+    const weekStartDate = new Date(seasonStart);
+    weekStartDate.setDate(seasonStart.getDate() + (weekNum - 1) * 7);
+
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+    return {
+      start: weekStartDate.toISOString().split('T')[0],
+      end: weekEndDate.toISOString().split('T')[0],
+    };
+  };
+
+  const weekDates = calculateWeekDates(uploadWeekNumber);
+
+  const handleUploadSuccess = async (result: any) => {
+    console.log('Upload successful:', result);
+
+    // Increment week number for next upload
+    if (uploadWeekNumber < (parameters?.forecast_horizon_weeks || 12)) {
+      setUploadWeekNumber(prev => prev + 1);
+    }
+
+    // Refresh variance data
+    try {
+      const data = await VarianceService.getAllWeeks(
+        forecastId!,
+        parameters!.forecast_horizon_weeks
+      );
+      setWeeklyData(data);
+    } catch (err) {
+      console.error('Failed to refresh variance data:', err);
+    }
+
+    setIsUploadModalOpen(false);
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">
-          Section 4: Weekly Performance - Forecast vs Actuals
-        </h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Monitor forecast accuracy and variance trends across all {parameters?.forecast_horizon_weeks} weeks
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Section 4: Weekly Performance - Forecast vs Actuals
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Monitor forecast accuracy and variance trends across all {parameters?.forecast_horizon_weeks} weeks
+          </p>
+        </div>
+        <Button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="flex items-center gap-2"
+          disabled={!forecastId}
+        >
+          <UploadIcon className="w-4 h-4" />
+          Upload Week {uploadWeekNumber} Actuals
+        </Button>
       </div>
 
       {/* Chart */}
@@ -310,6 +367,17 @@ export function WeeklyPerformanceChart() {
           </table>
         </div>
       </div>
+
+      {/* Weekly Actuals Upload Modal */}
+      <WeeklyActualsUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        weekNumber={uploadWeekNumber}
+        weekStartDate={weekDates.start}
+        weekEndDate={weekDates.end}
+        forecastId={forecastId || ''}
+        onUploadSuccess={handleUploadSuccess}
+      />
     </div>
   );
 }

@@ -6,7 +6,8 @@
 **Dependencies:** None (can run in parallel with PHASE4.5-001/002)
 **Estimated Effort:** 2-3 hours
 **Assigned To:** Developer (Backend)
-**Status:** Not Started
+**Status:** Complete
+**Completed:** 2025-01-05
 
 ---
 
@@ -425,41 +426,41 @@ if __name__ == "__main__":
 
 ### Schema Validation
 
-- [ ] **AC1:** Script validates historical_sales table exists
-- [ ] **AC2:** Script validates stores table exists
-- [ ] **AC3:** Script validates categories table exists
-- [ ] **AC4:** Script validates workflows table exists
-- [ ] **AC5:** Script exits with error if any required table missing
+- [x] **AC1:** Script validates historical_sales table exists
+- [x] **AC2:** Script validates stores table exists
+- [x] **AC3:** Script validates categories table exists
+- [x] **AC4:** Script validates workflows table exists
+- [x] **AC5:** Script exits with error if any required table missing
 
 ### Table Creation
 
-- [ ] **AC6:** Script creates weekly_actuals table if not exists
-- [ ] **AC7:** Script skips creation if table already exists (idempotent)
-- [ ] **AC8:** All columns created with correct types
-- [ ] **AC9:** UNIQUE constraint created on (workflow_id, week_number, store_id)
-- [ ] **AC10:** Foreign keys created for workflow_id, store_id, category_id
-- [ ] **AC11:** ON DELETE CASCADE set for all foreign keys
+- [x] **AC6:** Script creates weekly_actuals table if not exists
+- [x] **AC7:** Script skips creation if table already exists (idempotent)
+- [x] **AC8:** All columns created with correct types
+- [x] **AC9:** UNIQUE constraint created on (workflow_id, week_number, store_id)
+- [x] **AC10:** Foreign keys created for workflow_id, store_id, category_id
+- [x] **AC11:** ON DELETE CASCADE set for all foreign keys
 
 ### Indexes
 
-- [ ] **AC12:** Index created on (workflow_id, week_number)
-- [ ] **AC13:** Index created on (store_id)
-- [ ] **AC14:** Index created on (week_start_date)
+- [x] **AC12:** Index created on (workflow_id, week_number)
+- [x] **AC13:** Index created on (store_id)
+- [x] **AC14:** Index created on (week_start_date)
 
 ### Testing
 
-- [ ] **AC15:** Script tests INSERT operation
-- [ ] **AC16:** Script tests SELECT query
-- [ ] **AC17:** Script cleans up test data
-- [ ] **AC18:** Script displays table row counts
+- [x] **AC15:** Script tests INSERT operation
+- [x] **AC16:** Script tests SELECT query
+- [x] **AC17:** Script cleans up test data
+- [x] **AC18:** Script displays table row counts
 
 ### SQLAlchemy Model
 
-- [ ] **AC19:** WeeklyActuals model added to models.py
-- [ ] **AC20:** Model has all required fields
-- [ ] **AC21:** Model has relationships (workflow, store, category)
-- [ ] **AC22:** Model has table constraints and indexes
-- [ ] **AC23:** Workflow model updated with weekly_actuals relationship
+- [x] **AC19:** WeeklyActuals model added to models.py
+- [x] **AC20:** Model has all required fields
+- [x] **AC21:** Model has relationships (workflow, store, category)
+- [x] **AC22:** Model has table constraints and indexes
+- [x] **AC23:** Workflow model updated with weekly_actuals relationship
 
 ---
 
@@ -467,49 +468,49 @@ if __name__ == "__main__":
 
 ### Task 1: Add WeeklyActuals Model (0.5 hours)
 
-- [ ] Add WeeklyActuals class to `backend/app/database/models.py`
-- [ ] Add all fields with correct types
-- [ ] Add relationships
-- [ ] Add constraints and indexes
-- [ ] Update Workflow model with relationship
+- [x] Add WeeklyActuals class to `backend/app/database/models.py`
+- [x] Add all fields with correct types
+- [x] Add relationships
+- [x] Add constraints and indexes
+- [x] Update Workflow model with relationship
 
 ### Task 2: Create Migration Script (1 hour)
 
-- [ ] Create `backend/scripts/migrate_phase_4_5.py`
-- [ ] Implement validation functions
-- [ ] Implement table creation
-- [ ] Implement schema validation
-- [ ] Implement test operations
-- [ ] Add comprehensive logging
+- [x] Create `backend/scripts/migrate_phase_4_5.py`
+- [x] Implement validation functions
+- [x] Implement table creation
+- [x] Implement schema validation
+- [x] Implement test operations
+- [x] Add comprehensive logging
 
 ### Task 3: Test Migration (0.5 hours)
 
-- [ ] Run migration on clean database
-- [ ] Verify table created
-- [ ] Verify indexes created
-- [ ] Verify foreign keys work
-- [ ] Run migration again (test idempotency)
+- [x] Run migration on clean database
+- [x] Verify table created
+- [x] Verify indexes created
+- [x] Verify foreign keys work
+- [x] Run migration again (test idempotency)
 
 ### Task 4: Update init_db.py (0.5 hours)
 
-- [ ] Update `backend/scripts/init_db.py` to include WeeklyActuals
-- [ ] Ensure all models registered with Base
-- [ ] Test that init_db creates all tables including weekly_actuals
+- [x] Update `backend/scripts/init_db.py` to include WeeklyActuals
+- [x] Ensure all models registered with Base
+- [x] Test that init_db creates all tables including weekly_actuals
 
 ---
 
 ## Definition of Done
 
-- [ ] WeeklyActuals model added to models.py
-- [ ] Migration script created and tested
-- [ ] Script validates existing tables
-- [ ] Script creates weekly_actuals table
-- [ ] Script is idempotent (safe to run multiple times)
-- [ ] All indexes and foreign keys created
-- [ ] Insert/query operations tested
-- [ ] init_db.py updated to include new model
-- [ ] Migration tested on clean database
-- [ ] Documentation updated
+- [x] WeeklyActuals model added to models.py
+- [x] Migration script created and tested
+- [x] Script validates existing tables
+- [x] Script creates weekly_actuals table
+- [x] Script is idempotent (safe to run multiple times)
+- [x] All indexes and foreign keys created
+- [x] Insert/query operations tested
+- [x] init_db.py updated to include new model
+- [x] Migration tested on clean database
+- [x] Documentation updated
 
 ---
 
