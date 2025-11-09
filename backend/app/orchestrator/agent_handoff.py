@@ -119,13 +119,43 @@ class AgentHandoffManager:
 
         except asyncio.TimeoutError:
             status = "timeout"
-            self.logger.error(f"Agent '{agent_name}' timed out after {timeout}s")
-            raise
+
+            # Enhanced logging with context
+            self.logger.error(
+                f"Agent timeout: '{agent_name}' exceeded {timeout}s limit",
+                extra={
+                    "agent_name": agent_name,
+                    "timeout_seconds": timeout,
+                    "context_summary": str(context)[:200] if context else "None"  # Truncate long context
+                }
+            )
+
+            # Re-raise with more helpful message
+            raise TimeoutError(
+                f"Agent '{agent_name}' exceeded maximum execution time ({timeout}s). "
+                f"This may indicate a problem with the agent logic or external API calls."
+            )
 
         except Exception as e:
             status = "failed"
-            self.logger.error(f"Agent '{agent_name}' failed: {str(e)}")
-            raise
+
+            # Enhanced logging with stack trace
+            self.logger.error(
+                f"Agent execution failed: '{agent_name}'",
+                exc_info=True,  # Includes full stack trace in logs
+                extra={
+                    "agent_name": agent_name,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "context_type": type(context).__name__
+                }
+            )
+
+            # Re-raise with sanitized message (no internal details)
+            raise RuntimeError(
+                f"Agent '{agent_name}' encountered an error during execution. "
+                f"Check server logs for details."
+            ) from e
 
         finally:
             duration = time.time() - start_time

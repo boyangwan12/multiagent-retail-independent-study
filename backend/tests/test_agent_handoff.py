@@ -131,7 +131,7 @@ async def test_agent_failure(manager):
 
     manager.register_agent("failing", failing_agent)
 
-    with pytest.raises(RuntimeError, match="Agent internal error"):
+    with pytest.raises(RuntimeError, match="encountered an error"):
         await manager.call_agent("failing", {})
 
     # Verify failure logged

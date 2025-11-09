@@ -106,20 +106,66 @@ class MockOrchestratorService:
 
             return final_results
 
-        except asyncio.TimeoutError:
-            logger.error(f"[ORCHESTRATOR] Workflow timed out: {workflow_id}")
-            workflow.status = WorkflowStatus.failed
-            workflow.error_message = "Agent timeout - exceeded maximum execution time"
-            workflow.completed_at = datetime.utcnow()
-            self.db.commit()
+        except asyncio.TimeoutError as e:
+            error_msg = str(e)  # Includes enhanced message from AgentHandoffManager
+            logger.error(
+                f"[ORCHESTRATOR] Workflow timed out: {workflow_id}",
+                extra={"workflow_id": workflow_id, "error_message": error_msg}
+            )
+
+            # Update workflow status with retry
+            try:
+                workflow.status = WorkflowStatus.failed
+                workflow.error_message = error_msg
+                workflow.completed_at = datetime.utcnow()
+                self.db.commit()
+            except Exception as db_error:
+                logger.error(f"Failed to update workflow status after timeout: {db_error}")
+                # Try one more time with fresh session
+                try:
+                    self.db.rollback()
+                    workflow = self.db.query(Workflow).filter_by(workflow_id=workflow_id).first()
+                    if workflow:
+                        workflow.status = WorkflowStatus.failed
+                        workflow.error_message = error_msg
+                        workflow.completed_at = datetime.utcnow()
+                        self.db.commit()
+                except:
+                    logger.critical(f"Cannot update workflow status - database issue", exc_info=True)
+
             raise
 
         except Exception as e:
-            logger.error(f"[ORCHESTRATOR] Workflow execution failed: {e}", exc_info=True)
-            workflow.status = WorkflowStatus.failed
-            workflow.error_message = str(e)
-            workflow.completed_at = datetime.utcnow()
-            self.db.commit()
+            error_msg = str(e)
+            logger.error(
+                f"[ORCHESTRATOR] Workflow execution failed: {workflow_id}",
+                exc_info=True,
+                extra={
+                    "workflow_id": workflow_id,
+                    "error_type": type(e).__name__,
+                    "error_message": error_msg
+                }
+            )
+
+            # Update workflow status with retry (same pattern)
+            try:
+                workflow.status = WorkflowStatus.failed
+                workflow.error_message = error_msg
+                workflow.completed_at = datetime.utcnow()
+                self.db.commit()
+            except Exception as db_error:
+                logger.error(f"Failed to update workflow status: {db_error}")
+                try:
+                    self.db.rollback()
+                    workflow = self.db.query(Workflow).filter_by(workflow_id=workflow_id).first()
+                    if workflow:
+                        workflow.status = WorkflowStatus.failed
+                        workflow.error_message = error_msg
+                        workflow.completed_at = datetime.utcnow()
+                        self.db.commit()
+                except:
+                    logger.critical(f"Cannot update workflow status - database issue", exc_info=True)
+
             raise
 
     def _register_agents(self, workflow: Workflow):

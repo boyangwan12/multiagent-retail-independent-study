@@ -16,7 +16,7 @@ epic_status:
     stories_total: 6
     stories_complete: 2
     stories_in_progress: 0
-    stories_ready: 3
+    stories_ready: 1
     stories_obsolete: 1
 
 development_status:
@@ -50,7 +50,7 @@ development_status:
 
   5-5-error-handling:
     title: "Error Handling & Resilience"
-    status: ready-for-dev
+    status: review
     assignee: "Boyang"
     estimate_hours: 2
     story_file: "phase_5_orchestrator_foundation/stories/PHASE5-005-error-handling-resilience.md"
