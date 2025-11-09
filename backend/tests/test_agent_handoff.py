@@ -93,7 +93,9 @@ async def test_agent_chain_three_agents(manager, mock_parameters):
 
     assert result["agent"] == "pricing"
     assert result["manufacturing_qty_received"] == 10000
-    assert result["markdown_percentage"] == 0.30
+    # No markdown_checkpoint_week specified → no markdown planned
+    assert result["markdown_percentage"] == 0.0
+    assert result["checkpoint_week"] is None
 
 
 @pytest.mark.asyncio
