@@ -57,7 +57,7 @@ development_status:
 
   5-6-integration-testing:
     title: "Integration Testing for Polling-Based Orchestrator"
-    status: ready-for-dev
+    status: review
     assignee: "Boyang"
     estimate_hours: 3
     story_file: "phase_5_orchestrator_foundation/stories/PHASE5-006-integration-testing.md"

@@ -46,15 +46,18 @@ class MockOrchestratorService:
         if not workflow:
             raise ValueError(f"Workflow {workflow_id} not found")
 
-        # Extract season parameters from workflow
+        # Extract season parameters from workflow input_data (which contains full parameters)
+        input_data = workflow.input_data or {}
+        params_dict = input_data.get("parameters", {})
+
         season_params = SeasonParameters(
-            forecast_horizon_weeks=workflow.forecast_horizon_weeks or 12,
-            season_start_date=workflow.season_start_date,
-            season_end_date=workflow.season_end_date,
-            replenishment_strategy=workflow.replenishment_strategy or "weekly",
-            dc_holdback_percentage=workflow.dc_holdback_percentage or 0.45,
-            markdown_checkpoint_week=workflow.markdown_checkpoint_week,
-            markdown_threshold=workflow.markdown_threshold
+            forecast_horizon_weeks=params_dict.get("forecast_horizon_weeks") or workflow.forecast_horizon_weeks or 12,
+            season_start_date=params_dict.get("season_start_date") or workflow.season_start_date,
+            season_end_date=params_dict.get("season_end_date"),  # Only in input_data
+            replenishment_strategy=params_dict.get("replenishment_strategy") or workflow.replenishment_strategy or "weekly",
+            dc_holdback_percentage=params_dict.get("dc_holdback_percentage") or workflow.dc_holdback_percentage or 0.45,
+            markdown_checkpoint_week=params_dict.get("markdown_checkpoint_week") or workflow.markdown_checkpoint_week,
+            markdown_threshold=params_dict.get("markdown_threshold", 0.6)  # Default 0.6
         )
 
         # Update status to running
