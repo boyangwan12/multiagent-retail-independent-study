@@ -159,10 +159,28 @@ async def get_workflow_status(
     try:
         return service.get_workflow_status(workflow_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # Workflow not found
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Workflow not found",
+                "message": f"Workflow '{workflow_id}' does not exist. Verify the workflow was created successfully.",
+                "workflow_id": workflow_id
+            }
+        )
     except Exception as e:
-        logger.error(f"Failed to get workflow status: {e}")
-        raise HTTPException(status_code=500, detail=f"Status retrieval failed: {str(e)}")
+        logger.error(
+            f"Failed to get workflow status",
+            exc_info=True,
+            extra={"workflow_id": workflow_id, "error_type": type(e).__name__}
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "Failed to retrieve workflow status. Please try again or contact support if the issue persists."
+            }
+        )
 
 
 @router.get("/{workflow_id}/results", response_model=WorkflowResultsResponse)
@@ -197,10 +215,28 @@ async def get_workflow_results(
     try:
         return service.get_workflow_results(workflow_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # Workflow not found
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Workflow not found",
+                "message": f"Workflow '{workflow_id}' does not exist. Verify the workflow was created successfully.",
+                "workflow_id": workflow_id
+            }
+        )
     except Exception as e:
-        logger.error(f"Failed to get workflow results: {e}")
-        raise HTTPException(status_code=500, detail=f"Results retrieval failed: {str(e)}")
+        logger.error(
+            f"Failed to get workflow results",
+            exc_info=True,
+            extra={"workflow_id": workflow_id, "error_type": type(e).__name__}
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "Failed to retrieve workflow results. Please try again or contact support if the issue persists."
+            }
+        )
 
 
 def _run_workflow_background(workflow_id: str):
@@ -284,7 +320,25 @@ async def execute_workflow(
         return workflow_status
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # Workflow not found
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Workflow not found",
+                "message": f"Workflow '{workflow_id}' does not exist. Verify the workflow was created successfully.",
+                "workflow_id": workflow_id
+            }
+        )
     except Exception as e:
-        logger.error(f"Failed to execute workflow: {e}")
-        raise HTTPException(status_code=500, detail=f"Workflow execution failed: {str(e)}")
+        logger.error(
+            f"Failed to execute workflow",
+            exc_info=True,
+            extra={"workflow_id": workflow_id, "error_type": type(e).__name__}
+        )
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": "Failed to start workflow execution. Please try again or contact support if the issue persists."
+            }
+        )

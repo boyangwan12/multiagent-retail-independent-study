@@ -10,7 +10,7 @@ from app.agents import (
     PricingAgent,
     AgentFactory
 )
-from app.schemas.parameters import SeasonParameters
+from app.schemas.workflow_schemas import SeasonParameters
 from datetime import date
 
 

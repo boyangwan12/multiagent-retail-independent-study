@@ -1,1 +1,1 @@
-"""Integration tests for backend API endpoints"""
+"""Integration tests for Fashion Forecast MVP."""
