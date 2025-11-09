@@ -1,4 +1,4 @@
-"""Mock Orchestrator Service for Phase 4 - Runs mock agents and generates fake data."""
+"""Mock Orchestrator Service - Now uses AgentHandoffManager for proper orchestration."""
 
 import asyncio
 import logging
@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 from app.database.models import Workflow, WorkflowStatus
+from app.orchestrator.agent_handoff import AgentHandoffManager
+from app.schemas.workflow_schemas import SeasonParameters
 
 logger = logging.getLogger("fashion_forecast")
 
@@ -22,23 +24,38 @@ class MockOrchestratorService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.handoff_manager = AgentHandoffManager()
 
     async def execute_workflow(self, workflow_id: str) -> Dict[str, Any]:
         """
-        Execute mock agent workflow.
+        Execute workflow using AgentHandoffManager.
+
+        Phase 5 Update: Now uses proper agent orchestration framework instead of
+        hard-coded sequential calls.
 
         Args:
             workflow_id: Workflow ID to execute
 
         Returns:
-            Mock workflow results
+            Workflow results from agent chain
         """
-        logger.info(f"[MOCK] Starting mock workflow execution: {workflow_id}")
+        logger.info(f"[ORCHESTRATOR] Starting workflow execution: {workflow_id}")
 
         # Get workflow from database
         workflow = self.db.query(Workflow).filter_by(workflow_id=workflow_id).first()
         if not workflow:
             raise ValueError(f"Workflow {workflow_id} not found")
+
+        # Extract season parameters from workflow
+        season_params = SeasonParameters(
+            forecast_horizon_weeks=workflow.forecast_horizon_weeks or 12,
+            season_start_date=workflow.season_start_date,
+            season_end_date=workflow.season_end_date,
+            replenishment_strategy=workflow.replenishment_strategy or "weekly",
+            dc_holdback_percentage=workflow.dc_holdback_percentage or 0.45,
+            markdown_checkpoint_week=workflow.markdown_checkpoint_week,
+            markdown_threshold=workflow.markdown_threshold
+        )
 
         # Update status to running
         workflow.status = WorkflowStatus.running
@@ -48,39 +65,27 @@ class MockOrchestratorService:
         self.db.commit()
 
         try:
-            # Step 1: Run Demand Agent (mock)
-            logger.info(f"[MOCK] Running Demand Agent...")
-            workflow.current_agent = "Demand Agent"
-            workflow.progress_pct = 10
-            self.db.commit()
+            # Register mock agents with handoff manager
+            self._register_agents(workflow)
 
-            demand_result = await self._run_mock_demand_agent(workflow)
-            await asyncio.sleep(1.5)  # Simulate processing time
+            # Execute agent chain using handoff manager
+            logger.info(f"[ORCHESTRATOR] Executing agent chain: Demand → Inventory → Pricing")
 
-            workflow.progress_pct = 40
-            self.db.commit()
+            # Run agents sequentially with progress tracking
+            demand_result = await self._run_agent_with_tracking(
+                "demand", season_params, workflow,
+                agent_name="Demand Agent", progress_start=10, progress_end=40
+            )
 
-            # Step 2: Run Inventory Agent (mock)
-            logger.info(f"[MOCK] Running Inventory Agent...")
-            workflow.current_agent = "Inventory Agent"
-            workflow.progress_pct = 50
-            self.db.commit()
-            inventory_result = await self._run_mock_inventory_agent(workflow, demand_result)
-            await asyncio.sleep(1.2)  # Simulate processing time
+            inventory_result = await self._run_agent_with_tracking(
+                "inventory", demand_result, workflow,
+                agent_name="Inventory Agent", progress_start=50, progress_end=70
+            )
 
-            workflow.progress_pct = 70
-            self.db.commit()
-
-            # Step 3: Run Pricing Agent (mock)
-            logger.info(f"[MOCK] Running Pricing Agent...")
-            workflow.current_agent = "Pricing Agent"
-            workflow.progress_pct = 75
-            self.db.commit()
-            pricing_result = await self._run_mock_pricing_agent(workflow, demand_result, inventory_result)
-            await asyncio.sleep(1.0)  # Simulate processing time
-
-            workflow.progress_pct = 95
-            self.db.commit()
+            pricing_result = await self._run_agent_with_tracking(
+                "pricing", inventory_result, workflow,
+                agent_name="Pricing Agent", progress_start=75, progress_end=95
+            )
 
             # Combine results
             final_results = {
@@ -97,17 +102,85 @@ class MockOrchestratorService:
             workflow.output_data = final_results
             self.db.commit()
 
-            logger.info(f"[MOCK] Mock workflow execution completed: {workflow_id}")
+            logger.info(f"[ORCHESTRATOR] Workflow execution completed: {workflow_id}")
 
             return final_results
 
+        except asyncio.TimeoutError:
+            logger.error(f"[ORCHESTRATOR] Workflow timed out: {workflow_id}")
+            workflow.status = WorkflowStatus.failed
+            workflow.error_message = "Agent timeout - exceeded maximum execution time"
+            workflow.completed_at = datetime.utcnow()
+            self.db.commit()
+            raise
+
         except Exception as e:
-            logger.error(f"[MOCK] Mock workflow execution failed: {e}", exc_info=True)
+            logger.error(f"[ORCHESTRATOR] Workflow execution failed: {e}", exc_info=True)
             workflow.status = WorkflowStatus.failed
             workflow.error_message = str(e)
             workflow.completed_at = datetime.utcnow()
             self.db.commit()
             raise
+
+    def _register_agents(self, workflow: Workflow):
+        """Register mock agents with the handoff manager."""
+
+        # Create closures that capture workflow context
+        async def demand_agent_handler(context):
+            return await self._run_mock_demand_agent(workflow)
+
+        async def inventory_agent_handler(demand_result):
+            return await self._run_mock_inventory_agent(workflow, demand_result)
+
+        async def pricing_agent_handler(inventory_result):
+            # Extract demand result from inventory result context
+            demand_result = {"total_forecast": inventory_result.get("total_units", 8000)}
+            return await self._run_mock_pricing_agent(workflow, demand_result, inventory_result)
+
+        self.handoff_manager.register_agent("demand", demand_agent_handler)
+        self.handoff_manager.register_agent("inventory", inventory_agent_handler)
+        self.handoff_manager.register_agent("pricing", pricing_agent_handler)
+
+    async def _run_agent_with_tracking(
+        self,
+        agent_key: str,
+        context: Any,
+        workflow: Workflow,
+        agent_name: str,
+        progress_start: int,
+        progress_end: int
+    ) -> Dict[str, Any]:
+        """
+        Run agent and update workflow progress in database.
+
+        Args:
+            agent_key: Agent identifier for handoff manager (demand, inventory, pricing)
+            context: Input context for agent
+            workflow: Workflow database model
+            agent_name: Display name for current_agent field (e.g., "Demand Agent")
+            progress_start: Starting progress percentage
+            progress_end: Ending progress percentage
+
+        Returns:
+            Agent result
+        """
+        # Update progress before agent runs
+        workflow.current_agent = agent_name
+        workflow.progress_pct = progress_start
+        self.db.commit()
+
+        # Execute agent using handoff manager (with timeout)
+        result = await self.handoff_manager.call_agent(
+            agent_key,
+            context,
+            timeout=300  # 5 minute timeout per agent
+        )
+
+        # Update progress after agent completes
+        workflow.progress_pct = progress_end
+        self.db.commit()
+
+        return result
 
     async def _run_mock_demand_agent(self, workflow: Workflow) -> Dict[str, Any]:
         """
