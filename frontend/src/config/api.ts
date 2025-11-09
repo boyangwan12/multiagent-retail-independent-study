@@ -6,8 +6,8 @@
  */
 
 // Get environment variables (Vite exposes these as import.meta.env)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
 
 /**
  * API Base URLs
@@ -51,10 +51,12 @@ export const API_ENDPOINTS = {
   // ============================================
   // Workflow Management
   // ============================================
+  WORKFLOWS_FORECAST: `${API_BASE}/workflows/forecast`,
   workflows: {
     create: () => `${API_BASE}/workflows`,
     getById: (id: string) => `${API_BASE}/workflows/${id}`,
     getStatus: (id: string) => `${API_BASE}/workflows/${id}/status`,
+    execute: (id: string) => `${API_BASE}/workflows/${id}/execute`,
     cancel: (id: string) => `${API_BASE}/workflows/${id}/cancel`,
     // WebSocket endpoint for real-time updates
     stream: (id: string) => `${API_CONFIG.WS_BASE_URL}/api/${API_CONFIG.API_VERSION}/workflows/${id}/stream`,
@@ -127,6 +129,7 @@ export const API_ENDPOINTS = {
       `${API_BASE}/workflows/${workflowId}/approvals/${approvalId}`,
     respond: (workflowId: string, approvalId: string) =>
       `${API_BASE}/workflows/${workflowId}/approvals/${approvalId}/respond`,
+    replenishment: () => `${API_BASE}/approvals/replenishment`,
   },
 } as const;
 
@@ -173,3 +176,13 @@ export const WS_CONFIG = {
   RECONNECT_DELAY: 2000, // 2 seconds
   HEARTBEAT_INTERVAL: 30000, // 30 seconds
 } as const;
+
+/**
+ * Build WebSocket URL
+ * Helper function to construct WebSocket URLs for workflow streams
+ */
+export const buildWsUrl = (path: string): string => {
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  return `${API_CONFIG.WS_BASE_URL}/${cleanPath}`;
+};

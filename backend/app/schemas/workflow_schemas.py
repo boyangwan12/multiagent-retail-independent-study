@@ -152,14 +152,12 @@ class WorkflowResponse(BaseModel):
 
     workflow_id: str = Field(..., description="Unique workflow identifier")
     status: Literal["pending", "running", "completed", "failed", "awaiting_approval"]
-    websocket_url: str = Field(..., description="WebSocket URL for real-time updates")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "workflow_id": "wf_abc123",
-                "status": "pending",
-                "websocket_url": "ws://localhost:8000/api/workflows/wf_abc123/stream"
+                "status": "pending"
             }
         }
     )
@@ -478,3 +476,95 @@ WebSocketMessage = (
     | WorkflowCompleteMessage
     | ErrorMessage
 )
+
+
+# ============================================================================
+# CSV Upload Schemas
+# ============================================================================
+
+class ValidationError(BaseModel):
+    """Validation error for CSV upload."""
+
+    error_type: Literal["MISSING_COLUMN", "DATA_TYPE_MISMATCH", "EMPTY_FILE", "DUPLICATE_ROWS", "OTHER"]
+    row: Optional[int] = Field(None, description="Row number where error occurred (1-indexed, excluding header)")
+    column: Optional[str] = Field(None, description="Column name where error occurred")
+    expected_type: Optional[str] = Field(None, description="Expected data type")
+    actual_value: Optional[str] = Field(None, description="Actual value found")
+    message: str = Field(..., description="Human-readable error message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "error_type": "DATA_TYPE_MISMATCH",
+                "row": 3,
+                "column": "sales_units",
+                "expected_type": "integer",
+                "actual_value": "N/A",
+                "message": "Row 3, column 'sales_units': expected integer, got 'N/A'"
+            }
+        }
+    )
+
+
+class UploadResponse(BaseModel):
+    """Response after CSV file upload."""
+
+    workflow_id: str = Field(..., description="Workflow identifier")
+    file_type: str = Field(..., description="Type of file (e.g., 'sales_data', 'store_profiles')")
+    file_name: str = Field(..., description="Original filename")
+    file_size_bytes: int = Field(..., description="File size in bytes")
+    rows_uploaded: int = Field(..., description="Number of data rows (excluding header)")
+    columns: list[str] = Field(..., description="Column names from CSV header")
+    validation_status: Literal["VALID", "INVALID"] = Field(..., description="Validation result")
+    errors: Optional[list[ValidationError]] = Field(None, description="Validation errors (if any)")
+    uploaded_at: str = Field(..., description="ISO 8601 timestamp of upload")
+    message: str = Field(..., description="Success or error message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workflow_id": "wf_abc123",
+                "file_type": "sales_data",
+                "file_name": "sales_data.csv",
+                "file_size_bytes": 2048,
+                "rows_uploaded": 50,
+                "columns": ["store_id", "week", "sales_units", "sales_revenue", "inventory_on_hand"],
+                "validation_status": "VALID",
+                "uploaded_at": "2025-01-15T10:30:00Z",
+                "message": "File uploaded successfully"
+            }
+        }
+    )
+
+
+class MultipleUploadResponse(BaseModel):
+    """Response after uploading multiple CSV files."""
+
+    workflow_id: str = Field(..., description="Workflow identifier")
+    files_uploaded: list[dict] = Field(..., description="List of uploaded files with their status")
+    uploaded_at: str = Field(..., description="ISO 8601 timestamp of upload")
+    message: str = Field(..., description="Summary message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workflow_id": "wf_abc123",
+                "files_uploaded": [
+                    {
+                        "file_type": "sales_data",
+                        "file_name": "sales_data.csv",
+                        "rows_uploaded": 50,
+                        "validation_status": "VALID"
+                    },
+                    {
+                        "file_type": "store_profiles",
+                        "file_name": "store_profiles.csv",
+                        "rows_uploaded": 50,
+                        "validation_status": "VALID"
+                    }
+                ],
+                "uploaded_at": "2025-01-15T10:30:00Z",
+                "message": "2 files uploaded successfully"
+            }
+        }
+    )

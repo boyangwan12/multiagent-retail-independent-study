@@ -870,6 +870,67 @@ markdown_depth = min(markdown_rounded, 0.40)  # Cap at 40%
 
 ---
 
+### 5.11 Orchestrator Infrastructure ⭐ NEW in v3.3
+
+**FR-11.1:** System shall extract 5 season parameters from natural language input using Azure OpenAI gpt-4o-mini:
+- `forecast_horizon_weeks` (INTEGER): Number of weeks to forecast, range 4-52
+- `season_start_date` (DATE): Season start date in YYYY-MM-DD format
+- `season_end_date` (DATE): Season end date (calculated from start + horizon)
+- `replenishment_strategy` (STRING): Enum ("none" | "weekly" | "bi-weekly")
+- `dc_holdback_percentage` (FLOAT): Percentage kept at DC, range 0.0-1.0
+
+**FR-11.2:** System shall validate extracted parameters against business rules:
+- Horizon: 4-52 weeks (outside range → 422 Unprocessable Entity)
+- Dates: Valid YYYY-MM-DD format, end_date = start_date + (horizon × 7 days)
+- Replenishment: Must be one of allowed enum values
+- Holdback: 0.0-1.0 range (outside range → 422 Unprocessable Entity)
+
+**FR-11.3:** System shall return 400 Bad Request for incomplete parameter extraction with:
+- Error message: "Could not extract all parameters"
+- List of missing parameters (e.g., ["season_start_date", "dc_holdback_percentage"])
+- Suggestions for user to provide additional information
+
+**FR-11.4:** System shall provide POST /api/orchestrator/extract-parameters endpoint:
+- Input: `strategy_description` (STRING, 10-500 characters)
+- Output: `SeasonParameters` object with all 5 parameters + extraction_reasoning + confidence_score
+- Response time: <5 seconds (includes LLM API call)
+
+**FR-11.5:** System shall coordinate sequential agent execution through AgentHandoffManager with:
+- Agent registration by name and handler function (callable validation)
+- `call_agent(name, context, timeout)` method for single agent execution
+- `handoff_chain(agents[], context)` method for sequential execution where result from Agent N becomes context for Agent N+1
+- Timeout enforcement (default: 30 seconds per agent, configurable)
+- Execution logging capturing: agent_name, start_time, duration_seconds, status (success/timeout/failed)
+
+**FR-11.6:** System shall assemble context packages for each agent containing:
+- **Demand Agent Context:**
+  - `parameters` (SeasonParameters): Extracted season parameters
+  - `historical_data` (DataFrame): Historical sales with columns [date, category_id, units_sold]
+  - `stores_data` (DataFrame): Store attributes with 7 features
+  - `category_id` (STRING): Category identifier
+- **Inventory Agent Context:**
+  - `parameters` (SeasonParameters): Forwarded from Demand Agent
+  - `forecast_result` (DICT): Demand Agent's forecast output
+  - `stores_data` (DataFrame): Forwarded from Demand Agent
+- **Pricing Agent Context:**
+  - `parameters` (SeasonParameters): Forwarded from previous agents
+  - `forecast_result` (DICT): Demand Agent's output
+  - `inventory_plan` (DICT): Inventory Agent's output
+  - `actuals_data` (DataFrame): Optional actual sales to date
+
+**FR-11.7:** System shall load historical data from Phase 1 CSV files:
+- File path: Configurable via DATA_DIR environment variable
+- Required columns: date, store_id, category_id, units_sold
+- Validation: Minimum 52 weeks (1 year) of data required for Prophet forecasting
+- Caching: Data cached after first load to avoid repeated file reads
+
+**FR-11.8:** System shall complete context assembly in <2 seconds:
+- Historical data loading: <1 second (with caching)
+- Store data loading: <500ms (with caching)
+- Context object validation: <500ms
+
+---
+
 ## 6. Non-Functional Requirements
 
 ### 6.1 Performance

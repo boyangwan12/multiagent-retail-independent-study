@@ -94,6 +94,39 @@ GET /api/v1/historical-sales/{store_id}/{category_id}  # Sales by store + catego
 
 ## 🧪 Testing
 
+### Phase 4 Integration Tests (NEW)
+
+**Integration Test Suite** for all API endpoints:
+
+```bash
+# Run all integration tests
+python -m pytest tests/integration/ -v
+
+# Run with coverage
+python -m pytest tests/integration/ --cov=app --cov-report=html --cov-report=term
+
+# Run specific test file
+python -m pytest tests/integration/test_parameters.py -v
+python -m pytest tests/integration/test_uploads.py -v
+```
+
+**Test Coverage (Phase 4):**
+- 28 integration tests created
+- 23 passed (82%), 3 failed, 2 skipped
+- 63% overall code coverage
+- Coverage report: `htmlcov/index.html`
+
+**Integration Test Files:**
+- `test_parameters.py` - Parameter extraction tests (5 tests)
+- `test_workflows.py` - Workflow management tests (4 tests)
+- `test_forecasts.py` - Forecast endpoint tests (3 tests)
+- `test_clusters.py` - Cluster endpoint tests (2 tests)
+- `test_variance.py` - Variance analysis tests (2 tests)
+- `test_allocations.py` - Allocation tests (2 tests)
+- `test_markdowns.py` - Markdown tests (2 tests)
+- `test_uploads.py` - CSV upload tests (5 tests)
+- `test_websocket_integration.py` - WebSocket tests (3 tests, 2 skipped)
+
 ### Run all tests:
 ```bash
 python -m pytest
@@ -918,8 +951,62 @@ ls -la backend/app/ml/
 
 ---
 
-**Backend Status:** ✅ Phase 3 Complete (All 14 Stories - Days 1-4)
+## 📡 Phase 4 API Endpoints (NEW)
 
-**Configuration:** OpenAI API (standard, not Azure)
+Phase 4 added comprehensive frontend/backend integration endpoints:
 
-**Next Phase:** Phase 4 - Orchestrator Agent Implementation
+### Workflow Management
+```bash
+POST /api/v1/workflows/forecast         # Create forecast workflow
+GET  /api/v1/workflows/{id}             # Get workflow status (polling, replaces WebSocket)
+GET  /api/v1/workflows/{id}/results     # Get workflow results
+POST /api/v1/workflows/{id}/execute     # Execute forecast workflow
+```
+
+### Forecast & Analysis
+```bash
+GET /api/v1/forecasts/{id}              # Get forecast summary (MAPE, manufacturing order)
+GET /api/v1/stores/clusters             # Get store cluster analysis (A/B/C tiers)
+GET /api/v1/variance/{id}/week/{week}   # Get weekly variance (forecast vs actual)
+GET /api/v1/allocations/{id}            # Get store-level allocations
+GET /api/v1/markdowns/{id}              # Get markdown recommendations (conditional)
+```
+
+### CSV Upload Endpoints (Phase 4)
+```bash
+POST /api/v1/workflows/{id}/demand/upload     # Upload Demand Agent supplementary CSVs
+POST /api/v1/workflows/{id}/inventory/upload  # Upload Inventory Agent supplementary CSVs
+POST /api/v1/workflows/{id}/pricing/upload    # Upload Pricing Agent supplementary CSVs
+```
+
+**Supported CSV Types:**
+- Demand: `sales_data`, `store_profiles`
+- Inventory: `inventory_data`, `capacity_constraints`, `lead_times`
+- Pricing: `pricing_history`, `elasticity_coefficients`, `competitor_pricing`
+
+**CSV Validation:**
+- Max file size: 10MB
+- Extension: `.csv` only
+- Schema validation with detailed error messages
+- Response includes: `validation_status`, `rows_uploaded`, `errors[]`
+
+### Data Upload Endpoints (Phase 4.5)
+```bash
+POST /api/v1/data/upload-weekly-sales          # Upload weekly actuals for variance monitoring
+POST /api/v1/data/upload/historical-sales      # (Pending) Upload historical training data
+POST /api/v1/data/upload/store-attributes      # (Pending) Upload store attributes
+```
+
+**Phase 4.5 Status:**
+- ✅ Weekly actuals upload with variance monitoring (PHASE4.5-002)
+- ⏳ Historical sales upload (PHASE4.5-001) - pending
+- ⏳ Store attributes upload (PHASE4.5-001) - pending
+- ⏳ Database schema migration (PHASE4.5-003) - pending
+
+---
+
+**Backend Status:** ✅ Phase 4 Complete | 🔄 Phase 4.5 In Progress (1/3 stories)
+
+**Configuration:** OpenAI API (gpt-4o-mini for parameter extraction)
+
+**Next Phase:** Complete Phase 4.5, then Phase 5 - Demand Agent Implementation

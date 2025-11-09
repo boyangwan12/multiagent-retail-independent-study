@@ -1,5 +1,6 @@
 import { MetricCard } from './MetricCard';
 import { useForecast } from '@/hooks/useForecast';
+import { useParameters } from '@/contexts/ParametersContext';
 
 /**
  * ForecastSummary Component
@@ -15,6 +16,7 @@ import { useForecast } from '@/hooks/useForecast';
  * - Color-coded status (green: positive, red: negative)
  * - Forecast insight panel with method details
  * - Loading skeleton during data fetch
+ * - Real data integration with backend API
  *
  * @example
  * ```tsx
@@ -25,7 +27,8 @@ import { useForecast } from '@/hooks/useForecast';
  * @see {@link useForecast} for data fetching
  */
 export function ForecastSummary() {
-  const { data: forecast, isLoading } = useForecast('FORECAST_SPRING_2025');
+  const { forecastId } = useParameters();
+  const { data: forecast, isLoading, error } = useForecast(forecastId);
 
   if (isLoading) {
     return (
@@ -42,8 +45,29 @@ export function ForecastSummary() {
     );
   }
 
-  if (!forecast) {
-    return null;
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="p-4 bg-error/10 border border-error/20 rounded-lg">
+          <p className="text-error font-medium">Failed to load forecast data</p>
+          <p className="text-sm text-text-secondary mt-1">
+            {error instanceof Error ? error.message : 'An error occurred'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!forecast || !forecastId) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="p-4 bg-muted/50 border border-border rounded-lg">
+          <p className="text-text-secondary">
+            No forecast data available. Please complete the workflow first.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Calculate metrics from forecast data
@@ -75,7 +99,7 @@ export function ForecastSummary() {
           Section 2: Forecast Summary
         </h2>
         <p className="text-text-secondary">
-          Key metrics for the {forecast.season} season ({forecast.weekly_demand_curve.length} weeks)
+          Key metrics for {forecast.category_name} ({forecast.weekly_demand_curve?.length || 0} weeks forecast)
         </p>
       </div>
 
@@ -118,10 +142,17 @@ export function ForecastSummary() {
               Forecast Insight
             </h4>
             <p className="text-sm text-text-secondary">
-              Using {forecast.forecasting_method} ensemble method. Prophet forecasts{' '}
-              {forecast.prophet_forecast.toLocaleString()} units, ARIMA forecasts{' '}
-              {forecast.arima_forecast.toLocaleString()} units. Peak demand expected in
-              week {forecast.peak_week}.
+              Using {forecast.forecasting_method || 'ensemble'} method.
+              {forecast.prophet_forecast && forecast.arima_forecast && (
+                <> Prophet forecasts {forecast.prophet_forecast.toLocaleString()} units,
+                ARIMA forecasts {forecast.arima_forecast.toLocaleString()} units.</>
+              )}
+              {forecast.peak_week && <> Peak demand expected in week {forecast.peak_week}.</>}
+              {forecast.adaptation_reasoning && (
+                <span className="block mt-2 text-xs italic">
+                  {forecast.adaptation_reasoning}
+                </span>
+              )}
             </p>
           </div>
         </div>

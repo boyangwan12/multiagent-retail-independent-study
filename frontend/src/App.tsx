@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
+import { useState } from 'react';
+import { Upload } from 'lucide-react';
 import { ParameterGathering } from './components/ParameterGathering';
 import { AgentWorkflow } from './components/AgentWorkflow';
 import { ForecastSummary } from './components/ForecastSummary';
@@ -12,9 +14,12 @@ import { SectionHeader } from './components/Layout/SectionHeader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useParameters } from './contexts/ParametersContext';
 import { ReportPage } from './pages/ReportPage';
+import { UploadModal } from './components/UploadModal';
+import { Button } from './components/ui/button';
 
 function Dashboard() {
-  const { parameters } = useParameters();
+  const { parameters, workflowId } = useParameters();
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   // Parameters gathering page (no sidebar)
   if (!parameters) {
@@ -85,9 +90,25 @@ function Dashboard() {
           icon="🤖"
         />
         <ErrorBoundary>
-          <AgentWorkflow />
+          <AgentWorkflow workflowId={workflowId} />
         </ErrorBoundary>
       </section>
+
+      {/* Upload Data Button (only visible when workflowId exists) */}
+      {workflowId && (
+        <div className="flex justify-center mb-12">
+          <Button
+            onClick={() => setUploadModalOpen(true)}
+            variant="outline"
+            size="lg"
+            className="gap-2"
+            aria-label="Upload CSV data files for agents"
+          >
+            <Upload className="w-5 h-5" />
+            Upload CSV Data (Optional)
+          </Button>
+        </div>
+      )}
 
       {/* Section 2: Forecast Summary */}
       <section id="forecast" className="mb-12">
@@ -166,6 +187,12 @@ function Dashboard() {
           <PerformanceMetrics />
         </ErrorBoundary>
       </section>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+      />
     </AppLayout>
   );
 }

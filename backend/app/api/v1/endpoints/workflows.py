@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database.db import get_db
 from app.schemas.workflow_schemas import (
@@ -201,3 +201,90 @@ async def get_workflow_results(
     except Exception as e:
         logger.error(f"Failed to get workflow results: {e}")
         raise HTTPException(status_code=500, detail=f"Results retrieval failed: {str(e)}")
+
+
+def _run_workflow_background(workflow_id: str):
+    """Background task to run workflow execution (sync wrapper for async function)."""
+    import asyncio
+    from app.services.mock_orchestrator_service import MockOrchestratorService
+    from app.database.db import SessionLocal
+
+    print(f"[DEBUG] Background task started for workflow: {workflow_id}", flush=True)
+
+    # Create new database session for background task
+    db = SessionLocal()
+    try:
+        mock_orchestrator = MockOrchestratorService(db)
+
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(mock_orchestrator.execute_workflow(workflow_id))
+            print(f"[DEBUG] Workflow execution completed successfully", flush=True)
+            logger.info(f"Background workflow execution completed: {workflow_id}")
+        finally:
+            loop.close()
+
+    except Exception as e:
+        print(f"[DEBUG] Workflow execution failed: {e}", flush=True)
+        logger.error(f"Background workflow execution failed: {e}", exc_info=True)
+    finally:
+        db.close()
+        print(f"[DEBUG] Background task finished", flush=True)
+
+
+@router.post("/{workflow_id}/execute", response_model=WorkflowStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+async def execute_workflow(
+    workflow_id: str,
+    background_tasks: BackgroundTasks,
+    service: WorkflowService = Depends(get_workflow_service),
+    db: Session = Depends(get_db)
+):
+    """
+    Execute a workflow (trigger agents to run).
+
+    **Phase 4:** Runs mock agents with fake data and delays
+    **Phase 8:** Will run real OpenAI Agent SDK orchestration
+
+    **Use Case:**
+    - User clicks "Run Forecast" button to start agent execution
+    - Workflow must be in "pending" status
+    - Returns updated workflow status immediately (202 Accepted)
+    - Workflow execution continues in background
+    - WebSocket provides real-time progress updates
+
+    **Example Response:**
+    ```json
+    {
+      "workflow_id": "wf_abc123",
+      "workflow_type": "forecast",
+      "status": "running",
+      "current_agent": "Demand Agent",
+      "progress_pct": 0,
+      "started_at": "2025-10-12T10:30:00Z",
+      "updated_at": "2025-10-12T10:30:00Z",
+      "completed_at": null,
+      "error_message": null
+    }
+    ```
+    """
+    try:
+        logger.info(f"Execute workflow requested: {workflow_id}")
+
+        # Verify workflow exists and is in pending status
+        workflow_status = service.get_workflow_status(workflow_id)
+
+        # Add workflow execution to background tasks
+        background_tasks.add_task(_run_workflow_background, workflow_id)
+
+        logger.info(f"Workflow execution scheduled in background: {workflow_id}")
+
+        # Return current status (will be updated by background task)
+        return workflow_status
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to execute workflow: {e}")
+        raise HTTPException(status_code=500, detail=f"Workflow execution failed: {str(e)}")

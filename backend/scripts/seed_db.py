@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.config import settings
 from app.database.db import Base, engine, SessionLocal
-from app.models import Store, Category, HistoricalSales, StoreCluster
+from app.database.models import Store, Category, HistoricalSales, StoreCluster
 from app.utils.csv_parser import (
     validate_store_attributes_csv,
     validate_historical_sales_csv,

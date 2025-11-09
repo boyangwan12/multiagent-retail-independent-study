@@ -1,24 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { mockFetch } from '@/lib/mock-api';
-import clustersData from '@/mocks/clusters.json';
-import storesData from '@/mocks/stores.json';
-import type { Store, StoreCluster } from '@/types';
-import { transformStoresToClusters } from '@/utils/clusterUtils';
+import { ForecastService } from '@/services/forecast-service';
+import { useParameters } from '@/contexts/ParametersContext';
 
 export function useClustersWithStores() {
+  const { workflowComplete } = useParameters();
+
   return useQuery({
     queryKey: ['clustersWithStores'],
     queryFn: async () => {
-      // Simulate API delay
-      await mockFetch(null, 800);
-
-      const stores = storesData as Store[];
-      const clusters = clustersData as StoreCluster[];
-
-      // Transform stores into cluster groups with forecast details
-      const clustersWithStores = transformStoresToClusters(stores, clusters);
-
-      return clustersWithStores;
+      return ForecastService.getClusters();
     },
+    enabled: workflowComplete, // Only fetch after workflow completes
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

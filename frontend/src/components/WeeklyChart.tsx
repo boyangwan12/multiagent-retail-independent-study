@@ -17,9 +17,9 @@ import { useParameters } from '@/contexts/ParametersContext';
 import { CustomTooltip } from './CustomTooltip';
 
 export function WeeklyChart() {
-  const { parameters } = useParameters();
+  const { parameters, forecastId } = useParameters();
   const { data: forecast, isLoading, error } = useForecast(
-    parameters ? 'FORECAST_SPRING_2025' : undefined
+    parameters && forecastId ? forecastId : undefined
   );
   const [reforecastTriggered, setReforecastTriggered] = useState(false);
 

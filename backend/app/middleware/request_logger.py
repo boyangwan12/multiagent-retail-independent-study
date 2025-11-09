@@ -10,6 +10,10 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
     """Log all HTTP requests with timing and status code"""
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Skip WebSocket connections (BaseHTTPMiddleware doesn't support them)
+        if request.scope.get("type") == "websocket":
+            return await call_next(request)
+
         # Skip logging for health check (reduces noise)
         if request.url.path == "/api/v1/health":
             return await call_next(request)

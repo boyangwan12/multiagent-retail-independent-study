@@ -5,10 +5,11 @@ All SQLAlchemy ORM models in one place for better maintainability.
 import enum
 from sqlalchemy import (
     Column, String, Integer, Float, JSON, DateTime, Date, Text,
-    ForeignKey, Enum, CheckConstraint, Index
+    ForeignKey, Enum, CheckConstraint, Index, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from datetime import datetime
 from app.database.db import Base
 
 
@@ -243,6 +244,40 @@ class ActualSales(Base):
     )
 
 
+class WeeklyActuals(Base):
+    """Weekly actual sales data for variance monitoring."""
+
+    __tablename__ = "weekly_actuals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    workflow_id = Column(String(50), ForeignKey("workflows.workflow_id", ondelete="CASCADE"), nullable=False)
+    week_number = Column(Integer, nullable=False)
+    week_start_date = Column(Date, nullable=False)
+    week_end_date = Column(Date, nullable=False)
+    store_id = Column(String(50), ForeignKey("stores.store_id", ondelete="CASCADE"), nullable=False)
+    category_id = Column(String(50), ForeignKey("categories.category_id", ondelete="CASCADE"), nullable=False)
+    actual_units_sold = Column(Integer, nullable=False)
+    forecast_units_sold = Column(Integer, nullable=True)
+    variance_pct = Column(Float, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    workflow = relationship("Workflow", back_populates="weekly_actuals")
+    store = relationship("Store")
+    category = relationship("Category")
+
+    # Constraints and Indexes
+    __table_args__ = (
+        UniqueConstraint('workflow_id', 'week_number', 'store_id', name='unique_workflow_week_store'),
+        Index('idx_weekly_actuals_workflow', 'workflow_id', 'week_number'),
+        Index('idx_weekly_actuals_store', 'store_id'),
+        Index('idx_weekly_actuals_date', 'week_start_date'),
+    )
+
+    def __repr__(self):
+        return f"<WeeklyActuals(workflow={self.workflow_id}, week={self.week_number}, store={self.store_id}, actual={self.actual_units_sold})>"
+
+
 # ============================================================================
 # Workflow Models
 # ============================================================================
@@ -301,6 +336,9 @@ class Workflow(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Relationships
+    weekly_actuals = relationship("WeeklyActuals", back_populates="workflow", cascade="all, delete-orphan")
+
 
 class WorkflowLog(Base):
     __tablename__ = "workflow_logs"
@@ -342,6 +380,7 @@ __all__ = [
     # Sales data
     "HistoricalSales",
     "ActualSales",
+    "WeeklyActuals",
     # Workflow models
     "SeasonParameters",
     "Workflow",
