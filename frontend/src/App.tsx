@@ -5,7 +5,7 @@ import { ParameterGathering } from './components/ParameterGathering';
 import { AgentWorkflow } from './components/AgentWorkflow';
 import { ForecastSummary } from './components/ForecastSummary';
 import { ClusterCards } from './components/ClusterCards';
-import { WeeklyChart } from './components/WeeklyChart';
+import { WeeklyPerformanceChart } from './components/WeeklyPerformanceChart';
 import { ReplenishmentQueue } from './components/ReplenishmentQueue';
 import { MarkdownDecision } from './components/MarkdownDecision';
 import { PerformanceMetrics } from './components/PerformanceMetrics';
@@ -145,7 +145,7 @@ function Dashboard() {
           icon="📈"
         />
         <ErrorBoundary>
-          <WeeklyChart />
+          <WeeklyPerformanceChart />
         </ErrorBoundary>
       </section>
 

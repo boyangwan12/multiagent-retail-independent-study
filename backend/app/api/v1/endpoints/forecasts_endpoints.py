@@ -25,7 +25,7 @@ async def list_forecasts(
         {
             "forecast_id": f.forecast_id,
             "category_name": f.category_id,
-            "season": f"{f.season_start_date}",
+            "season": f.season,
             "total_season_demand": f.total_season_demand,
             "created_at": f.created_at.isoformat() if f.created_at else None
         }
@@ -50,10 +50,13 @@ async def get_forecast(
     return {
         "forecast_id": forecast.forecast_id,
         "category_id": forecast.category_id,
+        "season": forecast.season,
+        "forecast_horizon_weeks": forecast.forecast_horizon_weeks,
         "total_season_demand": forecast.total_season_demand,
         "weekly_demand_curve": forecast.weekly_demand_curve or [],
-        "cluster_distribution": forecast.cluster_distribution or [],
+        "peak_week": forecast.peak_week,
         "forecasting_method": forecast.forecasting_method or "ensemble",
+        "models_used": forecast.models_used or [],
         "prophet_forecast": forecast.prophet_forecast,
         "arima_forecast": forecast.arima_forecast,
         "created_at": forecast.created_at.isoformat() if forecast.created_at else None

@@ -6,8 +6,8 @@
  */
 
 // Get environment variables (Vite exposes these as import.meta.env)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
 
 /**
  * API Base URLs
@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
     create: () => `${API_BASE}/workflows`,
     getById: (id: string) => `${API_BASE}/workflows/${id}`,
     getStatus: (id: string) => `${API_BASE}/workflows/${id}/status`,
+    getResults: (id: string) => `${API_BASE}/workflows/${id}/results`,
     execute: (id: string) => `${API_BASE}/workflows/${id}/execute`,
     cancel: (id: string) => `${API_BASE}/workflows/${id}/cancel`,
     // WebSocket endpoint for real-time updates

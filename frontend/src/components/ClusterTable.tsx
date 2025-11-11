@@ -61,7 +61,7 @@ export function ClusterTable({ stores }: ClusterTableProps) {
       header: 'Forecast',
       cell: ({ row }) => (
         <span className="font-medium text-text-primary">
-          {row.original.forecast_units.toLocaleString()} units
+          {row.original.forecast_units?.toLocaleString() ?? 'N/A'} units
         </span>
       ),
     },
@@ -178,37 +178,41 @@ export function ClusterTable({ stores }: ClusterTableProps) {
                         <div>
                           <span className="text-text-secondary">Size: </span>
                           <span className="text-text-primary font-medium">
-                            {row.original.size_sqft.toLocaleString()} sq ft
+                            {row.original.size_sqft?.toLocaleString() ?? 'N/A'} sq ft
                           </span>
                         </div>
                         <div>
                           <span className="text-text-secondary">Size Tier: </span>
                           <span className="text-text-primary font-medium">
-                            {row.original.size_tier}
+                            {row.original.size_tier ?? 'N/A'}
                           </span>
                         </div>
                         <div>
                           <span className="text-text-secondary">Income Level: </span>
                           <span className="text-text-primary font-medium">
-                            ${(row.original.income_level / 1000).toFixed(0)}K
+                            {row.original.income_level
+                              ? `$${(row.original.income_level / 1000).toFixed(0)}K`
+                              : 'N/A'}
                           </span>
                         </div>
                         <div>
                           <span className="text-text-secondary">Foot Traffic: </span>
                           <span className="text-text-primary font-medium">
-                            {row.original.foot_traffic.toLocaleString()}/day
+                            {row.original.foot_traffic?.toLocaleString() ?? 'N/A'}/day
                           </span>
                         </div>
                         <div>
                           <span className="text-text-secondary">Location Type: </span>
                           <span className="text-text-primary font-medium">
-                            {row.original.mall_location ? 'Mall' : 'Standalone'}
+                            {row.original.mall_location !== undefined
+                              ? (row.original.mall_location ? 'Mall' : 'Standalone')
+                              : 'N/A'}
                           </span>
                         </div>
                         <div>
                           <span className="text-text-secondary">Store ID: </span>
                           <span className="text-text-primary font-medium">
-                            {row.original.store_id}
+                            {row.original.store_id ?? 'N/A'}
                           </span>
                         </div>
                       </div>

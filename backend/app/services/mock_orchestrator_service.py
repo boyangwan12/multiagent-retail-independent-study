@@ -4,8 +4,9 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any
+import uuid
 from sqlalchemy.orm import Session
-from app.database.models import Workflow, WorkflowStatus
+from app.database.models import Workflow, WorkflowStatus, Forecast, Allocation, Markdown
 from app.orchestrator.agent_handoff import AgentHandoffManager
 from app.schemas.workflow_schemas import SeasonParameters
 
@@ -97,12 +98,25 @@ class MockOrchestratorService:
                 "pricing": pricing_result
             }
 
+            # Persist results to database tables
+            print(f"[PERSIST] About to call persistence methods for workflow {workflow_id}", flush=True)
+            self._persist_forecast_data(workflow, demand_result)
+            print(f"[PERSIST] Called _persist_forecast_data", flush=True)
+            self._persist_allocation_data(workflow, demand_result, inventory_result)
+            print(f"[PERSIST] Called _persist_allocation_data", flush=True)
+            self._persist_markdown_data(workflow, pricing_result)
+            print(f"[PERSIST] Called _persist_markdown_data", flush=True)
+
             # Mark workflow as complete
             workflow.status = WorkflowStatus.completed
             workflow.progress_pct = 100
             workflow.completed_at = datetime.utcnow()
             workflow.current_agent = None
             workflow.output_data = final_results
+
+            # Extract forecast_id from demand agent result
+            workflow.forecast_id = final_results.get("demand", {}).get("forecast_id")
+
             self.db.commit()
 
             logger.info(f"[ORCHESTRATOR] Workflow execution completed: {workflow_id}")
@@ -430,3 +444,108 @@ class MockOrchestratorService:
             },
             "message": "Mock markdown strategy generated for Phase 4 testing"
         }
+
+    def _persist_forecast_data(self, workflow: Workflow, demand_result: Dict[str, Any]):
+        """Save forecast data to database."""
+        logger.info(f"[PERSIST] Starting forecast persistence for workflow {workflow.workflow_id}")
+        forecast_id = demand_result.get("forecast_id")
+        logger.info(f"[PERSIST] Forecast ID: {forecast_id}")
+
+        # Check if forecast already exists
+        existing = self.db.query(Forecast).filter(Forecast.forecast_id == forecast_id).first()
+        if existing:
+            logger.info(f"Forecast {forecast_id} already exists, skipping")
+            return
+
+        # Build weekly_demand_curve in the expected format
+        weekly_curve = demand_result.get("weekly_curve", [])
+        weekly_demand_curve = [
+            {"week_number": i+1, "demand_units": units}
+            for i, units in enumerate(weekly_curve)
+        ]
+
+        forecast = Forecast(
+            forecast_id=forecast_id,
+            category_id=workflow.category_id,
+            season="Spring 2025",  # Mock data
+            forecast_horizon_weeks=workflow.forecast_horizon_weeks or 12,
+            total_season_demand=demand_result.get("total_forecast", 0),
+            weekly_demand_curve=weekly_demand_curve,
+            peak_week=4,  # Mock data
+            forecasting_method="ensemble_prophet_arima",
+            models_used=["prophet", "arima"],
+            prophet_forecast=demand_result.get("total_forecast", 0),
+            arima_forecast=demand_result.get("total_forecast", 0)
+        )
+
+        self.db.add(forecast)
+        self.db.flush()
+        logger.info(f"Persisted forecast {forecast_id} to database")
+
+    def _persist_allocation_data(self, workflow: Workflow, demand_result: Dict[str, Any], inventory_result: Dict[str, Any]):
+        """Save allocation data to database."""
+        logger.info(f"[PERSIST] Starting allocation persistence for workflow {workflow.workflow_id}")
+        forecast_id = demand_result.get("forecast_id")
+        allocation_id = f"a_{workflow.workflow_id}"
+        logger.info(f"[PERSIST] Allocation ID: {allocation_id}, Forecast ID: {forecast_id}")
+
+        # Check if allocation already exists
+        existing = self.db.query(Allocation).filter(Allocation.allocation_id == allocation_id).first()
+        if existing:
+            logger.info(f"Allocation {allocation_id} already exists, skipping")
+            return
+
+        total_units = inventory_result.get("total_units", 0)
+        dc_holdback = inventory_result.get("dc_holdback", {})
+
+        allocation = Allocation(
+            allocation_id=allocation_id,
+            forecast_id=forecast_id,
+            manufacturing_qty=total_units,
+            safety_stock_percentage=0.20,  # Mock data
+            initial_allocation_total=total_units - dc_holdback.get("units", 0),
+            holdback_total=dc_holdback.get("units", 0),
+            store_allocations=[]  # Will be populated later
+        )
+
+        self.db.add(allocation)
+        self.db.flush()
+        logger.info(f"Persisted allocation {allocation_id} to database")
+
+    def _persist_markdown_data(self, workflow: Workflow, pricing_result: Dict[str, Any]):
+        """Save markdown data to database."""
+        logger.info(f"[PERSIST] Starting markdown persistence for workflow {workflow.workflow_id}")
+        forecast_id = f"f_{workflow.workflow_id}"
+        markdown_id = f"m_{workflow.workflow_id}"
+        logger.info(f"[PERSIST] Markdown ID: {markdown_id}, Forecast ID: {forecast_id}")
+
+        # Check if markdown already exists
+        existing = self.db.query(Markdown).filter(Markdown.markdown_id == markdown_id).first()
+        if existing:
+            logger.info(f"Markdown {markdown_id} already exists, skipping")
+            return
+
+        summary = pricing_result.get("summary", {})
+
+        # Calculate fields for markdown record
+        target_sell_through_pct = 0.60  # Target 60% sell-through
+        sell_through_pct = summary.get("expected_sellthrough_pct", 95) / 100.0  # Convert % to decimal
+        gap_pct = target_sell_through_pct - sell_through_pct  # Gap between target and actual
+
+        markdown = Markdown(
+            markdown_id=markdown_id,
+            forecast_id=forecast_id,
+            week_number=workflow.markdown_checkpoint_week or 6,
+            sell_through_pct=sell_through_pct,
+            target_sell_through_pct=target_sell_through_pct,
+            gap_pct=gap_pct,
+            recommended_markdown_pct=0.10,  # Mock data
+            elasticity_coefficient=2.0,
+            expected_demand_lift_pct=0.10 * 1.5,  # markdown_pct * elasticity factor
+            reasoning="Mock markdown strategy",
+            status="pending"
+        )
+
+        self.db.add(markdown)
+        self.db.flush()
+        logger.info(f"Persisted markdown {markdown_id} to database")

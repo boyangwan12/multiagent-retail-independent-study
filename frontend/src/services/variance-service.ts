@@ -13,9 +13,10 @@ export class VarianceService {
     forecastId: string,
     weekNumber: number
   ): Promise<WeeklyVariance> {
-    return apiClient.get<WeeklyVariance>(
+    const response = await apiClient.get<WeeklyVariance>(
       API_ENDPOINTS.variance.getByWeek(forecastId, weekNumber)
     );
+    return response.data;
   }
 
   /**
@@ -26,9 +27,11 @@ export class VarianceService {
    */
   static async getAllWeeks(forecastId: string, totalWeeks: number): Promise<WeeklyVariance[]> {
     const promises = Array.from({ length: totalWeeks }, (_, i) =>
-      this.getWeeklyVariance(forecastId, i + 1)
+      this.getWeeklyVariance(forecastId, i + 1).catch(() => null)
     );
-    return Promise.all(promises);
+    const results = await Promise.all(promises);
+    // Filter out null values (weeks without data)
+    return results.filter((week): week is WeeklyVariance => week !== null);
   }
 
   /**

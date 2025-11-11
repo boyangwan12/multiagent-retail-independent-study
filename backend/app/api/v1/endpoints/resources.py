@@ -8,7 +8,9 @@ from io import StringIO
 import logging
 
 from app.database.db import get_db
-from app.database.models import Category, Store, Allocation, Markdown
+from app.database.models import Category, Store, Allocation, Markdown, ActualSales, Forecast, Workflow
+from datetime import datetime
+import uuid
 from app.services.variance_check import check_variance_and_trigger_reforecast
 
 logger = logging.getLogger(__name__)
@@ -228,34 +230,144 @@ async def upload_weekly_sales(
     forecast_id: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    """Upload weekly actual sales and check variance."""
+    """Upload weekly actual sales (daily data) and check variance.
+
+    Accepts CSV with daily sales data:
+    - Columns: date, store_id, quantity_sold
+    - Date format: YYYY-MM-DD
+    - Expected: ~350 rows (50 stores × 7 days)
+
+    Automatically:
+    - Calculates week_number from dates
+    - Aggregates daily → weekly totals per store
+    - Stores in ActualSales table
+    - Calculates variance and triggers re-forecast if >20%
+    """
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=422, detail="File must be CSV")
 
     try:
+        # Read CSV file
         contents = await file.read()
         df = pd.read_csv(StringIO(contents.decode('utf-8')))
 
-        required_columns = ['store_id', 'week_number', 'units_sold']
+        # Validate columns
+        required_columns = ['date', 'store_id', 'quantity_sold']
         missing = [col for col in required_columns if col not in df.columns]
 
         if missing:
-            raise HTTPException(status_code=422, detail=f"Missing columns: {missing}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Missing columns: {missing}. Expected: date, store_id, quantity_sold"
+            )
 
-        max_week = int(df['week_number'].max())
+        # Get forecast to find associated workflow
+        forecast = db.query(Forecast).filter(Forecast.forecast_id == forecast_id).first()
+        if not forecast:
+            raise HTTPException(status_code=404, detail="Forecast not found")
 
+        # Get workflow to extract season_start_date
+        workflow = db.query(Workflow).filter(Workflow.forecast_id == forecast_id).first()
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found for this forecast")
+
+        # Parse season start date
+        season_start = datetime.strptime(workflow.season_start_date, '%Y-%m-%d').date()
+
+        # Parse dates in CSV
+        df['date'] = pd.to_datetime(df['date']).dt.date
+
+        # Calculate week_number for each row
+        # Week 1 starts on season_start_date
+        def calculate_week_number(date):
+            days_diff = (date - season_start).days
+            week_num = (days_diff // 7) + 1
+            return max(1, min(week_num, 12))  # Clamp to 1-12
+
+        df['week_number'] = df['date'].apply(calculate_week_number)
+
+        # Validate date range
+        if df['week_number'].max() > 12 or df['week_number'].min() < 1:
+            logger.warning(f"Week numbers outside valid range: {df['week_number'].min()}-{df['week_number'].max()}")
+
+        # Aggregate daily data to weekly totals per store
+        weekly_aggregated = df.groupby(['store_id', 'week_number'], as_index=False).agg({
+            'quantity_sold': 'sum'
+        })
+
+        # Insert/Update ActualSales records
+        inserted_count = 0
+        for _, row in weekly_aggregated.iterrows():
+            store_id = row['store_id']
+            week_num = int(row['week_number'])
+            units = int(row['quantity_sold'])
+
+            # Check if record already exists
+            existing = db.query(ActualSales).filter(
+                ActualSales.forecast_id == forecast_id,
+                ActualSales.store_id == store_id,
+                ActualSales.week_number == week_num
+            ).first()
+
+            if existing:
+                # Update existing record
+                existing.units_sold = units
+                logger.info(f"Updated ActualSales: {store_id} Week {week_num} = {units} units")
+            else:
+                # Insert new record
+                actual_sale = ActualSales(
+                    actual_id=str(uuid.uuid4()),
+                    forecast_id=forecast_id,
+                    store_id=store_id,
+                    week_number=week_num,
+                    units_sold=units
+                )
+                db.add(actual_sale)
+                inserted_count += 1
+                logger.info(f"Inserted ActualSales: {store_id} Week {week_num} = {units} units")
+
+        db.commit()
+
+        # Get the week that was uploaded (max week in the data)
+        uploaded_week = int(weekly_aggregated['week_number'].max())
+
+        # Check variance and trigger re-forecast if needed
         variance_result = check_variance_and_trigger_reforecast(
             db=db,
             forecast_id=forecast_id,
-            week_number=max_week
+            week_number=uploaded_week
         )
+
+        # Map variance to status labels for frontend
+        variance_pct = variance_result.get('variance_pct', 0.0)
+
+        if variance_pct <= 0.10:
+            variance_status = 'NORMAL'
+            variance_color = '#10b981'  # Green
+        elif variance_pct <= 0.20:
+            variance_status = 'ELEVATED'
+            variance_color = '#f59e0b'  # Amber
+        else:
+            variance_status = 'HIGH'
+            variance_color = '#ef4444'  # Red
 
         return {
             "rows_imported": len(df),
-            "week_number": max_week,
-            "variance_check": variance_result
+            "week_number": uploaded_week,
+            "variance_check": {
+                "variance_pct": variance_pct,
+                "variance_status": variance_status,
+                "variance_color": variance_color,
+                "reforecast_triggered": variance_result.get('reforecast_triggered', False),
+                "message": (
+                    f"Variance exceeds 20% threshold ({variance_pct*100:.1f}%). "
+                    "Re-forecasting remaining weeks..."
+                ) if variance_result.get('reforecast_triggered') else None
+            }
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error uploading: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error uploading weekly actuals: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

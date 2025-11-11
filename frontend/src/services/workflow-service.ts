@@ -72,7 +72,7 @@ export class WorkflowService {
 
   static async getWorkflowResults(workflowId: string): Promise<WorkflowResultsResponse> {
     const response = await apiClient.get<WorkflowResultsResponse>(
-      API_ENDPOINTS.workflows.getById(workflowId)
+      API_ENDPOINTS.workflows.getResults(workflowId)
     );
     return response.data;
   }

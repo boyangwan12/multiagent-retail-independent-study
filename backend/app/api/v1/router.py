@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, parameters, workflows, approvals, forecasts_endpoints, resources, uploads, data_uploads
+from app.api.v1.endpoints import health, parameters, workflows, approvals, forecasts_endpoints, resources, uploads, data_uploads, variance_endpoints
 
 api_router = APIRouter()
 
@@ -26,6 +26,9 @@ api_router.include_router(forecasts_endpoints.router)
 
 # Include data management endpoints (allocations, markdowns, categories, stores, uploads)
 api_router.include_router(resources.router)
+
+# Include variance tracking endpoints
+api_router.include_router(variance_endpoints.router)
 
 # Future routers will be added here:
 # etc.
