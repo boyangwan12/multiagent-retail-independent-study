@@ -74,14 +74,14 @@ So that the system produces more accurate forecasts than either model alone (tar
 **Goal:** Define ensemble class structure
 
 **Subtasks:**
-- [ ] Create file: `backend/app/ml/ensemble_forecaster.py`
-- [ ] Define `EnsembleForecaster` class
-- [ ] Add `__init__(self, prophet_wrapper, arima_wrapper, weights=None)` method
-- [ ] Add `train(self, historical_data: pd.DataFrame) -> None` method stub
-- [ ] Add `forecast(self, periods: int) -> dict` method stub
-- [ ] Add `_calculate_dynamic_weights(self, validation_data) -> tuple` method stub
-- [ ] Add `_weighted_average(self, prophet_pred, arima_pred, weights) -> list` method stub
-- [ ] Add type hints and docstrings
+- [x] Create file: `backend/app/ml/ensemble_forecaster.py`
+- [x] Define `EnsembleForecaster` class
+- [x] Add `__init__(self, prophet_wrapper, arima_wrapper, weights=None)` method
+- [x] Add `train(self, historical_data: pd.DataFrame) -> None` method stub
+- [x] Add `forecast(self, periods: int) -> dict` method stub
+- [x] Add `_calculate_dynamic_weights(self, validation_data) -> tuple` method stub
+- [x] Add `_weighted_average(self, prophet_pred, arima_pred, weights) -> list` method stub
+- [x] Add type hints and docstrings
 
 **Code Template:**
 ```python
@@ -148,7 +148,7 @@ class EnsembleForecaster:
 **Goal:** Train both models with fallback handling
 
 **Subtasks:**
-- [ ] Try to train Prophet model
+- [x] Try to train Prophet model
   ```python
   try:
       self.prophet.train(historical_data)
@@ -157,7 +157,7 @@ class EnsembleForecaster:
       logger.warning(f"Prophet training failed: {e}")
       self.prophet = None
   ```
-- [ ] Try to train ARIMA model
+- [x] Try to train ARIMA model
   ```python
   try:
       self.arima.train(historical_data)
@@ -166,10 +166,10 @@ class EnsembleForecaster:
       logger.warning(f"ARIMA training failed: {e}")
       self.arima = None
   ```
-- [ ] Check if at least one model trained
-- [ ] Raise ForecastingError if both failed
-- [ ] Update self.model_used based on which models succeeded
-- [ ] Log final model status
+- [x] Check if at least one model trained
+- [x] Raise ForecastingError if both failed
+- [x] Update self.model_used based on which models succeeded
+- [x] Log final model status
 
 **Acceptance:**
 - Both models train successfully (happy path)
@@ -183,14 +183,14 @@ class EnsembleForecaster:
 **Goal:** Combine two forecasts using weights
 
 **Subtasks:**
-- [ ] Convert lists to numpy arrays
-- [ ] Validate inputs (same length, non-negative)
-- [ ] Calculate weighted average:
+- [x] Convert lists to numpy arrays
+- [x] Validate inputs (same length, non-negative)
+- [x] Calculate weighted average:
   ```python
   ensemble = w1 * np.array(prophet_pred) + w2 * np.array(arima_pred)
   ```
-- [ ] Round to integers (unit quantities)
-- [ ] Return as list
+- [x] Round to integers (unit quantities)
+- [x] Return as list
 
 **Acceptance:**
 - Weighted average calculated correctly
@@ -204,19 +204,19 @@ class EnsembleForecaster:
 **Goal:** Calculate optimal weights based on validation accuracy
 
 **Subtasks:**
-- [ ] Split validation_data: use first part for validation, last 10 weeks for testing
-- [ ] Generate Prophet forecast on validation set
-- [ ] Generate ARIMA forecast on validation set
-- [ ] Calculate MAPE for Prophet: `mape_prophet = calculate_mape(actual, prophet_pred)`
-- [ ] Calculate MAPE for ARIMA: `mape_arima = calculate_mape(actual, arima_pred)`
-- [ ] Calculate inverse weights:
+- [x] Split validation_data: use first part for validation, last 10 weeks for testing
+- [x] Generate Prophet forecast on validation set
+- [x] Generate ARIMA forecast on validation set
+- [x] Calculate MAPE for Prophet: `mape_prophet = calculate_mape(actual, prophet_pred)`
+- [x] Calculate MAPE for ARIMA: `mape_arima = calculate_mape(actual, arima_pred)`
+- [x] Calculate inverse weights:
   ```python
   total_inv_mape = (1/mape_prophet) + (1/mape_arima)
   w_prophet = (1/mape_prophet) / total_inv_mape
   w_arima = (1/mape_arima) / total_inv_mape
   ```
-- [ ] Return (w_prophet, w_arima)
-- [ ] Log calculated weights
+- [x] Return (w_prophet, w_arima)
+- [x] Log calculated weights
 
 **Acceptance:**
 - Weights sum to 1.0
@@ -230,7 +230,7 @@ class EnsembleForecaster:
 **Goal:** Generate ensemble forecast with robustness
 
 **Subtasks:**
-- [ ] Try to generate Prophet forecast
+- [x] Try to generate Prophet forecast
   ```python
   prophet_forecast = None
   if self.prophet:
@@ -239,7 +239,7 @@ class EnsembleForecaster:
       except Exception as e:
           logger.warning(f"Prophet forecast failed: {e}")
   ```
-- [ ] Try to generate ARIMA forecast
+- [x] Try to generate ARIMA forecast
   ```python
   arima_forecast = None
   if self.arima:
@@ -248,7 +248,7 @@ class EnsembleForecaster:
       except Exception as e:
           logger.warning(f"ARIMA forecast failed: {e}")
   ```
-- [ ] Implement fallback logic:
+- [x] Implement fallback logic:
   ```python
   if prophet_forecast and arima_forecast:
       # Ensemble
@@ -277,7 +277,7 @@ class EnsembleForecaster:
   else:
       raise ForecastingError("Both Prophet and ARIMA failed")
   ```
-- [ ] Return forecast dictionary:
+- [x] Return forecast dictionary:
   ```python
   return {
       "predictions": predictions,
@@ -299,19 +299,19 @@ class EnsembleForecaster:
 **Goal:** Verify ensemble behavior in all scenarios
 
 **Subtasks:**
-- [ ] Create file: `backend/tests/integration/test_ensemble_forecaster.py`
-- [ ] **Test 1:** `test_ensemble_with_both_models()`
+- [x] Create file: `backend/tests/integration/test_ensemble_forecaster.py`
+- [x] **Test 1:** `test_ensemble_with_both_models()`
   - Train both models
   - Generate ensemble forecast
   - Assert model_used == "prophet_arima_ensemble"
   - Assert predictions length correct
   - Assert confidence in [0.0, 1.0]
-- [ ] **Test 2:** `test_ensemble_fallback_to_prophet_only()`
+- [x] **Test 2:** `test_ensemble_fallback_to_prophet_only()`
   - Intentionally break ARIMA (pass None)
   - Generate forecast
   - Assert model_used == "prophet"
   - Assert forecast still generated
-- [ ] **Test 3:** `test_ensemble_fallback_to_arima_only()`
+- [x] **Test 3:** `test_ensemble_fallback_to_arima_only()`
   - Intentionally break Prophet (pass None)
   - Generate forecast
   - Assert model_used == "arima"
@@ -328,16 +328,16 @@ class EnsembleForecaster:
 **Goal:** Verify ensemble achieves target accuracy
 
 **Subtasks:**
-- [ ] Load 62 weeks of historical data
-- [ ] Split: 52 weeks train, 10 weeks validation
-- [ ] Train ensemble on 52 weeks
-- [ ] Forecast next 10 weeks
-- [ ] Calculate ensemble MAPE
-- [ ] Calculate Prophet-only MAPE (for comparison)
-- [ ] Calculate ARIMA-only MAPE (for comparison)
-- [ ] Document all three MAPE values
-- [ ] Assert ensemble MAPE < 15%
-- [ ] Assert ensemble MAPE < min(Prophet MAPE, ARIMA MAPE)
+- [x] Load 62 weeks of historical data
+- [x] Split: 52 weeks train, 10 weeks validation
+- [x] Train ensemble on 52 weeks
+- [x] Forecast next 10 weeks
+- [x] Calculate ensemble MAPE
+- [x] Calculate Prophet-only MAPE (for comparison)
+- [x] Calculate ARIMA-only MAPE (for comparison)
+- [x] Document all three MAPE values
+- [x] Assert ensemble MAPE < 15%
+- [x] Assert ensemble MAPE < min(Prophet MAPE, ARIMA MAPE)
 
 **Acceptance:**
 - Ensemble MAPE < 15%
@@ -367,31 +367,31 @@ class EnsembleForecaster:
 ## Definition of Done
 
 **Code Complete:**
-- [ ] EnsembleForecaster class implemented
-- [ ] Weighted averaging logic working
-- [ ] Dynamic weight calculation implemented
-- [ ] Fallback logic complete
-- [ ] Type hints and docstrings complete
+- [x] EnsembleForecaster class implemented
+- [x] Weighted averaging logic working
+- [x] Dynamic weight calculation implemented
+- [x] Fallback logic complete
+- [x] Type hints and docstrings complete
 
 **Testing Complete:**
-- [ ] 3 integration tests passing
-- [ ] Ensemble MAPE < 15% on validation set
-- [ ] Ensemble outperforms individual models
-- [ ] Test coverage >90%
+- [x] 3 integration tests passing
+- [x] Ensemble MAPE < 15% on validation set
+- [x] Ensemble outperforms individual models
+- [x] Test coverage >90%
 
 **Quality Checks:**
-- [ ] Error handling complete
-- [ ] Logging informative (which models used)
-- [ ] Performance <10 seconds
+- [x] Error handling complete
+- [x] Logging informative (which models used)
+- [x] Performance <10 seconds
 
 **Documentation:**
-- [ ] MAPE comparison documented
-- [ ] Weight calculations documented
-- [ ] Fallback behavior documented
+- [x] MAPE comparison documented
+- [x] Weight calculations documented
+- [x] Fallback behavior documented
 
 **Ready for Next Story:**
-- [ ] EnsembleForecaster ready for DemandAgent (Story 4)
-- [ ] All model outputs match expected contract
+- [x] EnsembleForecaster ready for DemandAgent (Story 4)
+- [x] All model outputs match expected contract
 
 ---
 
