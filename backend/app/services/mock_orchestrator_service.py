@@ -5,10 +5,12 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 import uuid
+import pandas as pd
 from sqlalchemy.orm import Session
-from app.database.models import Workflow, WorkflowStatus, Forecast, Allocation, Markdown
+from app.database.models import Workflow, WorkflowStatus, Forecast, Allocation, Markdown, HistoricalSales
 from app.orchestrator.agent_handoff import AgentHandoffManager
 from app.schemas.workflow_schemas import SeasonParameters
+from app.agents.demand_agent import DemandAgent
 
 logger = logging.getLogger("fashion_forecast")
 
@@ -186,11 +188,12 @@ class MockOrchestratorService:
             raise
 
     def _register_agents(self, workflow: Workflow):
-        """Register mock agents with the handoff manager."""
+        """Register agents with the handoff manager - now using REAL Demand Agent (Phase 6)."""
 
         # Create closures that capture workflow context
         async def demand_agent_handler(context):
-            return await self._run_mock_demand_agent(workflow)
+            # Use REAL DemandAgent (Phase 6: Prophet + ARIMA Ensemble)
+            return await self._run_real_demand_agent(workflow)
 
         async def inventory_agent_handler(demand_result):
             return await self._run_mock_inventory_agent(workflow, demand_result)
@@ -322,6 +325,105 @@ class MockOrchestratorService:
             ],
             "message": "Mock forecast generated for Phase 4 testing"
         }
+
+    async def _run_real_demand_agent(self, workflow: Workflow) -> Dict[str, Any]:
+        """
+        REAL Demand Agent - Uses Phase 6 Prophet + ARIMA Ensemble Forecaster.
+
+        Args:
+            workflow: Workflow database model
+
+        Returns:
+            Real demand forecast results from ensemble model
+        """
+        logger.info("[REAL] Demand Agent: Using Prophet + ARIMA Ensemble...")
+
+        try:
+            # Load historical sales data for this category
+            sales_records = (
+                self.db.query(HistoricalSales)
+                .filter_by(category_id=workflow.category_id)
+                .order_by(HistoricalSales.week_start_date)
+                .all()
+            )
+
+            if len(sales_records) < 26:
+                raise ValueError(f"Insufficient historical data: {len(sales_records)} weeks (need 26+)")
+
+            # Convert to DataFrame for ML models
+            historical_data = pd.DataFrame([
+                {
+                    "date": record.week_start_date,
+                    "quantity_sold": record.units_sold
+                }
+                for record in sales_records
+            ])
+
+            logger.info(f"Loaded {len(historical_data)} weeks of historical sales data")
+
+            # Create SeasonParameters from workflow
+            # Calculate season_end_date from start_date + horizon_weeks
+            from datetime import datetime, timedelta
+            start_date = datetime.strptime(workflow.season_start_date, "%Y-%m-%d").date()
+            horizon_weeks = workflow.forecast_horizon_weeks or 12
+            end_date = start_date + timedelta(weeks=horizon_weeks)
+
+            parameters = SeasonParameters(
+                forecast_horizon_weeks=horizon_weeks,
+                season_start_date=start_date,
+                season_end_date=end_date,
+                replenishment_strategy=workflow.replenishment_strategy or "none",
+                dc_holdback_percentage=workflow.dc_holdback_percentage or 0.0,
+                markdown_checkpoint_week=workflow.markdown_checkpoint_week,
+                markdown_threshold=0.60 if workflow.markdown_checkpoint_week else None
+            )
+
+            # Initialize and execute real DemandAgent
+            demand_agent = DemandAgent()
+            forecast_result = await demand_agent.execute(
+                category_id=workflow.category_id,
+                parameters=parameters,
+                historical_data=historical_data
+            )
+
+            logger.info(
+                f"[REAL] Forecast complete: {forecast_result['total_demand']} units, "
+                f"confidence: {forecast_result['confidence']:.2f}, "
+                f"model: {forecast_result['model_used']}"
+            )
+
+            # Success confirmation (bypass Unicode issues)
+            print(f"===============================================", flush=True)
+            print(f"SUCCESS: Real Demand Agent completed!", flush=True)
+            print(f"Total Demand: {forecast_result['total_demand']}", flush=True)
+            print(f"Confidence: {forecast_result['confidence']}", flush=True)
+            print(f"Model Used: {forecast_result['model_used']}", flush=True)
+            print(f"===============================================", flush=True)
+
+            # Return in format expected by orchestrator
+            return {
+                "agent": "demand",
+                "forecast_id": f"f_{workflow.workflow_id}",
+                "category_id": workflow.category_id,
+                "total_forecast": forecast_result["total_demand"],
+                "safety_stock_multiplier": 1.0 + forecast_result["safety_stock_pct"],
+                "weekly_curve": forecast_result["forecast_by_week"],
+                "confidence": forecast_result["confidence"],
+                "model_used": forecast_result["model_used"],
+                "message": f"Real AI forecast using {forecast_result['model_used']}"
+            }
+
+        except Exception as e:
+            # Use print to bypass Unicode encoding issues
+            print(f"===============================================", flush=True)
+            print(f"ERROR: Real Demand Agent failed!", flush=True)
+            print(f"Exception type: {type(e).__name__}", flush=True)
+            print(f"Exception message: {str(e)}", flush=True)
+            print(f"===============================================", flush=True)
+            logger.error(f"[REAL] Demand Agent failed: {e}", exc_info=True)
+            # Fallback to mock on error
+            logger.warning("[REAL] Falling back to mock demand agent due to error")
+            return await self._run_mock_demand_agent(workflow)
 
     async def _run_mock_inventory_agent(
         self,
