@@ -12,6 +12,7 @@ import { PerformanceMetrics } from './components/PerformanceMetrics';
 import { AppLayout } from './components/Layout';
 import { SectionHeader } from './components/Layout/SectionHeader';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AnimatedSection } from './components/AnimatedSection';
 import { useParameters } from './contexts/ParametersContext';
 import { ReportPage } from './pages/ReportPage';
 import { UploadModal } from './components/UploadModal';
@@ -44,7 +45,7 @@ function Dashboard() {
   return (
     <AppLayout breadcrumbs={[{ label: 'Spring 2025 Dashboard' }]}>
       {/* Section 0: Parameters (hidden after gathering) */}
-      <section id="parameters" className="mb-12">
+      <AnimatedSection id="parameters" className="mb-12">
         <SectionHeader
           id="parameters-header"
           title="Parameters"
@@ -79,10 +80,10 @@ function Dashboard() {
             </div>
           </div>
         </div>
-      </section>
+      </AnimatedSection>
 
       {/* Section 1: Agent Workflow */}
-      <section id="agents" className="mb-12">
+      <AnimatedSection id="agents" className="mb-12" delay={100}>
         <SectionHeader
           id="agents-header"
           title="Agent Workflow"
@@ -92,7 +93,7 @@ function Dashboard() {
         <ErrorBoundary>
           <AgentWorkflow workflowId={workflowId} />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Upload Data Button (only visible when workflowId exists) */}
       {workflowId && (
@@ -111,7 +112,7 @@ function Dashboard() {
       )}
 
       {/* Section 2: Forecast Summary */}
-      <section id="forecast" className="mb-12">
+      <AnimatedSection id="forecast" className="mb-12" delay={150}>
         <SectionHeader
           id="forecast-header"
           title="Forecast Summary"
@@ -121,10 +122,10 @@ function Dashboard() {
         <ErrorBoundary>
           <ForecastSummary />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Section 3: Cluster Distribution */}
-      <section id="clusters" className="mb-12">
+      <AnimatedSection id="clusters" className="mb-12" delay={200}>
         <SectionHeader
           id="clusters-header"
           title="Cluster Distribution"
@@ -134,10 +135,10 @@ function Dashboard() {
         <ErrorBoundary>
           <ClusterCards />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Section 4: Weekly Performance */}
-      <section id="weekly" className="mb-12">
+      <AnimatedSection id="weekly" className="mb-12" delay={250}>
         <SectionHeader
           id="weekly-header"
           title="Weekly Performance"
@@ -147,10 +148,10 @@ function Dashboard() {
         <ErrorBoundary>
           <WeeklyPerformanceChart />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Section 5: Replenishment Queue */}
-      <section id="replenishment" className="mb-12">
+      <AnimatedSection id="replenishment" className="mb-12" delay={300}>
         <SectionHeader
           id="replenishment-header"
           title="Replenishment Queue"
@@ -160,10 +161,10 @@ function Dashboard() {
         <ErrorBoundary>
           <ReplenishmentQueue />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Section 6: Markdown Decision */}
-      <section id="markdown" className="mb-12">
+      <AnimatedSection id="markdown" className="mb-12" delay={350}>
         <SectionHeader
           id="markdown-header"
           title="Markdown Decision"
@@ -173,10 +174,10 @@ function Dashboard() {
         <ErrorBoundary>
           <MarkdownDecision />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Section 7: Performance Metrics */}
-      <section id="performance" className="mb-12">
+      <AnimatedSection id="performance" className="mb-12" delay={400}>
         <SectionHeader
           id="performance-header"
           title="Performance Metrics"
@@ -186,7 +187,7 @@ function Dashboard() {
         <ErrorBoundary>
           <PerformanceMetrics />
         </ErrorBoundary>
-      </section>
+      </AnimatedSection>
 
       {/* Upload Modal */}
       <UploadModal

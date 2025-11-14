@@ -100,7 +100,7 @@ export function AgentCard({ name, status, progress, message }: AgentCardProps) {
                 <span className={statusInfo.color}>{statusInfo.icon}</span>
               )}
               <span
-                className={`text-sm font-medium px-2 py-0.5 rounded ${statusInfo.bgColor} ${statusInfo.color}`}
+                className={`text-sm font-medium px-2 py-0.5 rounded transition-all duration-300 ${statusInfo.bgColor} ${statusInfo.color}`}
               >
                 {statusInfo.label}
               </span>

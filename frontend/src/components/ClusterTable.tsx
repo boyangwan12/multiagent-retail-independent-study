@@ -34,12 +34,13 @@ export function ClusterTable({ stores }: ClusterTableProps) {
         return row.getCanExpand() ? (
           <button
             onClick={row.getToggleExpandedHandler()}
-            className="text-text-secondary hover:text-text-primary transition-colors"
+            className="text-text-secondary hover:text-text-primary transition-all duration-200"
+            aria-label={row.getIsExpanded() ? "Collapse row" : "Expand row"}
           >
             {row.getIsExpanded() ? (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4 transition-transform duration-200" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 transition-transform duration-200" />
             )}
           </button>
         ) : null;
@@ -172,9 +173,9 @@ export function ClusterTable({ stores }: ClusterTableProps) {
                   ))}
                 </tr>
                 {row.getIsExpanded() && (
-                  <tr key={`${row.id}-expanded`}>
+                  <tr key={`${row.id}-expanded`} className="animate-slide-down">
                     <td colSpan={columns.length} className="px-4 py-3 bg-card">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm animate-fade-in">
                         <div>
                           <span className="text-text-secondary">Size: </span>
                           <span className="text-text-primary font-medium">

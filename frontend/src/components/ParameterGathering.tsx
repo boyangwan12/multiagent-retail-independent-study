@@ -7,6 +7,7 @@ import { HistoricalDataUpload } from './HistoricalDataUpload';
 import { ParameterService } from '@/services/parameter-service';
 import { WorkflowService } from '@/services/workflow-service';
 import { useParameters } from '@/contexts/ParametersContext';
+import { useToast } from '@/components/Toast';
 import { isAPIError, API_ERROR_TYPES } from '@/utils/api-client';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import type { SeasonParameters } from '@/types';
@@ -40,6 +41,7 @@ import type { SeasonParameters } from '@/types';
  */
 export function ParameterGathering() {
   const { parameters, setParameters, clearParameters, categoryId, setCategoryId, setWorkflowId } = useParameters();
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -133,6 +135,9 @@ export function ParameterGathering() {
       setWorkflowId(response.workflow_id);
       console.log('✅ Workflow started:', response.workflow_id);
 
+      // Show success toast
+      showToast('Workflow created successfully! Agents are processing your forecast.', 'success');
+
       // Scroll to Section 1 (Agent Cards)
       setTimeout(() => {
         document.getElementById('section-1-agent-cards')?.scrollIntoView({
@@ -156,6 +161,8 @@ export function ParameterGathering() {
       }
 
       setError(errorMessage);
+      // Show error toast
+      showToast(errorMessage, 'error');
       // Re-open modal so user can see the error
       setShowModal(true);
     } finally {

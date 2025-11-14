@@ -8,6 +8,7 @@ import App from './App.tsx';
 import { queryClient } from './lib/react-query';
 import { ParametersProvider } from './contexts/ParametersContext';
 import { WorkflowProvider } from './contexts/WorkflowContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -16,14 +17,16 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <ParametersProvider>
-              <WorkflowProvider>
-                <App />
-                <ReactQueryDevtools initialIsOpen={false} />
-              </WorkflowProvider>
-            </ParametersProvider>
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <ParametersProvider>
+                <WorkflowProvider>
+                  <App />
+                  <ReactQueryDevtools initialIsOpen={false} />
+                </WorkflowProvider>
+              </ParametersProvider>
+            </ToastProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </BrowserRouter>
     </ErrorBoundary>

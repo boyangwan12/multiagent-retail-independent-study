@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Breadcrumb } from './Breadcrumb';
 import { MobileWarning } from '../MobileWarning';
+import { ThemeToggle } from '../ThemeToggle';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -65,9 +66,15 @@ export const AppLayout = ({
 
       <main className={showSidebar ? 'ml-64' : ''}>
         <div className="container mx-auto px-6 py-6">
-          {breadcrumbs && breadcrumbs.length > 0 && (
-            <Breadcrumb items={breadcrumbs} />
-          )}
+          {/* Header with breadcrumb and theme toggle */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex-1">
+              {breadcrumbs && breadcrumbs.length > 0 && (
+                <Breadcrumb items={breadcrumbs} />
+              )}
+            </div>
+            <ThemeToggle />
+          </div>
           {children}
         </div>
       </main>

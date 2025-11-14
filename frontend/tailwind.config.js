@@ -5,62 +5,62 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Base colors (from planning spec lines 906-915)
-        background: "#0D0D0D",  // Near black page background
-        foreground: "#FFFFFF",  // White text
+        // Base colors - now using CSS variables for theme switching
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         card: {
-          DEFAULT: "#1A1A1A",   // Dark gray cards
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
         popover: {
-          DEFAULT: "#1A1A1A",
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
         },
         primary: {
-          DEFAULT: "#5E6AD2",   // Linear purple-blue (buttons, links)
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: "#2A2A2A",   // Subtle borders/secondary elements
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
         muted: {
-          DEFAULT: "#1F1F1F",   // Hover states
-          foreground: "#9CA3AF", // Light gray text
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "#2A2A2A",
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         destructive: {
-          DEFAULT: "#F97066",   // Soft red (planning spec, NOT #ef4444)
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
-        border: "#2A2A2A",      // Subtle borders
-        input: "#2A2A2A",
-        ring: "#5E6AD2",
-        hover: "#1F1F1F",       // Hover states
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        hover: "hsl(var(--hover))",
 
-        // Accent colors (planning spec lines 917-924)
+        // Accent colors - remain consistent across themes
         success: "#00D084",     // Green (🟢 variance <10%)
         warning: "#F5A623",     // Amber (🟡 variance 10-20%)
         error: "#F97066",       // Soft red (🔴 variance >20%)
         info: "#5B8DEF",        // Soft blue
 
-        // Agent colors (planning spec lines 926-931)
+        // Agent colors - remain consistent across themes
         "agent-demand": "#5B8DEF",     // Soft blue
         "agent-inventory": "#00D084",  // Green
         "agent-pricing": "#F59E0B",    // Amber
 
-        // Chart colors (planning spec lines 933-938)
+        // Chart colors - remain consistent across themes
         "chart-forecast": "#5E6AD2",   // Purple-blue line
         "chart-actual": "#00D084",     // Green bars (on track)
         "chart-variance": "#F97066",   // Red bars (high variance)
 
-        // Text colors (planning spec lines 911-914)
-        "text-primary": "#FFFFFF",     // White text
-        "text-secondary": "#9CA3AF",   // Light gray
-        "text-muted": "#6B7280",       // Muted gray
+        // Text colors - using CSS variables
+        "text-primary": "hsl(var(--text-primary))",
+        "text-secondary": "hsl(var(--text-secondary))",
+        "text-muted": "hsl(var(--text-muted))",
       },
       borderRadius: {
         lg: "var(--radius)",

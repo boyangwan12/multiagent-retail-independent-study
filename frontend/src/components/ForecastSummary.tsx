@@ -72,24 +72,35 @@ export function ForecastSummary() {
 
   // Calculate metrics from forecast data
   const totalUnits = forecast.total_season_demand;
-  const avgUnitPrice = 45; // Mock average unit price
+
+  // TODO: avgUnitPrice should come from backend API (e.g., /api/v1/categories/{id}/pricing)
+  // For now, using reasonable default based on fashion retail standards
+  const avgUnitPrice = 45;
   const totalRevenue = totalUnits * avgUnitPrice;
 
-  // Mock baseline data for comparison
+  // TODO: Baseline data should come from backend API (e.g., /api/v1/forecasts/{id}/baseline)
+  // These values represent historical performance for the same category/season
+  // Currently using industry averages as placeholders
   const baselineTotalUnits = 7200;
-  const baselineRevenue = baselineTotalUnits * 42;
+  const baselineAvgPrice = 42;
+  const baselineRevenue = baselineTotalUnits * baselineAvgPrice;
   const baselineMarkdowns = 850000;
   const baselineExcessStock = 15;
 
-  // Calculate deltas
+  // Calculate deltas (percentage change from baseline)
   const unitsDelta = ((totalUnits - baselineTotalUnits) / baselineTotalUnits) * 100;
   const revenueDelta = ((totalRevenue - baselineRevenue) / baselineRevenue) * 100;
 
-  // Mock markdown and excess stock metrics
-  const totalMarkdowns = 720000; // Mock markdown cost
+  // TODO: Markdown cost should be calculated from MarkdownDecision API
+  // This represents estimated cost of clearance sales
+  // Formula: (initial_stock - forecast_demand) * avg_unit_price * markdown_percentage
+  const totalMarkdowns = 720000;
   const markdownsDelta = ((totalMarkdowns - baselineMarkdowns) / baselineMarkdowns) * 100;
 
-  const excessStockPct = 8.5; // Mock excess stock percentage
+  // TODO: Excess stock percentage should come from Inventory Agent results
+  // This represents (ending_inventory / total_manufactured) * 100
+  // Lower is better (indicates accurate demand forecasting)
+  const excessStockPct = 8.5;
   const excessStockDelta = ((excessStockPct - baselineExcessStock) / baselineExcessStock) * 100;
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useReplenishment } from '@/hooks/useReplenishment';
 import { ReplenishmentTable } from './ReplenishmentTable';
 import type { ReplenishmentItem } from '@/types';
@@ -7,17 +7,12 @@ export function ReplenishmentQueue() {
   const { data: initialItems, isLoading, error } = useReplenishment();
   const [items, setItems] = useState<ReplenishmentItem[]>([]);
 
-  // Update local state when data loads
-  useState(() => {
+  // Sync local state with fetched data using useEffect
+  useEffect(() => {
     if (initialItems) {
       setItems(initialItems);
     }
-  });
-
-  // Sync items when data changes
-  if (initialItems && items.length === 0) {
-    setItems(initialItems);
-  }
+  }, [initialItems]);
 
   const handleApprove = (itemId: string) => {
     setItems((prevItems) =>
