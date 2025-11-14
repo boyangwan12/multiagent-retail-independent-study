@@ -312,6 +312,9 @@ class ARIMAWrapper:
                 "upper_bound": upper_bound.tolist()
             }
 
+            # Store the forecast result for confidence calculation (PHASE6-002)
+            self.forecast_result = result
+
             logger.info(
                 f"Forecast generated: {len(result['predictions'])} periods, "
                 f"Average prediction: {np.mean(predictions):.1f} units"

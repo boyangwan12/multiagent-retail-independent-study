@@ -172,6 +172,9 @@ class ProphetWrapper:
         # Extract only the future predictions (not historical)
         forecast_future = forecast_df.tail(periods)
 
+        # Store the forecast DataFrame for confidence calculation (PHASE6-001)
+        self.forecast_df = forecast_future
+
         # Convert to dictionary format
         result = {
             "predictions": [int(round(val)) for val in forecast_future['yhat'].tolist()],

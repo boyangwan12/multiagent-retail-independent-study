@@ -277,8 +277,8 @@ class EnsembleForecaster:
                 self.weights
             )
             confidence = min(
-                self.prophet.get_confidence(prophet_forecast),
-                self.arima.get_confidence(arima_forecast)
+                self.prophet.get_confidence(self.prophet.forecast_df),
+                self.arima.get_confidence(self.arima.forecast_result)
             )
             self.model_used = "prophet_arima_ensemble"
             logger.info("Using ensemble (both models available)")
@@ -306,7 +306,7 @@ class EnsembleForecaster:
         elif prophet_forecast:
             # Prophet only fallback
             predictions = prophet_forecast['predictions']
-            confidence = self.prophet.get_confidence(prophet_forecast)
+            confidence = self.prophet.get_confidence(self.prophet.forecast_df)
             self.model_used = "prophet"
             logger.info("Using Prophet only (ARIMA unavailable)")
 
@@ -321,7 +321,7 @@ class EnsembleForecaster:
         elif arima_forecast:
             # ARIMA only fallback
             predictions = arima_forecast['predictions']
-            confidence = self.arima.get_confidence(arima_forecast)
+            confidence = self.arima.get_confidence(self.arima.forecast_result)
             self.model_used = "arima"
             logger.info("Using ARIMA only (Prophet unavailable)")
 
