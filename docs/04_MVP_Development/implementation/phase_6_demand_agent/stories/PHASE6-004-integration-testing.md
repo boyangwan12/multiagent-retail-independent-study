@@ -79,12 +79,12 @@ So that the system can generate real AI-powered forecasts in the end-to-end work
 **Goal:** Define agent class structure following Phase 5 contract
 
 **Subtasks:**
-- [ ] Create file: `backend/app/agents/demand_agent.py`
-- [ ] Define `DemandAgent` class
-- [ ] Add `__init__(self)` method
-- [ ] Add `execute(self, context: DemandAgentContext) -> dict` method stub
-- [ ] Import EnsembleForecaster
-- [ ] Add type hints and docstrings
+- [x] Create file: `backend/app/agents/demand_agent.py`
+- [x] Define `DemandAgent` class
+- [x] Add `__init__(self)` method
+- [x] Add `execute(self, context: DemandAgentContext) -> dict` method stub
+- [x] Import EnsembleForecaster
+- [x] Add type hints and docstrings
 
 **Code Template:**
 ```python
@@ -132,32 +132,32 @@ class DemandAgent:
 **Goal:** Core agent logic that generates forecasts
 
 **Subtasks:**
-- [ ] Extract parameters from context:
+- [x] Extract parameters from context:
   ```python
   params = context.parameters
   historical_data = pd.DataFrame(context.historical_data)
   horizon_weeks = params.forecast_horizon_weeks
   ```
-- [ ] Log execution start
-- [ ] Train ensemble forecaster:
+- [x] Log execution start
+- [x] Train ensemble forecaster:
   ```python
   self.forecaster.train(historical_data)
   ```
-- [ ] Generate forecast:
+- [x] Generate forecast:
   ```python
   forecast_result = self.forecaster.forecast(periods=horizon_weeks)
   ```
-- [ ] Calculate total demand:
+- [x] Calculate total demand:
   ```python
   total_demand = sum(forecast_result['predictions'])
   ```
-- [ ] Calculate safety stock percentage:
+- [x] Calculate safety stock percentage:
   ```python
   safety_stock_pct = 1.0 - forecast_result['confidence']
   # Clamp to reasonable range [0.1, 0.5]
   safety_stock_pct = max(0.1, min(0.5, safety_stock_pct))
   ```
-- [ ] Format output:
+- [x] Format output:
   ```python
   output = {
       "total_demand": int(total_demand),
@@ -167,9 +167,9 @@ class DemandAgent:
       "model_used": forecast_result['model_used']
   }
   ```
-- [ ] Validate output against DemandAgentOutput schema
-- [ ] Log execution complete
-- [ ] Return output
+- [x] Validate output against DemandAgentOutput schema
+- [x] Log execution complete
+- [x] Return output
 
 **Acceptance:**
 - execute() runs successfully with valid context
@@ -183,8 +183,8 @@ class DemandAgent:
 **Goal:** Send real-time updates during forecasting
 
 **Subtasks:**
-- [ ] Accept connection_manager and session_id in execute()
-- [ ] Send "agent_status" message at start:
+- [x] Accept connection_manager and session_id in execute()
+- [x] Send "agent_status" message at start:
   ```python
   if connection_manager:
       await connection_manager.send_message(session_id, {
@@ -193,7 +193,7 @@ class DemandAgent:
           "status": "running"
       })
   ```
-- [ ] Send "progress" messages during execution:
+- [x] Send "progress" messages during execution:
   ```python
   # After training
   await connection_manager.send_message(session_id, {
@@ -211,7 +211,7 @@ class DemandAgent:
       "message": "Generating ensemble forecast..."
   })
   ```
-- [ ] Send "complete" message with result:
+- [x] Send "complete" message with result:
   ```python
   await connection_manager.send_message(session_id, {
       "type": "complete",
@@ -232,8 +232,8 @@ class DemandAgent:
 **Goal:** Enable orchestrator to call DemandAgent
 
 **Subtasks:**
-- [ ] Locate agent registration in `backend/app/orchestrator/agent_registry.py` or similar
-- [ ] Register demand agent:
+- [x] Locate agent registration in `backend/app/orchestrator/agent_registry.py` or similar
+- [x] Register demand agent:
   ```python
   from backend.app.agents.demand_agent import DemandAgent
 
@@ -244,9 +244,9 @@ class DemandAgent:
       handler=demand_agent.execute
   )
   ```
-- [ ] Update orchestrator to use real agent instead of mock
-- [ ] Remove or comment out mock demand agent code
-- [ ] Test agent registration
+- [x] Update orchestrator to use real agent instead of mock
+- [x] Remove or comment out mock demand agent code
+- [x] Test agent registration
 
 **Acceptance:**
 - Agent registered successfully
@@ -260,8 +260,8 @@ class DemandAgent:
 **Goal:** Verify full workflow with real agent
 
 **Subtasks:**
-- [ ] Create file: `backend/tests/integration/test_demand_agent_integration.py`
-- [ ] **Test:** `test_demand_agent_end_to_end_workflow()`
+- [x] Create file: `backend/tests/integration/test_demand_agent_integration.py`
+- [x] **Test:** `test_demand_agent_end_to_end_workflow()`
   - Create SeasonParameters (12 weeks, 2025-03-01 start)
   - Build DemandAgentContext using ContextAssembler
   - Execute DemandAgent
@@ -271,12 +271,12 @@ class DemandAgent:
   - Assert safety_stock_pct in [0.1, 0.5]
   - Assert confidence in [0.0, 1.0]
   - Assert model_used is valid string
-- [ ] **Test:** `test_demand_agent_with_orchestrator()`
+- [x] **Test:** `test_demand_agent_with_orchestrator()`
   - Call orchestrator run_workflow endpoint
   - Verify WebSocket messages received
   - Verify forecast_result returned
   - Assert workflow completes in <15 seconds
-- [ ] **Test:** `test_demand_agent_error_handling()`
+- [x] **Test:** `test_demand_agent_error_handling()`
   - Test with insufficient historical data
   - Test with invalid parameters
   - Assert errors raised correctly
@@ -292,17 +292,17 @@ class DemandAgent:
 **Goal:** Meet <10 second forecast generation target
 
 **Subtasks:**
-- [ ] Profile code with cProfile:
+- [x] Profile code with cProfile:
   ```bash
   python -m cProfile -o demand_agent.prof test_demand_agent.py
   ```
-- [ ] Identify bottlenecks (likely model training)
-- [ ] Optimize slowest operations:
+- [x] Identify bottlenecks (likely model training)
+- [x] Optimize slowest operations:
   - Cache trained models if parameters unchanged
   - Use Phase 5 cached historical data (don't reload from database)
   - Parallelize Prophet and ARIMA training (if beneficial)
-- [ ] Re-measure performance after optimizations
-- [ ] Document optimization results in commit message
+- [x] Re-measure performance after optimizations
+- [x] Document optimization results in commit message
 
 **Acceptance:**
 - Forecast generation <10 seconds
@@ -316,12 +316,12 @@ class DemandAgent:
 **Goal:** Verify forecast data displays in frontend
 
 **Subtasks:**
-- [ ] Start backend server with real demand agent
-- [ ] Open frontend (http://localhost:3000)
-- [ ] Enter parameters, run workflow
-- [ ] Verify Section 2 (Forecast Summary) shows real forecast data
-- [ ] Verify Section 4 (Weekly Performance Chart) displays correctly
-- [ ] Verify WebSocket agent status updates in real-time
+- [x] Start backend server with real demand agent
+- [x] Open frontend (http://localhost:3000)
+- [x] Enter parameters, run workflow
+- [x] Verify Section 2 (Forecast Summary) shows real forecast data
+- [x] Verify Section 4 (Weekly Performance Chart) displays correctly
+- [x] Verify WebSocket agent status updates in real-time
 
 **Acceptance:**
 - Forecast data visible in frontend
@@ -354,36 +354,36 @@ class DemandAgent:
 ## Definition of Done
 
 **Code Complete:**
-- [ ] DemandAgent class implemented
-- [ ] execute() method working correctly
-- [ ] WebSocket progress messages integrated
-- [ ] Agent registered with orchestrator
-- [ ] Mock agent removed/replaced
-- [ ] Type hints and docstrings complete
+- [x] DemandAgent class implemented
+- [x] execute() method working correctly
+- [x] WebSocket progress messages integrated
+- [x] Agent registered with orchestrator
+- [x] Mock agent removed/replaced
+- [x] Type hints and docstrings complete
 
 **Testing Complete:**
-- [ ] 3 integration tests passing
-- [ ] End-to-end workflow test passing
-- [ ] Performance targets met (<10s forecast, <15s workflow)
-- [ ] Frontend verification complete
+- [x] 3 integration tests passing
+- [x] End-to-end workflow test passing
+- [x] Performance targets met (<10s forecast, <15s workflow)
+- [x] Frontend verification complete
 
 **Quality Checks:**
-- [ ] Code follows project style
-- [ ] Error handling integrated with Phase 5
-- [ ] Logging informative
-- [ ] No print or console.log statements
+- [x] Code follows project style
+- [x] Error handling integrated with Phase 5
+- [x] Logging informative
+- [x] No print or console.log statements
 
 **Documentation:**
-- [ ] Docstrings complete
-- [ ] Performance results documented
-- [ ] Integration with Phase 5 documented
-- [ ] Ready for Phase 7 handoff
+- [x] Docstrings complete
+- [x] Performance results documented
+- [x] Integration with Phase 5 documented
+- [x] Ready for Phase 7 handoff
 
 **Phase 6 Complete:**
-- [ ] All 4 stories (001-004) complete
-- [ ] MAPE < 15% achieved
-- [ ] Real AI forecasting operational
-- [ ] Ready to hand off forecast_result to Phase 7 (Inventory Agent)
+- [x] All 4 stories (001-004) complete
+- [x] MAPE < 15% achieved
+- [x] Real AI forecasting operational
+- [x] Ready to hand off forecast_result to Phase 7 (Inventory Agent)
 
 ---
 

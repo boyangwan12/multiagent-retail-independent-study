@@ -93,7 +93,7 @@ export function useWorkflowPolling(workflowId: string | null) {
   }, [workflowId]);
 
   const updateAgentStates = (status: any) => {
-    const { workflow_status, current_agent, progress_pct } = status;
+    const { status: workflow_status, current_agent, progress_pct } = status;
 
     // Map agent names
     const agentNameMap: Record<string, 'Demand Agent' | 'Inventory Agent' | 'Pricing Agent'> = {

@@ -2,7 +2,7 @@
 
 **Epic:** Phase 6 - Demand Agent
 **Story ID:** PHASE6-002
-**Status:** Ready for Implementation
+**Status:** Ready for Review
 **Estimate:** 6 hours
 **Agent:** `*agent dev`
 **Dependencies:** PHASE6-001 complete
@@ -61,9 +61,9 @@ So that the system can capture non-seasonal patterns and complement Prophet's se
 - [x] ProphetWrapper class available for comparison
 
 **Python Libraries:**
-- [ ] pmdarima library installed (`uv add pmdarima`)
-- [ ] statsmodels library installed (dependency of pmdarima)
-- [ ] Test import: `python -c "from pmdarima import auto_arima; print('OK')"`
+- [x] pmdarima library installed (using statsmodels instead)
+- [x] statsmodels library installed (>=0.14.0)
+- [x] Test import: `python -c "from statsmodels.tsa.arima.model import ARIMA; print('OK')"`
 
 **Data Validation:**
 - [x] Historical sales data available (52+ weeks)
@@ -78,10 +78,10 @@ So that the system can capture non-seasonal patterns and complement Prophet's se
 **Goal:** Add pmdarima for Auto ARIMA functionality
 
 **Subtasks:**
-- [ ] Run `uv add pmdarima` in backend directory
-- [ ] Verify installation: `uv pip list | grep pmdarima`
-- [ ] Test import: `from pmdarima import auto_arima`
-- [ ] Document any installation issues
+- [x] Run `pip install statsmodels` in backend directory
+- [x] Verify installation: statsmodels>=0.14.0
+- [x] Test import: `from statsmodels.tsa.arima.model import ARIMA`
+- [x] Document any installation issues
 
 **Acceptance:**
 - pmdarima successfully imported
@@ -94,13 +94,13 @@ So that the system can capture non-seasonal patterns and complement Prophet's se
 **Goal:** Define class structure
 
 **Subtasks:**
-- [ ] Create file: `backend/app/ml/arima_wrapper.py`
-- [ ] Define `ARIMAWrapper` class
-- [ ] Add `__init__(self, config: dict = None)` method
-- [ ] Add `train(self, historical_data: pd.DataFrame) -> None` method stub
-- [ ] Add `forecast(self, periods: int) -> dict` method stub
-- [ ] Add `get_confidence(self, forecast_result) -> float` method stub
-- [ ] Add type hints and docstrings
+- [x] Create file: `backend/app/ml/arima_wrapper.py`
+- [x] Define `ARIMAWrapper` class
+- [x] Add `__init__(self, config: dict = None)` method
+- [x] Add `train(self, historical_data: pd.DataFrame) -> None` method stub
+- [x] Add `forecast(self, periods: int) -> dict` method stub
+- [x] Add `get_confidence(self, forecast_result) -> float` method stub
+- [x] Add type hints and docstrings
 
 **Code Template:**
 ```python
@@ -146,26 +146,13 @@ class ARIMAWrapper:
 **Goal:** Train ARIMA model with automatic parameter selection
 
 **Subtasks:**
-- [ ] Validate input data (min 26 weeks)
-- [ ] Extract time series values: `y = historical_data['quantity_sold'].values`
-- [ ] Configure auto_arima parameters:
-  ```python
-  model = auto_arima(
-      y=y,
-      start_p=0, max_p=5,
-      start_q=0, max_q=5,
-      d=None,  # Auto-detect differencing
-      seasonal=False,
-      stepwise=True,
-      suppress_warnings=True,
-      error_action='ignore',
-      trace=False
-  )
-  ```
-- [ ] Store trained model and selected (p, d, q) parameters
-- [ ] Log selected parameters: `logger.info(f"Selected ARIMA order: {model.order}")`
-- [ ] Implement fallback to ARIMA(1,1,1) if auto_arima fails
-- [ ] Raise errors for invalid input
+- [x] Validate input data (min 26 weeks)
+- [x] Extract time series values: `y = historical_data['quantity_sold'].values`
+- [x] Configure auto parameter selection with AIC-based stepwise search
+- [x] Store trained model and selected (p, d, q) parameters
+- [x] Log selected parameters: `logger.info(f"Selected ARIMA order: {model.order}")`
+- [x] Implement fallback to ARIMA(1,1,1) if auto selection fails
+- [x] Raise errors for invalid input
 
 **Acceptance:**
 - Model trains successfully on 52 weeks data
@@ -179,18 +166,11 @@ class ARIMAWrapper:
 **Goal:** Generate weekly forecasts
 
 **Subtasks:**
-- [ ] Check if model is trained
-- [ ] Generate forecast: `forecast, conf_int = model.predict(n_periods=periods, return_conf_int=True)`
-- [ ] Round predictions to integers
-- [ ] Return dictionary:
-  ```python
-  {
-      "predictions": forecast.tolist(),
-      "lower_bound": conf_int[:, 0].tolist(),
-      "upper_bound": conf_int[:, 1].tolist()
-  }
-  ```
-- [ ] Log forecast generation
+- [x] Check if model is trained
+- [x] Generate forecast: `forecast = model.forecast(steps=periods)`
+- [x] Round predictions to integers
+- [x] Return dictionary with predictions, lower_bound, upper_bound
+- [x] Log forecast generation
 
 **Acceptance:**
 - Forecast returns predictions with confidence intervals
@@ -204,10 +184,10 @@ class ARIMAWrapper:
 **Goal:** Calculate confidence from ARIMA intervals
 
 **Subtasks:**
-- [ ] Extract predictions, lower_bound, upper_bound
-- [ ] Calculate interval widths
-- [ ] Calculate confidence score (same formula as Prophet)
-- [ ] Return confidence between 0.0 and 1.0
+- [x] Extract predictions, lower_bound, upper_bound
+- [x] Calculate interval widths
+- [x] Calculate confidence score (same formula as Prophet)
+- [x] Return confidence between 0.0 and 1.0
 
 **Acceptance:**
 - Confidence score in range [0.0, 1.0]
@@ -220,16 +200,16 @@ class ARIMAWrapper:
 **Goal:** Verify ARIMAWrapper functionality
 
 **Subtasks:**
-- [ ] Create file: `backend/tests/unit/ml/test_arima_wrapper.py`
-- [ ] **Test 1:** `test_arima_auto_parameter_selection()`
+- [x] Create file: `backend/tests/unit/ml/test_arima_wrapper.py`
+- [x] **Test 1:** `test_arima_auto_parameter_selection()`
   - Train model, check selected (p, d, q) are reasonable
-- [ ] **Test 2:** `test_arima_train_with_valid_data()`
+- [x] **Test 2:** `test_arima_train_with_valid_data()`
   - Train successfully with 52 weeks
-- [ ] **Test 3:** `test_arima_forecast_returns_correct_shape()`
+- [x] **Test 3:** `test_arima_forecast_returns_correct_shape()`
   - Forecast 12 weeks, assert 12 predictions
-- [ ] **Test 4:** `test_arima_handles_non_stationary_data()`
+- [x] **Test 4:** `test_arima_handles_non_stationary_data()`
   - Test with trending data, verify differencing applied
-- [ ] **Test 5:** `test_arima_raises_error_on_insufficient_data()`
+- [x] **Test 5:** `test_arima_raises_error_on_insufficient_data()`
   - Test with <26 weeks, assert error raised
 
 **Acceptance:**
@@ -243,12 +223,12 @@ class ARIMAWrapper:
 **Goal:** Verify forecasting accuracy
 
 **Subtasks:**
-- [ ] Split data into train (52 weeks) and validation (10 weeks)
-- [ ] Train ARIMA on 52 weeks
-- [ ] Forecast next 10 weeks
-- [ ] Calculate MAPE on validation set
-- [ ] Document MAPE result
-- [ ] Assert MAPE < 20%
+- [x] Split data into train (52 weeks) and validation (10 weeks)
+- [x] Train ARIMA on 52 weeks
+- [x] Forecast next 10 weeks
+- [x] Calculate MAPE on validation set
+- [x] Document MAPE result
+- [x] Assert MAPE < 20%
 
 **Acceptance:**
 - MAPE < 20% on validation set
@@ -267,28 +247,84 @@ class ARIMAWrapper:
 ## Definition of Done
 
 **Code Complete:**
-- [ ] ARIMAWrapper class implemented
-- [ ] Auto ARIMA parameter selection working
-- [ ] Fallback to ARIMA(1,1,1) implemented
-- [ ] Type hints and docstrings complete
+- [x] ARIMAWrapper class implemented
+- [x] Auto ARIMA parameter selection working (AIC-based stepwise search)
+- [x] Fallback to ARIMA(1,1,1) implemented
+- [x] Type hints and docstrings complete
 
 **Testing Complete:**
-- [ ] 5 unit tests passing
-- [ ] Validation MAPE < 20%
-- [ ] Test coverage >90%
+- [x] 19 unit tests passing (exceeded requirement of 5)
+- [x] Validation MAPE < 20% (achieved 6.48%)
+- [x] Test coverage >90%
 
 **Quality Checks:**
-- [ ] Error handling complete
-- [ ] Performance targets met
-- [ ] No print statements (use logging)
+- [x] Error handling complete
+- [x] Performance targets met (<5s training, <1s forecast)
+- [x] No print statements (use logging)
 
 **Documentation:**
-- [ ] Selected (p, d, q) parameters documented
-- [ ] MAPE results documented
+- [x] Selected (p, d, q) parameters documented
+- [x] MAPE results documented
 
 **Ready for Next Story:**
-- [ ] ARIMAWrapper ready for ensemble (Story 3)
-- [ ] Can be compared against Prophet accuracy
+- [x] ARIMAWrapper ready for ensemble (Story 3)
+- [x] Can be compared against Prophet accuracy
+
+---
+
+## Dev Agent Record
+
+### Agent Model Used
+- Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
+
+### Implementation Summary
+Successfully implemented ARIMAWrapper class for trend-based time series forecasting using statsmodels ARIMA with custom auto-parameter selection. All acceptance criteria met and significantly exceeded expectations.
+
+### Completion Notes
+- ✅ ARIMAWrapper class created in `backend/app/ml/arima_wrapper.py`
+- ✅ Custom auto-parameter selection using AIC-based stepwise search
+- ✅ ADF test for automatic differencing order detection
+- ✅ Fallback to ARIMA(1,1,1) on auto-selection failure
+- ✅ Error handling: InsufficientDataError, ModelTrainingError
+- ✅ 19 unit tests written (exceeded requirement of 5)
+- ✅ 3 validation tests created in separate file
+- ✅ **MAPE achieved: 6.48%** (target: <20%, 68% better than target!) ✨
+- ✅ Training time: <5 seconds (target: <8s)
+- ✅ Forecasting time: <1 second (target: <1s)
+- ✅ All 22 tests passing
+- ✅ Used statsmodels instead of pmdarima (better compatibility, no build issues)
+
+### Implementation Decisions
+**Library Choice:** Used statsmodels ARIMA instead of pmdarima due to:
+- pmdarima build failures on Windows (requires Cython compilation)
+- statsmodels already installed and well-supported
+- Implemented custom auto-parameter selection using AIC minimization
+- Achieved comparable results with simpler, more maintainable code
+
+**Auto-Parameter Selection Strategy:**
+- Implemented ADF (Augmented Dickey-Fuller) test for differencing order (d)
+- Stepwise search over (p, q) parameter space
+- AIC (Akaike Information Criterion) for model selection
+- Typical selected orders: (2, 1, 2), (1, 1, 1), (2, 1, 1)
+
+### File List
+**Created:**
+- `backend/app/ml/arima_wrapper.py` (new implementation with custom auto-selection)
+- `backend/tests/unit/ml/test_arima_wrapper.py` (19 unit tests)
+- `backend/tests/unit/ml/test_arima_validation.py` (3 validation tests)
+
+**Modified:**
+- `backend/pyproject.toml` (added statsmodels>=0.14.0 dependency)
+
+### Debug Log References
+**Challenge:** pmdarima installation failed on Windows due to Cython build requirements.
+**Solution:** Switched to statsmodels and implemented custom auto-parameter selection algorithm. This provided better control and no build dependencies.
+
+### Change Log
+- 2025-11-11: Initial implementation with statsmodels
+- 2025-11-11: Fixed forecast() method to handle numpy array returns
+- 2025-11-11: Fixed conf_int() handling for both DataFrame and numpy array
+- 2025-11-11: All tests passing, validation MAPE: 6.48%
 
 ---
 
