@@ -91,27 +91,43 @@ So that the system can intelligently distribute forecasted inventory across stor
 - [ ] Add `validate_unit_conservation(self, expected: int, actual: int, step: str) -> None` method stub
 - [ ] Add type hints and docstrings
 
-**Code Template:**
+**Code Template (Following DemandAgent Pattern):**
+
 ```python
 from typing import Any, Dict, List, Optional
 from app.agents.config import AgentConfig
 from app.ml.store_clustering import StoreClusterer
-from app.schemas.workflow_schemas import SeasonParameters, InventoryAgentContext
+from app.schemas.workflow_schemas import SeasonParameters
 import pandas as pd
 import logging
 
 logger = logging.getLogger("fashion_forecast")
 
+
 class InventoryAgent:
     """
-    Inventory Agent for allocation and replenishment planning.
+    Inventory Agent for hierarchical allocation and replenishment planning.
 
-    Implements hierarchical allocation (category → cluster → store) with
-    parameter-driven DC holdback. Integrates with Phase 6 Demand Agent output
-    and Phase 5 orchestrator infrastructure.
+    Implements 3-layer allocation hierarchy (category → cluster → store) with
+    parameter-driven DC holdback. Uses K-means clustering for store segmentation.
+    Integrates with Phase 6 Demand Agent output via AgentHandoffManager.
 
-    Phase 7 Implementation: Core allocation logic with K-means clustering
-    Phase 8 Handoff: Provides allocation plan for Pricing Agent
+    **Agent Framework:**
+    - Follows custom agent pattern compatible with OpenAI SDK
+    - Uses AgentConfig with OpenAI client (prepared for Phase 8 SDK migration)
+    - Async execute() method for orchestrator coordination
+    - Tool definitions in OpenAI function-calling format (Phase 8 ready)
+
+    **Phase 7 Implementation:**
+    - Real K-means clustering (Story 1)
+    - Real hierarchical allocation (Story 2)
+    - Real replenishment scheduling (Story 3)
+    - Integration testing (Story 4)
+
+    **Phase 8 Handoff:**
+    - Output: InventoryAgentOutput schema (cluster allocations, store allocations)
+    - Input to Pricing Agent for markdown analysis
+    - Will migrate to OpenAI Agents SDK when available
     """
 
     def __init__(self, config: Optional[AgentConfig] = None):
@@ -119,12 +135,12 @@ class InventoryAgent:
         Initialize Inventory Agent.
 
         Args:
-            config: Agent configuration with OpenAI client (optional for Phase 7)
+            config: Agent configuration with OpenAI client (provided by AgentFactory)
         """
         self.config = config
         self.client = config.openai_client if config else None
         self.clusterer = StoreClusterer(n_clusters=3, random_state=42)
-        logger.info("InventoryAgent initialized with StoreClusterer")
+        logger.info("InventoryAgent initialized with StoreClusterer (Phase 7)")
 
     async def execute(
         self,
@@ -133,12 +149,27 @@ class InventoryAgent:
         stores_data: pd.DataFrame
     ) -> Dict[str, Any]:
         """
-        Execute inventory allocation workflow.
+        Execute inventory allocation workflow (main orchestrator entry point).
+
+        **Flow:**
+        1. Calculate manufacturing quantity (demand × safety stock)
+        2. Train K-means clustering on store features
+        3. Allocate to clusters based on K-means percentages
+        4. Allocate to stores using hybrid factors (70/30)
+        5. Plan replenishment (parameter-driven, skipped if strategy="none")
+        6. Validate unit conservation at each step
 
         Args:
-            forecast_result: Demand Agent output (total_demand, forecast_by_week, etc.)
-            parameters: Season parameters (dc_holdback_percentage, etc.)
-            stores_data: Store attributes DataFrame
+            forecast_result: Demand Agent output containing:
+                - total_demand: int
+                - forecast_by_week: List[int]
+                - safety_stock_pct: float
+                - confidence: float
+            parameters: Season parameters containing:
+                - dc_holdback_percentage: float (0.0 or 0.45)
+                - replenishment_strategy: str ("none" or "weekly")
+                - forecast_horizon_weeks: int
+            stores_data: Store attributes DataFrame with 7 features
 
         Returns:
             Dictionary with allocation results:
@@ -146,10 +177,13 @@ class InventoryAgent:
             - safety_stock_pct: float
             - initial_allocation_total: int
             - dc_holdback_total: int
-            - clusters: List[ClusterAllocation]
+            - clusters: List[Dict] with store allocations
+            - replenishment_enabled: bool
+            - replenishment_queue: List[Dict]
 
         Raises:
             ValueError: If unit conservation fails
+            ForecastingError: If clustering fails
         """
         pass
 
@@ -158,14 +192,21 @@ class InventoryAgent:
         total_demand: int,
         safety_stock_pct: float
     ) -> int:
-        """Calculate manufacturing order quantity.
+        """
+        Calculate manufacturing order quantity.
+
+        **Formula:** manufacturing_qty = total_demand × (1 + safety_stock_pct)
 
         Args:
             total_demand: Total season demand from forecast
             safety_stock_pct: Safety stock percentage (0.1-0.5)
 
         Returns:
-            Manufacturing quantity
+            Manufacturing quantity (integer)
+
+        Example:
+            >>> agent.calculate_manufacturing(8000, 0.20)
+            9600  # 8000 × 1.20
         """
         pass
 
@@ -173,33 +214,78 @@ class InventoryAgent:
         self,
         manufacturing_qty: int,
         parameters: SeasonParameters,
-        clusters: List[Dict]
-    ) -> Dict:
-        """Allocate initial inventory to stores.
+        stores_data: pd.DataFrame
+    ) -> Dict[str, Any]:
+        """
+        Allocate manufacturing quantity to clusters and stores.
+
+        **Allocation Hierarchy:**
+        1. Layer 1 - Manufacturing split:
+           - DC holdback: manufacturing_qty × dc_holdback_percentage
+           - Initial allocation: manufacturing_qty × (1 - dc_holdback_percentage)
+
+        2. Layer 2 - Cluster allocation:
+           - Initial allocation × cluster_percentage (from K-means)
+           - Example: 5280 × 40% = 2112 units to Fashion_Forward cluster
+
+        3. Layer 3 - Store allocation:
+           - Cluster allocation × store_factor (hybrid: 70% historical + 30% attributes)
+           - Enforce 2-week minimum per store
 
         Args:
-            manufacturing_qty: Total units to manufacture
-            parameters: Season parameters
-            clusters: K-means cluster results
+            manufacturing_qty: Total units from calculate_manufacturing()
+            parameters: Season parameters with dc_holdback_percentage
+            stores_data: Store attributes for allocation factors
 
         Returns:
-            Allocation dictionary
+            Dictionary with clusters and store allocations:
+            {
+                "manufacturing_qty": 9600,
+                "initial_allocation_total": 5280,
+                "dc_holdback_total": 4320,
+                "clusters": [
+                    {
+                        "cluster_id": 0,
+                        "cluster_label": "Fashion_Forward",
+                        "allocation_percentage": 40.0,
+                        "total_units": 2112,
+                        "stores": [
+                            {"store_id": "S001", "initial_allocation": 800},
+                            ...
+                        ]
+                    },
+                    ...
+                ]
+            }
+
+        Raises:
+            ValueError: If unit conservation fails
         """
         pass
 
     def calculate_allocation_factor(
         self,
         store: pd.Series,
-        cluster_avg: Dict
+        cluster_avg: Dict[str, float]
     ) -> float:
-        """Calculate store allocation factor (70% historical + 30% attributes).
+        """
+        Calculate store allocation factor (70% historical + 30% attributes).
+
+        **Formula:**
+        - historical_score = store_avg_sales / cluster_avg_sales
+        - attribute_score = 0.5×size_score + 0.3×income_score + 0.2×tier_score
+        - allocation_factor = 0.7×historical_score + 0.3×attribute_score
 
         Args:
-            store: Store row with features
-            cluster_avg: Cluster average features
+            store: Store row with features (avg_weekly_sales_12mo, store_size_sqft, etc.)
+            cluster_avg: Cluster average features for normalization
 
         Returns:
-            Allocation factor (normalized score)
+            Normalized allocation factor (typically 0.5-1.5)
+
+        Example:
+            >>> factor = agent.calculate_allocation_factor(store_row, cluster_avg)
+            1.2  # 20% above cluster average
         """
         pass
 
@@ -209,18 +295,56 @@ class InventoryAgent:
         actual: int,
         step: str
     ) -> None:
-        """Validate unit conservation at allocation step.
+        """
+        Validate unit conservation (no units lost or gained).
+
+        **Checkpoints:**
+        1. Manufacturing split: manufacturing_qty == initial + holdback
+        2. Cluster allocation: sum(cluster_totals) == initial_allocation_total
+        3. Store allocation: sum(store_totals) == cluster_total
+        4. Final validation: sum(all_store_allocations) == initial_allocation_total
 
         Args:
             expected: Expected total units
-            actual: Actual total units
-            step: Step name for error message
+            actual: Actual total units after allocation
+            step: Step name for error message (e.g., "manufacturing_split")
 
         Raises:
-            ValueError: If units don't match
+            ValueError: If expected != actual
+        """
+        pass
+
+    def get_tools(self) -> List[Dict[str, Any]]:
+        """
+        Get tool definitions for OpenAI function calling (Phase 8).
+
+        **Note:** Phase 7 uses direct method calls via orchestrator.
+        Phase 8 will use these definitions with OpenAI Agents SDK.
+
+        Returns:
+            List of tool definitions in OpenAI function-calling format
+        """
+        pass
+
+    def get_instructions(self) -> str:
+        """
+        Get agent instructions (system prompt for Phase 8).
+
+        **Note:** Phase 7 doesn't require LLM calls.
+        Phase 8 will use this for OpenAI Agents SDK orchestration.
+
+        Returns:
+            Agent instructions string
         """
         pass
 ```
+
+**Key Design Points:**
+- Follows DemandAgent pattern for consistency
+- Compatible with AgentHandoffManager (custom orchestrator)
+- Async execute() method for coordinator integration
+- Tool definitions prepared for Phase 8 SDK migration
+- No breaking changes to existing orchestrator infrastructure
 
 ---
 
