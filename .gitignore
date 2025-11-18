@@ -1,6 +1,7 @@
 # IDE and Tool Configurations
 .bmad-core/
 bmad/
+.bmad/
 .claude/
 .windsurf/
 .superdesign
