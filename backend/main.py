@@ -1,5 +1,6 @@
 from agents import Runner, set_tracing_disabled
 from config import OPENAI_MODEL, GEMINI_MODEL
+from utils import get_data_loader
 from my_agents.triage_agent import triage_agent
 from my_agents.demand_agent import demand_agent
 
@@ -9,11 +10,23 @@ ACTIVE_MODEL = GEMINI_MODEL
 triage_agent.model = ACTIVE_MODEL
 demand_agent.model = ACTIVE_MODEL
 
+# Load and display available data
+data_loader = get_data_loader()
+categories = data_loader.get_categories()
+store_count = data_loader.get_store_count()
+date_range = data_loader.get_date_range()
+
 print(f"Using model: {ACTIVE_MODEL.model}")
-print("-" * 50)
+print("=" * 60)
+print("RETAIL FORECASTING SYSTEM - Training Data Loaded")
+print("=" * 60)
+print(f"Available Categories: {', '.join(categories)}")
+print(f"Store Network: {store_count} stores")
+print(f"Historical Data: {date_range['start']} to {date_range['end']}")
+print("-" * 60)
 print("Interactive Triage Agent - Parameter Gathering")
 print("Type 'quit' or 'exit' to end the conversation")
-print("-" * 50)
+print("-" * 60)
 
 # Initialize conversation state
 context = []

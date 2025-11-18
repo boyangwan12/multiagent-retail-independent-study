@@ -1,10 +1,13 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Retail Forecasting System with AI Agents"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "openai-agents>=0.5.1",
     "python-decouple>=3.8",
+    "streamlit>=1.30.0",
+    "pandas>=2.0.0",
+    "watchdog>=3.0.0",
 ]
