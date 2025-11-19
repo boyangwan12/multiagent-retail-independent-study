@@ -1,12 +1,15 @@
 """
 Retail Forecasting System - Streamlit UI
-Interactive triage agent with data upload capability
+Interactive triage agent with NATIVE HANDOFFS to demand agent
+Uses OpenAI Agents SDK Sessions for conversation memory
 """
 import streamlit as st
-from agents import Runner, set_tracing_disabled
+from agents import Runner, set_tracing_disabled, SQLiteSession
 from config import OPENAI_MODEL
 from utils import SessionManager, TrainingDataLoader
-from my_agents.triage_agent import create_triage_agent
+from utils.context import ForecastingContext
+from my_agents.triage_agent import create_triage_agent, ForecastParameters
+from my_agents.demand_agent import demand_agent
 
 # Configure page
 st.set_page_config(
@@ -28,27 +31,29 @@ if "session_id" not in st.session_state:
     st.session_state.data_loader = None
     st.session_state.agent = None
     st.session_state.conversation_history = []
-    st.session_state.gathered_parameters = {}
-    st.session_state.agent_messages = []  # Store agent conversation context
+    st.session_state.forecast_context = None  # Will be created after data upload
+
+    # Create SDK Session for conversation memory
+    st.session_state.sdk_session = SQLiteSession(
+        session_id=st.session_state.session_id,
+        db_path=":memory:"  # In-memory for now (could use file for persistence)
+    )
 
 # Title
 st.title("📊 Retail Forecasting System")
 st.markdown("**AI-Powered Demand Forecasting & Inventory Planning**")
 st.divider()
 
-# Sidebar - Parameter Summary
+# Sidebar
 with st.sidebar:
     st.header("📋 Session Info")
     st.caption(f"Session ID: {st.session_state.session_id[:8]}...")
 
     st.divider()
 
-    st.header("📦 Gathered Parameters")
-    if st.session_state.gathered_parameters:
-        for key, value in st.session_state.gathered_parameters.items():
-            st.text(f"• {key}: {value}")
-    else:
-        st.info("No parameters gathered yet")
+    st.header("ℹ️ Native Handoffs")
+    st.info("✅ Triage → Demand Agent handoff enabled via OpenAI Agents SDK")
+    st.caption("The system uses native agent-to-agent communication with automatic data fetching.")
 
     st.divider()
 
@@ -121,13 +126,27 @@ if not st.session_state.uploaded:
                     st.session_state.session_id
                 )
 
+                # **CRITICAL**: Create ForecastingContext for tools
+                # This context is passed to Runner and provides data_loader to all tools
+                st.session_state.forecast_context = ForecastingContext(
+                    data_loader=st.session_state.data_loader,
+                    session_id=st.session_state.session_id
+                )
+
                 # Load data summary
                 categories = st.session_state.data_loader.get_categories()
                 store_count = st.session_state.data_loader.get_store_count()
                 date_range = st.session_state.data_loader.get_date_range()
 
-                # Create agent with this data
-                st.session_state.agent = create_triage_agent(st.session_state.data_loader)
+                # Create triage agent WITH native handoff to demand agent
+                # The triage agent now has a tool: transfer_to_demand_agent(params)
+                # When the LLM calls this tool, the SDK automatically hands off to demand_agent
+                # The demand agent can then call run_demand_forecast(category, horizon) and
+                # the tool will automatically fetch historical data via ctx.context.data_loader
+                st.session_state.agent = create_triage_agent(
+                    data_loader=st.session_state.data_loader,
+                    demand_agent=demand_agent  # Enable native handoff
+                )
                 st.session_state.agent.model = OPENAI_MODEL
 
                 # Mark as uploaded
@@ -187,81 +206,35 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    # Build message history for agent context
-                    # Include previous messages to maintain context
-                    if len(st.session_state.agent_messages) > 0:
-                        # Continue existing conversation
-                        context_messages = st.session_state.agent_messages.copy()
-                        context_messages.append({"role": "user", "content": prompt})
-                        full_input = "\n\n".join([
-                            f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
-                            for msg in context_messages
-                        ])
-                    else:
-                        # First message
-                        full_input = prompt
-                        st.session_state.agent_messages.append({"role": "user", "content": prompt})
-
-                    # Run agent with context
+                    # Run agent with Session for conversation memory AND Context for tool dependencies
                     res = Runner.run_sync(
                         starting_agent=st.session_state.agent,
-                        input=full_input if len(st.session_state.agent_messages) > 1 else prompt
+                        input=prompt,
+                        session=st.session_state.sdk_session,  # For conversation history
+                        context=st.session_state.forecast_context  # For tool data access
                     )
 
-                    response = res.final_output
-
-                    # Save to agent message history
-                    if len(st.session_state.agent_messages) == 1:
-                        # First exchange
-                        st.session_state.agent_messages.append({"role": "assistant", "content": response})
+                    # Extract response - handle different return types
+                    if hasattr(res, 'final_output'):
+                        response = res.final_output
+                    elif hasattr(res, 'output'):
+                        response = res.output
                     else:
-                        # Add latest exchange
-                        st.session_state.agent_messages[-1] = {"role": "user", "content": prompt}
-                        st.session_state.agent_messages.append({"role": "assistant", "content": response})
+                        response = str(res)
 
                     # Display response
                     st.markdown(response)
 
-                    # Check if parameters are being confirmed (agent always ends with this phrase)
-                    if "All parameters gathered successfully!" in response:
-                        st.divider()
-                        st.success("✅ All parameters gathered successfully!")
-
-                        # Parse parameters from response
-                        params = {}
-                        lines = response.split('\n')
-                        for line in lines:
-                            if ':' in line:
-                                key_value = line.split(':', 1)
-                                if len(key_value) == 2:
-                                    key = key_value[0].strip().replace('*', '').replace('#', '')
-                                    value = key_value[1].strip()
-                                    if key and value and len(key) < 50:  # Reasonable key length
-                                        params[key] = value
-
-                        # Display in nice format
-                        if params:
-                            st.markdown("### 📋 Confirmed Parameters")
-
-                            # Use columns for better layout
-                            col1, col2 = st.columns(2)
-
-                            param_list = list(params.items())
-                            mid_point = (len(param_list) + 1) // 2
-
-                            with col1:
-                                for key, value in param_list[:mid_point]:
-                                    st.metric(label=key, value=value)
-
-                            with col2:
-                                for key, value in param_list[mid_point:]:
-                                    st.metric(label=key, value=value)
-
-                            # Update sidebar
-                            st.session_state.gathered_parameters = params
-
-                        st.divider()
-                        st.info("🚀 **Next Steps:** The agent will hand off to the Demand Agent for forecasting...")
+                    # ========================================
+                    # NATIVE HANDOFF with CONTEXT: Runner handles everything automatically
+                    # ========================================
+                    # When triage agent calls transfer_to_demand_agent(), the SDK:
+                    # 1. Pauses triage agent
+                    # 2. Passes parameters to demand agent
+                    # 3. Demand agent calls run_demand_forecast(ctx, category, horizon)
+                    # 4. Tool fetches historical data from ctx.context.data_loader
+                    # 5. Returns final result
+                    # No manual orchestration or global state needed!
 
                     # Add to UI history
                     st.session_state.conversation_history.append({
@@ -270,8 +243,14 @@ else:
                     })
 
                 except Exception as e:
+                    import traceback
                     error_msg = f"❌ Error: {str(e)}"
                     st.error(error_msg)
+
+                    # Show detailed traceback in expander
+                    with st.expander("🔍 Error Details (for debugging)"):
+                        st.code(traceback.format_exc())
+
                     st.session_state.conversation_history.append({
                         "role": "assistant",
                         "content": error_msg

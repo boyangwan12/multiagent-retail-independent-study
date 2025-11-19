@@ -1,18 +1,45 @@
-from agents import Agent
+from agents import Agent, handoff, RunContextWrapper
 from config import OPENAI_MODEL
 from utils import get_data_loader, TrainingDataLoader
+from pydantic import BaseModel
+from typing import Optional
 
 
-def create_triage_agent(data_loader: TrainingDataLoader = None) -> Agent:
+class ForecastParameters(BaseModel):
+    """Structured parameters for demand forecasting handoff"""
+    category: str
+    forecast_horizon_weeks: int
+    season_start_date: Optional[str] = None
+    replenishment_strategy: Optional[str] = "weekly"
+    dc_holdback_percentage: Optional[float] = 0.45
+    markdown_checkpoint_week: Optional[int] = None
+    markdown_threshold: Optional[float] = None
+
+
+# Handoff callback (required when using input_type)
+async def on_demand_handoff(ctx: RunContextWrapper, input_data: ForecastParameters):
     """
-    Create a triage agent with dynamic data context
+    Callback executed when handoff to demand agent occurs.
+
+    This is required by OpenAI Agents SDK when using input_type parameter.
+    We don't need to do any special processing here - the SDK handles passing
+    the parameters to the demand agent automatically.
+    """
+    pass  # No special processing needed
+
+
+def create_triage_agent(data_loader: TrainingDataLoader = None, demand_agent: Agent = None) -> Agent:
+    """
+    Create a triage agent with dynamic data context and native handoffs
 
     Args:
         data_loader: TrainingDataLoader instance with training data.
                     If None, uses default global loader.
+        demand_agent: Demand Agent instance for native handoff.
+                     If None, handoff won't be configured (manual mode).
 
     Returns:
-        Configured Agent instance
+        Configured Agent instance with native handoffs
     """
     if data_loader is None:
         data_loader = get_data_loader()
@@ -312,11 +339,25 @@ If user seems confused:
 
 ## HANDOFF FORMAT
 
-When ready to hand off, provide a clear summary and transfer to the specialist agent. The specialist will receive all gathered parameters.
+When ready to hand off, provide a clear summary and use the handoff tool to transfer to the demand agent.
+
+**HANDOFF INSTRUCTIONS:**
+When you have gathered all required parameters (category and forecast_horizon_weeks minimum),
+call the `transfer_to_demand_agent` tool. In your final message before handoff, clearly state:
+- Product Category: [category]
+- Forecast Horizon: [X weeks]
+
+The demand agent will receive the conversation history and extract these parameters to generate the forecast.
 
 Remember: You are friendly, helpful, and efficient. Get the information needed, but don't overwhelm users. Make sensible assumptions and offer defaults when appropriate.""",
         model=OPENAI_MODEL,
-        handoffs=["demand_agent"]
+        handoffs=[
+            handoff(
+                agent=demand_agent,
+                # Temporarily remove input_type and on_handoff to debug
+                tool_description_override="Transfer to Demand Agent for forecasting. Use this when you have gathered the category and forecast horizon from the user."
+            )
+        ] if demand_agent else []  # Only add handoff if demand_agent is provided
     )
 
     return agent

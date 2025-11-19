@@ -22,8 +22,32 @@ import logging
 import warnings
 import sys
 import io
+from agents import RunContextWrapper, function_tool
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("fashion_forecast")
+
+
+# ============================================================================
+# Pydantic Models for Strict Type Schemas (required by @function_tool)
+# ============================================================================
+
+class HistoricalData(BaseModel):
+    """Historical sales data for forecasting"""
+    date: List[str] = Field(description="List of date strings in YYYY-MM-DD format")
+    quantity_sold: List[int] = Field(description="List of quantities sold corresponding to each date")
+
+
+class ForecastResult(BaseModel):
+    """Forecast output from demand forecasting tool"""
+    total_demand: int = Field(description="Sum of all weekly forecasts")
+    forecast_by_week: List[int] = Field(description="List of weekly demand predictions")
+    safety_stock_pct: float = Field(description="Safety stock percentage (0.10 to 0.50)")
+    confidence: float = Field(description="Forecast confidence score (0.0 to 1.0)")
+    model_used: str = Field(description="Which model(s) were used: 'prophet_arima_ensemble', 'prophet', or 'arima'")
+    lower_bound: List[int] = Field(default_factory=list, description="Lower confidence interval bounds")
+    upper_bound: List[int] = Field(default_factory=list, description="Upper confidence interval bounds")
+    error: Optional[str] = Field(default=None, description="Error message if forecasting failed")
 
 
 # Custom Exceptions
@@ -912,46 +936,59 @@ def clean_historical_sales(data: pd.DataFrame) -> pd.DataFrame:
 # Everything above (Sections 1-5) is internal implementation.
 # THIS is the actual tool registered with the agent.
 
+@function_tool
 def run_demand_forecast(
-    historical_data: Dict[str, List],
-    forecast_horizon_weeks: int,
-    category: str = "unknown"
-) -> Dict:
+    ctx: RunContextWrapper,
+    category: str,
+    forecast_horizon_weeks: int
+) -> ForecastResult:
     """
-    Agent tool for generating demand forecasts using ensemble of Prophet and ARIMA.
+    Generate demand forecasts using ensemble of Prophet and ARIMA models.
 
-    This is the main function that the Demand Agent will call to generate forecasts.
+    Automatically fetches historical sales data from the context and generates
+    weekly demand predictions with confidence scores and safety stock recommendations.
 
     Args:
-        historical_data: Dictionary with keys:
-            - 'date': List of date strings (YYYY-MM-DD format)
-            - 'quantity_sold': List of integer quantities
-        forecast_horizon_weeks: Number of weeks to forecast (1-52)
-        category: Product category name (for logging)
+        category: Product category name (e.g., "Women's Dresses", "Men's Shirts")
+        forecast_horizon_weeks: Number of weeks to forecast ahead (typically 1-52, recommended 12)
 
     Returns:
-        Dictionary containing:
-            - total_demand: Sum of weekly forecasts (integer)
-            - forecast_by_week: List of weekly predictions (integers)
-            - safety_stock_pct: Safety stock percentage (0.10-0.50)
-            - confidence: Confidence score (0.0-1.0)
-            - model_used: Which model(s) were used
-            - lower_bound: Lower confidence interval (list)
-            - upper_bound: Upper confidence interval (list)
-            - error: Error message if forecasting fails (optional)
+        ForecastResult containing weekly predictions, confidence scores, and safety stock recommendations
 
     Example:
-        >>> historical_data = {
-        ...     'date': ['2023-01-01', '2023-01-08', ...],
-        ...     'quantity_sold': [120, 135, 142, ...]
-        ... }
-        >>> result = run_demand_forecast(historical_data, 12, "Women's Dresses")
-        >>> print(result['total_demand'])
-        1680
+        The agent calls: run_demand_forecast("Women's Dresses", 12)
+        The tool automatically fetches historical data and returns forecasts.
     """
     logger.info(f"Starting demand forecast for category: {category}, horizon: {forecast_horizon_weeks} weeks")
 
     try:
+        # Access data_loader from context
+        data_loader = ctx.context.data_loader
+
+        if data_loader is None:
+            return ForecastResult(
+                total_demand=0,
+                forecast_by_week=[],
+                safety_stock_pct=0.50,
+                confidence=0.0,
+                model_used="none",
+                error="No data_loader in context. Context must contain a data_loader instance."
+            )
+
+        # Fetch historical sales data for this category
+        logger.info(f"Fetching historical sales data for category: {category}")
+        historical_data = data_loader.get_historical_sales(category)
+
+        if not historical_data or len(historical_data.get('date', [])) == 0:
+            return ForecastResult(
+                total_demand=0,
+                forecast_by_week=[],
+                safety_stock_pct=0.50,
+                confidence=0.0,
+                model_used="none",
+                error=f"No historical sales data found for category: {category}"
+            )
+
         # Convert dictionary to DataFrame
         df = pd.DataFrame(historical_data)
 
@@ -978,16 +1015,16 @@ def run_demand_forecast(
         safety_stock_pct = 1.0 - confidence
         safety_stock_pct = max(0.10, min(0.50, safety_stock_pct))  # Clamp to [10%, 50%]
 
-        # Build result dictionary
-        result = {
-            "total_demand": total_demand,
-            "forecast_by_week": forecast_result['predictions'],
-            "safety_stock_pct": round(safety_stock_pct, 2),
-            "confidence": round(confidence, 2),
-            "model_used": forecast_result['model_used'],
-            "lower_bound": forecast_result.get('lower_bound', []),
-            "upper_bound": forecast_result.get('upper_bound', [])
-        }
+        # Build result using Pydantic model
+        result = ForecastResult(
+            total_demand=total_demand,
+            forecast_by_week=forecast_result['predictions'],
+            safety_stock_pct=round(safety_stock_pct, 2),
+            confidence=round(confidence, 2),
+            model_used=forecast_result['model_used'],
+            lower_bound=forecast_result.get('lower_bound', []),
+            upper_bound=forecast_result.get('upper_bound', [])
+        )
 
         logger.info(
             f"Forecast complete: total_demand={total_demand}, "
@@ -999,35 +1036,35 @@ def run_demand_forecast(
     except InsufficientDataError as e:
         error_msg = f"Insufficient data: {str(e)}"
         logger.error(error_msg)
-        return {
-            "error": error_msg,
-            "total_demand": 0,
-            "forecast_by_week": [],
-            "safety_stock_pct": 0.50,
-            "confidence": 0.0,
-            "model_used": "none"
-        }
+        return ForecastResult(
+            total_demand=0,
+            forecast_by_week=[],
+            safety_stock_pct=0.50,
+            confidence=0.0,
+            model_used="none",
+            error=error_msg
+        )
 
     except ForecastingError as e:
         error_msg = f"Forecasting failed: {str(e)}"
         logger.error(error_msg)
-        return {
-            "error": error_msg,
-            "total_demand": 0,
-            "forecast_by_week": [],
-            "safety_stock_pct": 0.50,
-            "confidence": 0.0,
-            "model_used": "none"
-        }
+        return ForecastResult(
+            total_demand=0,
+            forecast_by_week=[],
+            safety_stock_pct=0.50,
+            confidence=0.0,
+            model_used="none",
+            error=error_msg
+        )
 
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
         logger.error(error_msg)
-        return {
-            "error": error_msg,
-            "total_demand": 0,
-            "forecast_by_week": [],
-            "safety_stock_pct": 0.50,
-            "confidence": 0.0,
-            "model_used": "none"
-        }
+        return ForecastResult(
+            total_demand=0,
+            forecast_by_week=[],
+            safety_stock_pct=0.50,
+            confidence=0.0,
+            model_used="none",
+            error=error_msg
+        )

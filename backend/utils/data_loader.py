@@ -93,6 +93,38 @@ class TrainingDataLoader:
             }
         return self._store_attributes
 
+    def get_historical_sales(self, category: str) -> Dict[str, List]:
+        """
+        Get aggregated historical sales data for a specific category
+
+        Args:
+            category: Product category name (e.g., "Women's Dresses")
+
+        Returns:
+            Dictionary with 'date' and 'quantity_sold' lists aggregated across all stores
+            Format: {'date': ['2022-01-01', ...], 'quantity_sold': [150, ...]}
+        """
+        from collections import defaultdict
+
+        # Aggregate sales by date across all stores
+        date_quantities = defaultdict(int)
+
+        with open(self.historical_sales_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['category'] == category:
+                    date = row['date']
+                    quantity = int(row['quantity_sold'])
+                    date_quantities[date] += quantity
+
+        # Sort by date and convert to lists
+        sorted_dates = sorted(date_quantities.keys())
+
+        return {
+            'date': sorted_dates,
+            'quantity_sold': [date_quantities[date] for date in sorted_dates]
+        }
+
     def get_context_summary(self) -> str:
         """Get a formatted summary of available data for agent context"""
         categories = self.get_categories()
