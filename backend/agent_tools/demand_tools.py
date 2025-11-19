@@ -1,18 +1,15 @@
 """
 Demand Forecasting Tools for OpenAI Agents SDK
 
-This module combines all demand forecasting functionality into a single file:
-- Prophet wrapper for seasonality-based forecasting
-- ARIMA wrapper for trend-based forecasting
-- Ensemble forecaster combining both models
-- Preprocessing utilities for data validation
-- Agent tool functions for the Demand Agent to call
+STRUCTURE:
+  Section 1-5: Internal implementation (classes, helpers)
+  Section 6: AGENT TOOL - run_demand_forecast() ← This is what the agent calls
 
-Migrated from backend-legacy/app/ml/ and adapted for OpenAI Agents SDK.
+The agent tool (Section 6) uses everything from Sections 1-5 internally.
 """
 
 # ============================================================================
-# SECTION 1: Imports and Exceptions
+# SECTION 1: Imports & Exceptions (INTERNAL)
 # ============================================================================
 
 from prophet import Prophet
@@ -46,7 +43,7 @@ class ForecastingError(Exception):
 
 
 # ============================================================================
-# SECTION 2: Prophet Wrapper (~230 lines)
+# SECTION 2: ProphetWrapper - Seasonality forecasting (INTERNAL)
 # ============================================================================
 
 class ProphetWrapper:
@@ -260,7 +257,7 @@ class ProphetWrapper:
 
 
 # ============================================================================
-# SECTION 3: ARIMA Wrapper (~370 lines)
+# SECTION 3: ARIMAWrapper - Trend forecasting (INTERNAL)
 # ============================================================================
 
 class ARIMAWrapper:
@@ -611,7 +608,7 @@ class ARIMAWrapper:
 
 
 # ============================================================================
-# SECTION 4: Ensemble Forecaster (~340 lines)
+# SECTION 4: EnsembleForecaster - Combines Prophet + ARIMA (INTERNAL)
 # ============================================================================
 
 class EnsembleForecaster:
@@ -852,7 +849,7 @@ class EnsembleForecaster:
 
 
 # ============================================================================
-# SECTION 5: Preprocessing Utilities (~50 lines)
+# SECTION 5: Data validation & cleaning helpers (INTERNAL)
 # ============================================================================
 
 def validate_historical_data(data: pd.DataFrame, min_weeks: int = 26) -> bool:
@@ -910,8 +907,10 @@ def clean_historical_sales(data: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================================
-# SECTION 6: Agent Tool Functions
+# SECTION 6: AGENT TOOL ← The function the Demand Agent calls
 # ============================================================================
+# Everything above (Sections 1-5) is internal implementation.
+# THIS is the actual tool registered with the agent.
 
 def run_demand_forecast(
     historical_data: Dict[str, List],
