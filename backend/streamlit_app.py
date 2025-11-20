@@ -7,11 +7,12 @@ from agents import Runner, set_tracing_disabled, SQLiteSession
 from config import OPENAI_MODEL
 from utils import SessionManager, TrainingDataLoader
 from utils.context import ForecastingContext
-from my_agents.triage_agent import create_triage_agent, ForecastParameters
-from my_agents.demand_agent import demand_agent
+from my_agents.coordinator_agent import create_coordinator_agent
+from agent_tools.variance_tools import check_variance, calculate_mape
 import re
 import pandas as pd
 from datetime import datetime
+import os
 
 # ============================================================================
 # CUSTOM CSS FOR PROFESSIONAL LOOK
@@ -193,6 +194,10 @@ def _display_forecast_results(response: str):
                 # Display as line chart
                 st.line_chart(df_weekly.set_index('Week'), use_container_width=True)
 
+                # Store forecast data for variance checking
+                st.session_state.forecast_by_week = units
+                st.session_state.show_variance_section = True
+
     except Exception as e:
         # Silently fail - just show text response
         pass
@@ -319,6 +324,12 @@ if "session_id" not in st.session_state:
     st.session_state.conversation_history = []
     st.session_state.forecast_context = None
     st.session_state.quick_prompt = None
+
+    # Forecast tracking for variance checking
+    st.session_state.latest_forecast = None  # Store latest forecast result
+    st.session_state.forecast_by_week = []   # Weekly forecast values
+    st.session_state.variance_results = []   # Variance check results
+    st.session_state.show_variance_section = False  # Toggle variance upload section
 
     # Create SDK Session for conversation memory
     st.session_state.sdk_session = SQLiteSession(
@@ -472,10 +483,9 @@ if not st.session_state.uploaded:
                 store_count = st.session_state.data_loader.get_store_count()
                 date_range = st.session_state.data_loader.get_date_range()
 
-                # Create agent
-                st.session_state.agent = create_triage_agent(
-                    data_loader=st.session_state.data_loader,
-                    demand_agent=demand_agent
+                # Create coordinator agent (uses agents-as-tools pattern)
+                st.session_state.agent = create_coordinator_agent(
+                    data_loader=st.session_state.data_loader
                 )
                 st.session_state.agent.model = OPENAI_MODEL
 
@@ -512,6 +522,123 @@ else:
             st.metric("Total Stores", store_count)
         with col3:
             st.metric("Data Period", f"{date_range['start_year']}-{date_range['end_year']}")
+
+    # Variance Checking Section (appears after forecast is generated)
+    if st.session_state.show_variance_section and len(st.session_state.forecast_by_week) > 0:
+        st.divider()
+        with st.expander("📈 Upload Actual Sales Data & Check Variance", expanded=False):
+            st.markdown("""
+            Upload weekly actual sales data to compare against your forecast.
+            The system will analyze variance and recommend re-forecasting if needed.
+            """)
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # File uploader for actual sales
+                actuals_file = st.file_uploader(
+                    "📊 Upload Actual Sales CSV",
+                    type=["csv"],
+                    key="actuals_upload",
+                    help="CSV with columns: date, store_id, quantity_sold"
+                )
+
+                if actuals_file:
+                    st.success(f"✅ **{actuals_file.name}**")
+
+                    # Show preview
+                    df_actuals = pd.read_csv(actuals_file)
+                    with st.expander("👁️ Preview Data"):
+                        st.dataframe(df_actuals.head(10), use_container_width=True)
+
+                    actuals_file.seek(0)
+
+            with col2:
+                # Week number selector
+                max_weeks = len(st.session_state.forecast_by_week)
+                week_num = st.number_input(
+                    "Week Number",
+                    min_value=1,
+                    max_value=max_weeks,
+                    value=1,
+                    help=f"Select which week to check (1-{max_weeks})"
+                )
+
+                # Variance threshold
+                variance_threshold = st.slider(
+                    "Variance Threshold %",
+                    min_value=5,
+                    max_value=30,
+                    value=15,
+                    help="Threshold to trigger re-forecast recommendation"
+                ) / 100
+
+            # Check variance button
+            if actuals_file and st.button("🔍 Check Variance", type="primary", use_container_width=True):
+                with st.spinner("Analyzing variance..."):
+                    try:
+                        # Save uploaded file temporarily
+                        temp_path = f".sessions/{st.session_state.session_id}_actuals_week_{week_num}.csv"
+                        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+
+                        with open(temp_path, "wb") as f:
+                            f.write(actuals_file.getvalue())
+
+                        # Run variance check
+                        variance_result = check_variance(
+                            actual_sales_csv=temp_path,
+                            forecast_by_week=st.session_state.forecast_by_week,
+                            week_number=week_num,
+                            variance_threshold=variance_threshold
+                        )
+
+                        # Display results
+                        st.divider()
+                        st.subheader(f"📊 Variance Analysis - Week {week_num}")
+
+                        # Metrics
+                        col1, col2, col3, col4 = st.columns(4)
+                        col1.metric("Actual Sales", f"{variance_result.actual_total:,} units")
+                        col2.metric("Forecasted", f"{variance_result.forecast_total:,} units")
+
+                        variance_pct_display = abs(variance_result.variance_pct) * 100
+                        col3.metric(
+                            "Variance",
+                            f"{variance_pct_display:.1f}%",
+                            delta="High" if variance_result.is_high_variance else "OK",
+                            delta_color="inverse" if variance_result.is_high_variance else "normal"
+                        )
+
+                        status_emoji = "⚠️" if variance_result.is_high_variance else "✅"
+                        col4.metric("Status", f"{status_emoji} {'High Variance' if variance_result.is_high_variance else 'On Track'}")
+
+                        # Recommendation
+                        if variance_result.is_high_variance:
+                            st.error(variance_result.recommendation)
+
+                            # Offer to re-forecast
+                            st.markdown("**Would you like to re-forecast with updated data?**")
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                if st.button("✅ Yes, Re-forecast Now", use_container_width=True):
+                                    st.session_state.quick_prompt = "Re-forecast with the latest data"
+                                    st.rerun()
+                            with col_b:
+                                if st.button("📊 View Detailed Analysis", use_container_width=True):
+                                    st.info("Detailed variance analysis would be shown here")
+                        else:
+                            st.success(variance_result.recommendation)
+
+                        # Store result
+                        st.session_state.variance_results.append(variance_result)
+
+                    except Exception as e:
+                        st.error(f"Error checking variance: {str(e)}")
+                        import traceback
+                        with st.expander("Technical Details"):
+                            st.code(traceback.format_exc())
+
+        st.divider()
 
     # Quick actions (if no conversation started)
     if len(st.session_state.conversation_history) == 0:

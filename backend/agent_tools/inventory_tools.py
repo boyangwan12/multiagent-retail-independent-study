@@ -444,29 +444,62 @@ def _allocate_to_stores(
         # Equal allocation if all factors are zero
         normalized_factors = {sid: 1.0 / len(store_factors) for sid in store_factors.keys()}
 
-    # Allocate to stores
+    # Allocate to stores with proper remainder handling
     store_allocations = []
     min_allocation_units = forecast_by_week[0] * 2 if forecast_by_week else 0
 
-    for store_id, factor in normalized_factors.items():
-        store_row = stores_data.loc[store_id]
+    # Calculate base allocations
+    base_allocations = []
+    total_allocated = 0
 
+    for store_id, factor in normalized_factors.items():
         base_allocation = int(cluster_units * factor)
 
         # Enforce 2-week minimum
         final_allocation = max(base_allocation, min_allocation_units)
 
-        if final_allocation > base_allocation:
-            logger.debug(
-                f"Store {store_id}: Bumped to 2-week minimum "
-                f"({base_allocation} → {final_allocation} units)"
-            )
+        base_allocations.append({
+            'store_id': store_id,
+            'allocation': final_allocation,
+            'factor': factor
+        })
+        total_allocated += final_allocation
 
+    # Handle unit conservation
+    diff = cluster_units - total_allocated
+
+    if diff != 0:
+        # If we allocated too many (due to minimums), reduce from largest allocations
+        # If we allocated too few, add to largest allocations
+        sorted_stores = sorted(base_allocations, key=lambda x: x['factor'], reverse=True)
+
+        if diff < 0:
+            # Allocated too many - reduce from stores above minimum
+            units_to_remove = abs(diff)
+            for store in sorted_stores:
+                if units_to_remove == 0:
+                    break
+                # Only reduce if above minimum
+                can_reduce = store['allocation'] - min_allocation_units
+                if can_reduce > 0:
+                    reduction = min(can_reduce, units_to_remove)
+                    store['allocation'] -= reduction
+                    units_to_remove -= reduction
+                    logger.debug(f"Reduced store {store['store_id']} by {reduction} units")
+        else:
+            # Allocated too few - distribute remainder
+            for i in range(diff):
+                sorted_stores[i % len(sorted_stores)]['allocation'] += 1
+
+        logger.debug(f"Adjusted store allocations by {diff} units for conservation")
+
+    # Build final allocations
+    for store_data in base_allocations:
         store_allocations.append({
-            "store_id": str(store_id),
+            "store_id": str(store_data['store_id']),
             "cluster": cluster_label,
-            "initial_allocation": final_allocation,
-            "allocation_factor": float(factor)
+            "initial_allocation": store_data['allocation'],
+            "allocation_factor": float(store_data['factor'])
         })
 
     return store_allocations
@@ -520,10 +553,33 @@ def cluster_stores(
     logger.info("=" * 80)
 
     # Get store data from context
-    data_loader = ctx.context.data_loader
-    stores_df = data_loader.get_store_attributes_df()
+    try:
+        data_loader = ctx.context.data_loader
+        stores_df = data_loader.get_store_attributes_df()
+    except AttributeError as e:
+        logger.error("data_loader not found in context")
+        raise RuntimeError(
+            "Store data not available. Please ensure training data has been uploaded through the UI."
+        ) from e
 
     logger.info(f"Fetched {len(stores_df)} stores from data_loader")
+    logger.info(f"Available columns: {list(stores_df.columns)}")
+
+    # Validate required columns before attempting clustering
+    required_features = StoreClusterer.REQUIRED_FEATURES
+    missing_cols = set(required_features) - set(stores_df.columns)
+
+    if missing_cols:
+        logger.error(f"Missing required store features: {missing_cols}")
+        available_cols = list(stores_df.columns)
+        raise ValueError(
+            f"Store data is missing required columns for clustering.\n\n"
+            f"Missing: {', '.join(missing_cols)}\n\n"
+            f"Available: {', '.join(available_cols)}\n\n"
+            f"Required features:\n" +
+            "\n".join(f"  - {feat}" for feat in required_features) +
+            "\n\nPlease ensure the store_attributes.csv file contains all required columns."
+        )
 
     # Initialize and fit clusterer
     clusterer = StoreClusterer(n_clusters=n_clusters, random_state=42)
@@ -661,9 +717,13 @@ def allocate_inventory(
     # Extract clustering info (cluster labels are in cluster_stats)
     cluster_stats_list = clustering_result.cluster_stats
 
-    # Step 3: Allocate to clusters
+    # Step 3: Allocate to clusters with remainder distribution
     logger.info("Step 3: Allocating inventory to clusters...")
     cluster_allocations = []
+
+    # Calculate base allocations with rounding
+    cluster_base_allocations = []
+    total_allocated = 0
 
     for cluster_stat in cluster_stats_list:
         cluster_id = cluster_stat.cluster_id
@@ -671,10 +731,34 @@ def allocate_inventory(
         allocation_pct = cluster_stat.allocation_percentage / 100.0
 
         cluster_units = int(initial_allocation_total * allocation_pct)
+        cluster_base_allocations.append({
+            'cluster_id': cluster_id,
+            'cluster_label': cluster_label,
+            'units': cluster_units,
+            'pct': allocation_pct
+        })
+        total_allocated += cluster_units
+
+    # Distribute remainder units to largest clusters
+    remainder = initial_allocation_total - total_allocated
+    if remainder > 0:
+        # Sort by percentage (largest first) and distribute remainder
+        sorted_clusters = sorted(cluster_base_allocations, key=lambda x: x['pct'], reverse=True)
+        for i in range(remainder):
+            sorted_clusters[i % len(sorted_clusters)]['units'] += 1
+        logger.info(f"Distributed {remainder} remainder units to ensure conservation")
+
+    # Now allocate to stores using the adjusted cluster units
+    for i, cluster_stat in enumerate(cluster_stats_list):
+        cluster_id = cluster_stat.cluster_id
+        cluster_label = cluster_stat.cluster_label
+
+        # Get adjusted cluster units
+        cluster_units = next(c['units'] for c in cluster_base_allocations if c['cluster_id'] == cluster_id)
 
         logger.info(
             f"Cluster {cluster_id} ({cluster_label}): "
-            f"{allocation_pct*100:.1f}% = {cluster_units} units"
+            f"{cluster_stat.allocation_percentage:.1f}% = {cluster_units} units"
         )
 
         # Get stores in this cluster
@@ -696,7 +780,7 @@ def allocate_inventory(
         cluster_allocations.append(ClusterAllocation(
             cluster_id=cluster_id,
             cluster_label=cluster_label,
-            allocation_percentage=cluster_stat['allocation_percentage'],
+            allocation_percentage=cluster_stat.allocation_percentage,
             total_units=cluster_units,
             stores=[StoreAllocation(**s) for s in store_allocations]
         ))
