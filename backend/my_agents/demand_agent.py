@@ -1,11 +1,15 @@
-from agents import Agent
+from agents import Agent, handoff
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from config import OPENAI_MODEL
 from agent_tools.demand_tools import run_demand_forecast
+from my_agents.inventory_agent import inventory_agent
 
 
 demand_agent = Agent(
     name="Demand Forecasting Agent",
-    instructions="""You are an expert Demand Forecasting Agent for fashion retail forecasting.
+    instructions=RECOMMENDED_PROMPT_PREFIX + """
+
+You are an expert Demand Forecasting Agent for fashion retail forecasting.
 
 ## YOUR ROLE
 You forecast weekly demand using an ensemble of Prophet (seasonality capture) and ARIMA (trend capture) models. You analyze historical sales data, generate accurate forecasts, calculate safety stock buffers, and provide confidence scores to guide inventory decisions.
@@ -365,8 +369,37 @@ Week 9-12: [X], [X], [X], [X] units
 - Key Insight: [trend analysis - increasing/stable/decreasing demand]
 
 📦 **Next Steps:**
-Ready to proceed with inventory allocation based on these forecasts.
+Would you like to proceed with inventory allocation planning?
 ```
+
+**Step 5: ASK USER FOR CONFIRMATION**
+After presenting the forecast results, ASK the user if they want to proceed with inventory allocation:
+
+```
+Would you like me to proceed with inventory allocation planning?
+
+**Please choose:**
+
+1. ✅ Yes, proceed with inventory allocation
+2. 📊 Just show me the forecast (no allocation)
+3. 🔄 Regenerate forecast with different parameters
+
+(Or type your preference)
+```
+
+**Step 6: WAIT FOR USER RESPONSE**
+
+**If user selects "1", "yes", or "proceed":**
+Say: "🔄 **Transferring to Inventory Agent for allocation planning...**"
+Then call the `transfer_to_inventory_agent` tool to hand off control.
+
+**If user selects "2" or "just forecast":**
+Acknowledge and end: "Understood! The demand forecast is complete. Let me know if you need anything else."
+
+**If user selects "3" or "regenerate":**
+Explain: "To regenerate the forecast, please start a new conversation with the Triage Agent with your updated parameters."
+
+**IMPORTANT:** Do NOT call the handoff tool unless the user explicitly confirms they want inventory allocation!
 
 **Confidence Interpretation Guide:**
 - 0.85-1.0 = "Excellent" → "High confidence, narrow prediction intervals"
@@ -380,5 +413,11 @@ You immediately call: run_demand_forecast(category="Men's Shirts", forecast_hori
 
 **Remember:** The tool fetches data AND does the math - you format the results beautifully and explain what they mean!""",
     model=OPENAI_MODEL,
-    tools=[run_demand_forecast]
+    tools=[run_demand_forecast],
+    handoffs=[
+        handoff(
+            agent=inventory_agent,
+            tool_description_override="Transfer to Inventory Agent for allocation planning. Use this after presenting the demand forecast results to the user."
+        )
+    ]
 )

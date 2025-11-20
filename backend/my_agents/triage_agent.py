@@ -1,4 +1,5 @@
 from agents import Agent, handoff, RunContextWrapper
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from config import OPENAI_MODEL
 from utils import get_data_loader, TrainingDataLoader
 from pydantic import BaseModel
@@ -66,7 +67,7 @@ You have access to historical sales data with the following:
 
     agent = Agent(
         name="Triage Agent",
-        instructions=DATA_CONTEXT + """
+        instructions=RECOMMENDED_PROMPT_PREFIX + "\n\n" + DATA_CONTEXT + """
 
 You are a helpful retail planning assistant for a fashion forecasting system.
 
@@ -291,21 +292,16 @@ Ready to proceed with demand forecasting?
 2. ✏️ Edit parameters
 3. ❌ Cancel
 
-**Step 3: Wait for User Response**
+**Step 3: When User Confirms**
 
-When user responds to your confirmation prompt:
-
-**If user selects "1" or types "yes" or "proceed":**
-You MUST do BOTH of these in your SINGLE response (not separate responses):
-1. Announce the handoff with this message:
-   ```
-   🔄 Transferring to Demand Forecasting Agent...
-
-   The Demand Agent will now analyze historical sales data and generate your forecast.
-   ```
-2. IMMEDIATELY call the transfer_to_demand_agent tool IN THE SAME RESPONSE
-
-**CRITICAL:** Do NOT wait for another user message after announcing the handoff! The announcement and the tool call must happen together in one response.
+When user selects "1", "yes", or "proceed", call the `transfer_to_demand_agent` tool with:
+- category (string)
+- forecast_horizon_weeks (int)
+- season_start_date (string, optional)
+- replenishment_strategy (string, optional, default "weekly")
+- dc_holdback_percentage (float, optional, default 0.45)
+- markdown_checkpoint_week (int, optional)
+- markdown_threshold (float, optional)
 
 **If user selects "2" or "edit":**
 - Ask which parameter they want to change
@@ -313,7 +309,7 @@ You MUST do BOTH of these in your SINGLE response (not separate responses):
 **If user selects "3" or "cancel":**
 - Acknowledge cancellation
 
-IMPORTANT: Do NOT transfer until user explicitly confirms! Show the dashboard and wait for confirmation. But once they confirm, transfer IMMEDIATELY in that same response.
+IMPORTANT: Wait for user confirmation before calling the handoff tool!
 
 ## EXAMPLE CONVERSATIONS
 
@@ -359,10 +355,7 @@ Ready to proceed with demand forecasting?
 3. ❌ Cancel"
 
 User: "1" or "yes" or "proceed"
-You: "🔄 **Transferring to Demand Forecasting Agent...**
-
-The Demand Agent will now analyze historical sales data and generate your forecast."
-[IMMEDIATELY IN THE SAME RESPONSE, calls transfer_to_demand_agent tool - user should NOT have to type anything else]
+You: [Call transfer_to_demand_agent tool with the collected parameters]
 
 ### Example 2: Complete Input
 User: "I need a 12-week forecast for men's jeans starting April 1st, 2025. Use weekly replenishment with 40% DC holdback. Check for markdowns at week 6 if we're below 60% sell-through."
@@ -395,10 +388,7 @@ Ready to proceed with demand forecasting?
 3. ❌ Cancel"
 
 User: "1"
-You: "🔄 **Transferring to Demand Forecasting Agent...**
-
-The Demand Agent will now analyze historical sales data and generate your forecast."
-[IMMEDIATELY IN THE SAME RESPONSE, calls transfer_to_demand_agent tool - user should NOT have to type anything else]
+You: [Call transfer_to_demand_agent tool with the collected parameters]
 
 ### Example 3: Clarification Needed
 User: "Forecast """ + CATEGORIES[0].lower() + """\"
@@ -437,25 +427,20 @@ If user seems confused:
 - Explain what each parameter means
 - Simplify the questions
 
-## HANDOFF FORMAT
+## HANDOFF INSTRUCTIONS
 
-When ready to hand off, provide a clear summary and use the handoff tool to transfer to the demand agent.
-
-**HANDOFF INSTRUCTIONS:**
 When you have gathered all required parameters (category and forecast_horizon_weeks minimum),
-call the `transfer_to_demand_agent` tool. In your final message before handoff, clearly state:
-- Product Category: [category]
-- Forecast Horizon: [X weeks]
-
-The demand agent will receive the conversation history and extract these parameters to generate the forecast.
+show the parameter dashboard and ask for confirmation. Once user confirms, call the
+`transfer_to_demand_agent` tool with all collected parameters.
 
 Remember: You are friendly, helpful, and efficient. Get the information needed, but don't overwhelm users. Make sensible assumptions and offer defaults when appropriate.""",
         model=OPENAI_MODEL,
         handoffs=[
             handoff(
                 agent=demand_agent,
-                # Temporarily remove input_type and on_handoff to debug
-                tool_description_override="Transfer to Demand Agent for forecasting. Use this when you have gathered the category and forecast horizon from the user."
+                input_type=ForecastParameters,
+                on_handoff=on_demand_handoff,
+                tool_description_override="Call this tool when user confirms they want to proceed with forecasting. Provide ForecastParameters with: category (required), forecast_horizon_weeks (required), season_start_date, replenishment_strategy, dc_holdback_percentage, markdown_checkpoint_week, markdown_threshold (all optional)."
             )
         ] if demand_agent else []  # Only add handoff if demand_agent is provided
     )

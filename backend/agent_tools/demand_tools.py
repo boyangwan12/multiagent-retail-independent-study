@@ -23,7 +23,7 @@ import warnings
 import sys
 import io
 from agents import RunContextWrapper, function_tool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 logger = logging.getLogger("fashion_forecast")
 
@@ -34,12 +34,16 @@ logger = logging.getLogger("fashion_forecast")
 
 class HistoricalData(BaseModel):
     """Historical sales data for forecasting"""
+    model_config = ConfigDict(extra='forbid')
+
     date: List[str] = Field(description="List of date strings in YYYY-MM-DD format")
     quantity_sold: List[int] = Field(description="List of quantities sold corresponding to each date")
 
 
 class ForecastResult(BaseModel):
     """Forecast output from demand forecasting tool"""
+    model_config = ConfigDict(extra='forbid')
+
     total_demand: int = Field(description="Sum of all weekly forecasts")
     forecast_by_week: List[int] = Field(description="List of weekly demand predictions")
     safety_stock_pct: float = Field(description="Safety stock percentage (0.10 to 0.50)")

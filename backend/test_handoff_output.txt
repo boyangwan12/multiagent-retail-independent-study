@@ -1,0 +1,58 @@
+
+================================================================================
+Message 1: Forecast Accessories for 12 weeks
+================================================================================
+
+Great! I can help you with that.
+
+When should the season start?
+
+Please choose:
+1. Next Monday (recommended)
+2. Start of next month
+3. Specific date
+(Or type your own date)
+
+[INFO] Unknown agent state
+
+================================================================================
+Message 2: 1
+================================================================================
+
+Excellent choice! Now for inventory planning, what replenishment strategy should we use?
+
+Please choose:
+1. Weekly replenishment (recommended for fashion)
+2. Bi-weekly replenishment
+3. None (one-shot allocation only)
+(Or type your preference)
+
+[INFO] Unknown agent state
+
+================================================================================
+Message 3: 1
+================================================================================
+
+Got it! For the weekly replenishment strategy, what percentage should we hold back at the distribution center?
+
+Please choose:
+1. 45% (recommended)
+2. 40%
+3. 50%
+(Or type your own percentage)
+
+[INFO] Unknown agent state
+
+================================================================================
+Message 4: 1
+================================================================================
+
+Perfect! Now, do you need any markdown planning?
+
+Please choose:
+1. No markdown planning (skip it)
+2. Yes, check at week 6 with a 60% threshold
+3. Yes, with custom settings
+(Or describe what you need)
+
+[INFO] Unknown agent state

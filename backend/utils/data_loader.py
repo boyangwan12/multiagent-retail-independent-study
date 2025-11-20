@@ -6,6 +6,7 @@ import csv
 from pathlib import Path
 from typing import List, Dict, Set
 from datetime import datetime
+import pandas as pd
 
 
 class TrainingDataLoader:
@@ -72,6 +73,67 @@ class TrainingDataLoader:
     def get_store_count(self) -> int:
         """Get total number of stores"""
         return len(self.get_stores())
+
+    def get_store_attributes_df(self) -> pd.DataFrame:
+        """
+        Get store attributes as pandas DataFrame for clustering and allocation.
+
+        Returns:
+            DataFrame with store_id as index and required features:
+            - avg_weekly_sales_12mo: 12-month average weekly sales
+            - store_size_sqft: Store square footage
+            - median_income: Median income of surrounding area
+            - location_tier: Location tier (A/B/C)
+            - fashion_tier: Fashion positioning (Premium/Mainstream/Value)
+            - store_format: Store format (Mall/Standalone/ShoppingCenter/Outlet)
+            - region: Geographic region (Northeast/Southeast/Midwest/West)
+        """
+        # Check if store_attributes.csv exists
+        if not self.store_attributes_path.exists():
+            # Generate mock store data for testing
+            return self._generate_mock_store_data()
+
+        # Load real store attributes
+        df = pd.read_csv(self.store_attributes_path)
+
+        # Set store_id as index
+        if 'store_id' in df.columns:
+            df = df.set_index('store_id')
+
+        return df
+
+    def _generate_mock_store_data(self, n_stores: int = 50) -> pd.DataFrame:
+        """
+        Generate mock store attributes for testing when real data not available.
+
+        Args:
+            n_stores: Number of stores to generate (default: 50)
+
+        Returns:
+            DataFrame with mock store attributes
+        """
+        import numpy as np
+
+        np.random.seed(42)
+
+        # Generate store IDs
+        store_ids = [f"store_{i:03d}" for i in range(1, n_stores + 1)]
+
+        # Generate features with realistic distributions
+        data = {
+            'avg_weekly_sales_12mo': np.random.normal(600, 250, n_stores).clip(200, 1500),
+            'store_size_sqft': np.random.normal(35000, 15000, n_stores).clip(15000, 80000),
+            'median_income': np.random.normal(65000, 20000, n_stores).clip(35000, 120000),
+            'location_tier': np.random.choice(['A', 'B', 'C'], n_stores, p=[0.2, 0.5, 0.3]),
+            'fashion_tier': np.random.choice(['Premium', 'Mainstream', 'Value'], n_stores, p=[0.3, 0.5, 0.2]),
+            'store_format': np.random.choice(['Mall', 'Standalone', 'ShoppingCenter', 'Outlet'], n_stores, p=[0.4, 0.3, 0.2, 0.1]),
+            'region': np.random.choice(['Northeast', 'Southeast', 'Midwest', 'West'], n_stores, p=[0.25, 0.25, 0.25, 0.25])
+        }
+
+        df = pd.DataFrame(data, index=store_ids)
+        df.index.name = 'store_id'
+
+        return df
 
     def get_store_attributes_summary(self) -> Dict:
         """Get summary statistics of store attributes"""
