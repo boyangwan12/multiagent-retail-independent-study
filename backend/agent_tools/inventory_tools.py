@@ -446,7 +446,10 @@ def _allocate_to_stores(
 
     # Allocate to stores with proper remainder handling
     store_allocations = []
-    min_allocation_units = forecast_by_week[0] * 2 if forecast_by_week else 0
+    # Calculate minimum based on average store forecast (global forecast / total stores)
+    # This is a heuristic since we don't have per-store forecasts
+    avg_store_forecast = forecast_by_week[0] / len(stores_data) if forecast_by_week and len(stores_data) > 0 else 0
+    min_allocation_units = int(avg_store_forecast * 2)
 
     # Calculate base allocations
     base_allocations = []
@@ -721,6 +724,10 @@ def allocate_inventory(
     logger.info("Step 3: Allocating inventory to clusters...")
     cluster_allocations = []
 
+    # Calculate minimum units per store (heuristic)
+    avg_store_forecast = forecast_by_week[0] / len(stores_df) if forecast_by_week and len(stores_df) > 0 else 0
+    min_allocation_per_store = int(avg_store_forecast * 2)
+    
     # Calculate base allocations with rounding
     cluster_base_allocations = []
     total_allocated = 0
@@ -729,24 +736,60 @@ def allocate_inventory(
         cluster_id = cluster_stat.cluster_id
         cluster_label = cluster_stat.cluster_label
         allocation_pct = cluster_stat.allocation_percentage / 100.0
+        store_count = cluster_stat.store_count
 
-        cluster_units = int(initial_allocation_total * allocation_pct)
+        # Calculate raw allocation based on percentage
+        raw_units = int(initial_allocation_total * allocation_pct)
+        
+        # Enforce cluster minimum (sum of store minimums)
+        min_cluster_units = store_count * min_allocation_per_store
+        final_units = max(raw_units, min_cluster_units)
+
         cluster_base_allocations.append({
             'cluster_id': cluster_id,
             'cluster_label': cluster_label,
-            'units': cluster_units,
-            'pct': allocation_pct
+            'units': final_units,
+            'pct': allocation_pct,
+            'min_needed': min_cluster_units
         })
-        total_allocated += cluster_units
+        total_allocated += final_units
 
-    # Distribute remainder units to largest clusters
-    remainder = initial_allocation_total - total_allocated
-    if remainder > 0:
-        # Sort by percentage (largest first) and distribute remainder
+    # Handle unit conservation (redistribute if total_allocated != initial_allocation_total)
+    diff = initial_allocation_total - total_allocated
+    
+    if diff != 0:
+        # Sort clusters by percentage (largest first) to absorb changes
         sorted_clusters = sorted(cluster_base_allocations, key=lambda x: x['pct'], reverse=True)
-        for i in range(remainder):
-            sorted_clusters[i % len(sorted_clusters)]['units'] += 1
-        logger.info(f"Distributed {remainder} remainder units to ensure conservation")
+        
+        if diff < 0:
+            # Allocated too many (due to minimums) - reduce from rich clusters
+            units_to_remove = abs(diff)
+            for cluster in sorted_clusters:
+                if units_to_remove == 0:
+                    break
+                
+                # Only reduce if above minimum
+                can_reduce = cluster['units'] - cluster['min_needed']
+                if can_reduce > 0:
+                    reduction = min(can_reduce, units_to_remove)
+                    cluster['units'] -= reduction
+                    units_to_remove -= reduction
+                    logger.debug(f"Reduced cluster {cluster['cluster_label']} by {reduction} units")
+            
+            if units_to_remove > 0:
+                logger.warning(f"Could not fully balance allocation. Excess: {units_to_remove}")
+                # Force reduction from largest cluster even if it violates minimum? 
+                # No, that would cause store allocation failure.
+                # We just have to accept we might be slightly over or under if parameters are impossible.
+                # But let's try to force it from the largest cluster as a last resort
+                sorted_clusters[0]['units'] -= units_to_remove
+                
+        else:
+            # Allocated too few - distribute remainder
+            for i in range(diff):
+                sorted_clusters[i % len(sorted_clusters)]['units'] += 1
+        
+        logger.info(f"Adjusted cluster allocations by {diff} units for conservation")
 
     # Now allocate to stores using the adjusted cluster units
     for i, cluster_stat in enumerate(cluster_stats_list):

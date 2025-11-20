@@ -18,6 +18,10 @@ class ForecastingContext:
     It provides access to:
     - data_loader: For fetching training data and historical sales
     - session_id: Unique identifier for the current user session
+    - forecast_by_week: Weekly forecast values (for variance checking)
+    - variance_file_path: Path to uploaded actual sales CSV (for variance checking)
+    - variance_week: Week number for variance analysis
+    - variance_threshold: Variance threshold percentage
 
     Usage:
         context = ForecastingContext(
@@ -34,6 +38,10 @@ class ForecastingContext:
     """
     data_loader: TrainingDataLoader
     session_id: str
+    forecast_by_week: Optional[list] = None
+    variance_file_path: Optional[str] = None
+    variance_week: Optional[int] = None
+    variance_threshold: Optional[float] = None
 
     def __post_init__(self):
         """Validate context after initialization"""
