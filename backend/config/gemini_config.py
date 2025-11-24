@@ -10,3 +10,4 @@ MODEL = OpenAIChatCompletionsModel(
     model="gemini-2.5-flash",
     openai_client=gemini_client
 )
+

@@ -42,15 +42,27 @@ class HistoricalData(BaseModel):
 
 class ForecastResult(BaseModel):
     """Forecast output from demand forecasting tool"""
+    # OpenAI Agents SDK requires strict schemas (no extra='allow')
+    # All possible fields must be explicitly defined
     model_config = ConfigDict(extra='forbid')
 
+    # REQUIRED CORE FIELDS
     total_demand: int = Field(description="Sum of all weekly forecasts")
     forecast_by_week: List[int] = Field(description="List of weekly demand predictions")
     safety_stock_pct: float = Field(description="Safety stock percentage (0.10 to 0.50)")
     confidence: float = Field(description="Forecast confidence score (0.0 to 1.0)")
     model_used: str = Field(description="Which model(s) were used: 'prophet_arima_ensemble', 'prophet', or 'arima'")
+
+    # OPTIONAL FIELDS (confidence intervals)
     lower_bound: List[int] = Field(default_factory=list, description="Lower confidence interval bounds")
     upper_bound: List[int] = Field(default_factory=list, description="Upper confidence interval bounds")
+
+    # OPTIONAL FIELDS (UI enhancements)
+    weekly_average: Optional[float] = Field(default=None, description="Average weekly demand for summary display")
+    data_quality: Optional[str] = Field(default=None, description="Data quality assessment: 'Excellent', 'Good', or 'Fair'")
+    summary: Optional[str] = Field(default=None, description="Markdown-formatted summary for UI expander")
+
+    # OPTIONAL FIELDS (error handling)
     error: Optional[str] = Field(default=None, description="Error message if forecasting failed")
 
 

@@ -9,3 +9,7 @@ MODEL = OpenAIChatCompletionsModel(
     model="gpt-4o-mini",
     openai_client=openai_client
 )
+# nano? model
+# enable reasoning
+# OpenAIChatCompletionsModel -> response api -> agent sdk
+# content 7 fetches newest changes

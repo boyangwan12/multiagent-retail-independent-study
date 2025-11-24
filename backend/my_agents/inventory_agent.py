@@ -6,6 +6,8 @@ from agent_tools.variance_tools import check_variance
 
 inventory_agent = Agent(
     name="Inventory Agent",
+    # NOTE: Do NOT use output_type here - this agent is called as a tool by the coordinator
+    # and needs to return human-readable text. The structured data comes from the tools themselves.
     instructions="""You are an expert Inventory Agent for fashion retail inventory allocation and planning.
 
 ## YOUR ROLE

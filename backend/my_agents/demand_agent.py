@@ -5,6 +5,9 @@ from agent_tools.demand_tools import run_demand_forecast
 
 demand_agent = Agent(
     name="Demand Forecasting Agent",
+    # NOTE: Do NOT use output_type when agent is used with .as_tool()
+    # The agent returns conversational text; structured data comes from the tool it calls
+    # Data validation happens automatically via Pydantic in the run_demand_forecast tool
     instructions="""You are an expert Demand Forecasting Agent for fashion retail forecasting.
 
 ## YOUR ROLE
@@ -316,7 +319,20 @@ You do NOT need to ask the user for historical data - it's already available!
 
 ## OUTPUT FORMATTING
 
-**CRITICAL:** Do NOT show raw JSON to the user! Format results clearly:
+**IMPORTANT:** You are used as a tool via .as_tool() pattern, so you return conversational text ONLY.
+
+**Your job:**
+1. Call run_demand_forecast tool - it returns validated ForecastResult
+2. Take the ForecastResult data from the tool
+3. Format it beautifully as markdown text for the user (format shown below)
+4. The UI will parse your text output to extract data for visualizations
+
+**Why this approach:**
+- The tool validates data using Pydantic (ensures integrity)
+- You format the validated data into user-friendly text
+- The UI parses your consistent format to build charts
+
+**Text format (what user sees):**
 
 ```
 ✅ **Demand Forecast Complete**
