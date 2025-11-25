@@ -34,7 +34,14 @@ from workflows.season_workflow import (
     run_preseason_planning,
     run_inseason_update,
 )
+from workflows.forecast_workflow import run_forecast
 from agent_tools.variance_tools import check_variance
+from agent_tools.demand_tools import (
+    clean_historical_sales,
+    aggregate_to_weekly,
+    EnsembleForecaster,
+)
+from schemas.forecast_schemas import ForecastResult
 
 
 # =============================================================================
@@ -82,6 +89,13 @@ def init_session_state():
 
     if "inseason_result" not in st.session_state:
         st.session_state.inseason_result = None
+
+    # Reforecast state for auto-reforecast feature
+    if "reforecast_result" not in st.session_state:
+        st.session_state.reforecast_result = None
+
+    if "reforecast_triggered" not in st.session_state:
+        st.session_state.reforecast_triggered = False
 
     # In-Season Timeline State
     if "inseason_setup_complete" not in st.session_state:
@@ -1009,17 +1023,508 @@ def _save_week_sales(week_num: int, sales_value: int):
     st.rerun()
 
 
+# =============================================================================
+# Variance Visualization & Auto-Reforecast Helpers
+# =============================================================================
+def _render_variance_chart(params: WorkflowParams, selected_week: int):
+    """Render forecast vs actual comparison chart - ALWAYS shown when data exists."""
+    if not st.session_state.workflow_result:
+        return
+
+    forecast = st.session_state.workflow_result.forecast
+    actual_sales = st.session_state.actual_sales
+
+    # Build comparison data
+    weeks_available = min(len(actual_sales), len(forecast.forecast_by_week))
+    if weeks_available == 0:
+        return
+
+    forecast_data = forecast.forecast_by_week[:weeks_available]
+    actual_data = actual_sales[:weeks_available]
+
+    # Create comparison chart
+    fig = go.Figure()
+
+    # Forecast line
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, weeks_available + 1)),
+            y=forecast_data,
+            mode="lines+markers",
+            name="Original Forecast",
+            line=dict(color="#1f77b4", width=2),
+            marker=dict(size=8),
+        )
+    )
+
+    # Actual sales line
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, weeks_available + 1)),
+            y=actual_data,
+            mode="lines+markers",
+            name="Actual Sales",
+            line=dict(color="#e74c3c", width=3, dash="solid"),
+            marker=dict(size=10, symbol="diamond"),
+        )
+    )
+
+    # If reforecast exists, show it too
+    if st.session_state.reforecast_result:
+        reforecast = st.session_state.reforecast_result
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(1, len(reforecast.forecast_by_week) + 1)),
+                y=reforecast.forecast_by_week,
+                mode="lines+markers",
+                name="Re-forecast (Updated)",
+                line=dict(color="#2ecc71", width=3, dash="dash"),
+                marker=dict(size=8, symbol="star"),
+            )
+        )
+
+    # Add variance area shading
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, weeks_available + 1)) + list(range(weeks_available, 0, -1)),
+            y=forecast_data + actual_data[::-1],
+            fill="toself",
+            fillcolor="rgba(231, 76, 60, 0.1)",
+            line=dict(color="rgba(255,255,255,0)"),
+            name="Variance Gap",
+            showlegend=True,
+        )
+    )
+
+    fig.update_layout(
+        title=f"Forecast vs Actual Sales - {params.category}",
+        xaxis_title="Week",
+        yaxis_title="Units",
+        hovermode="x unified",
+        height=350,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _render_forecast_only_chart(params: WorkflowParams):
+    """Render forecast-only chart when no actuals are available."""
+    if not st.session_state.workflow_result:
+        return
+
+    forecast = st.session_state.workflow_result.forecast
+
+    fig = go.Figure()
+
+    # Add confidence bands if available
+    if forecast.lower_bound and forecast.upper_bound:
+        weeks = list(range(1, len(forecast.forecast_by_week) + 1))
+        fig.add_trace(
+            go.Scatter(
+                x=weeks + weeks[::-1],
+                y=forecast.upper_bound + forecast.lower_bound[::-1],
+                fill="toself",
+                fillcolor="rgba(0, 100, 200, 0.2)",
+                line=dict(color="rgba(255,255,255,0)"),
+                name="95% Confidence Interval",
+                showlegend=True,
+            )
+        )
+
+    # Forecast line
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, len(forecast.forecast_by_week) + 1)),
+            y=forecast.forecast_by_week,
+            mode="lines+markers",
+            name="Forecast",
+            line=dict(color="#1f77b4", width=2),
+            marker=dict(size=8),
+        )
+    )
+
+    fig.update_layout(
+        title=f"Demand Forecast - {params.category}",
+        xaxis_title="Week",
+        yaxis_title="Units",
+        hovermode="x unified",
+        height=300,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
+    """
+    Run reforecast directly using the forecasting tools (no agent).
+
+    This is faster and more reliable for in-session reforecasting
+    since it skips the LLM agent overhead.
+    """
+    import pandas as pd
+
+    # Get historical data
+    data_loader = st.session_state.data_loader
+    historical_data = data_loader.get_historical_sales(params.category)
+
+    # Convert to DataFrame
+    df = pd.DataFrame(historical_data)
+
+    # Clean and aggregate to weekly
+    df = clean_historical_sales(df)
+    df = aggregate_to_weekly(df)
+
+    # Train ensemble forecaster
+    ensemble = EnsembleForecaster()
+    ensemble.train(df)
+
+    # Generate forecast
+    forecast_result = ensemble.forecast(params.forecast_horizon_weeks)
+
+    # Calculate totals
+    total_demand = sum(forecast_result["predictions"])
+    weekly_average = total_demand // params.forecast_horizon_weeks if params.forecast_horizon_weeks > 0 else 0
+
+    # Calculate safety stock (inverse of confidence, clamped)
+    confidence = forecast_result["confidence"]
+    safety_stock_pct = 1.0 - confidence
+    safety_stock_pct = max(0.10, min(0.50, safety_stock_pct))
+
+    # Assess data quality
+    data_quality = "excellent" if confidence >= 0.7 else "good" if confidence >= 0.5 else "poor"
+
+    return ForecastResult(
+        total_demand=total_demand,
+        forecast_by_week=forecast_result["predictions"],
+        safety_stock_pct=round(safety_stock_pct, 2),
+        confidence=round(confidence, 2),
+        model_used=forecast_result["model_used"],
+        lower_bound=forecast_result.get("lower_bound", []),
+        upper_bound=forecast_result.get("upper_bound", []),
+        weekly_average=weekly_average,
+        data_quality=data_quality,
+        explanation=f"Re-forecast generated using {forecast_result['model_used']} based on historical data plus actual sales performance. Total demand: {total_demand:,} units over {params.forecast_horizon_weeks} weeks.",
+    )
+
+
+def _render_reforecast_comparison(params: WorkflowParams):
+    """Render comparison between original forecast, actuals, and new reforecast."""
+    if not st.session_state.reforecast_result or not st.session_state.workflow_result:
+        return
+
+    original = st.session_state.workflow_result.forecast
+    reforecast = st.session_state.reforecast_result
+    actuals = st.session_state.actual_sales
+
+    st.markdown("### 📊 Re-forecast Results")
+
+    # Metrics comparison
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Original Forecast (Total)",
+            f"{original.total_demand:,}",
+        )
+
+    with col2:
+        st.metric(
+            "Actual Sales (To Date)",
+            f"{sum(actuals):,}",
+        )
+
+    with col3:
+        change_pct = (reforecast.total_demand - original.total_demand) / original.total_demand if original.total_demand > 0 else 0
+        st.metric(
+            "New Forecast (Total)",
+            f"{reforecast.total_demand:,}",
+            delta=f"{change_pct:+.1%}",
+        )
+
+    # Show updated forecast chart
+    fig = go.Figure()
+
+    weeks = list(range(1, max(len(original.forecast_by_week), len(reforecast.forecast_by_week)) + 1))
+
+    # Original forecast (faded)
+    fig.add_trace(
+        go.Scatter(
+            x=weeks[:len(original.forecast_by_week)],
+            y=original.forecast_by_week,
+            mode="lines",
+            name="Original Forecast",
+            line=dict(color="rgba(31, 119, 180, 0.4)", width=2, dash="dot"),
+        )
+    )
+
+    # Actual sales
+    if actuals:
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(1, len(actuals) + 1)),
+                y=actuals,
+                mode="lines+markers",
+                name="Actual Sales",
+                line=dict(color="#e74c3c", width=3),
+                marker=dict(size=10, symbol="diamond"),
+            )
+        )
+
+    # New reforecast (prominent)
+    fig.add_trace(
+        go.Scatter(
+            x=weeks[:len(reforecast.forecast_by_week)],
+            y=reforecast.forecast_by_week,
+            mode="lines+markers",
+            name="Updated Forecast",
+            line=dict(color="#2ecc71", width=3),
+            marker=dict(size=8),
+        )
+    )
+
+    fig.update_layout(
+        title="Forecast Comparison: Original vs Re-forecast",
+        xaxis_title="Week",
+        yaxis_title="Units",
+        hovermode="x unified",
+        height=400,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Explanation (no expander to avoid nesting issues)
+    st.markdown("#### 📝 Re-forecast Details")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"**Model:** {reforecast.model_used}")
+    with col2:
+        st.markdown(f"**Confidence:** {reforecast.confidence:.0%}")
+    with col3:
+        st.markdown(f"**Data Quality:** {reforecast.data_quality}")
+    st.info(reforecast.explanation)
+
+
+def _render_agentic_variance_analysis(params: WorkflowParams, selected_week: int, variance_pct: float, is_high_variance: bool):
+    """
+    Render agentic variance analysis with automatic reforecast on high variance.
+
+    This performs intelligent analysis directly (no LLM call to avoid hanging)
+    and automatically triggers reforecast when variance is high.
+    """
+    # Compute analysis directly (fast, no LLM)
+    analysis = _compute_variance_analysis(params, selected_week, variance_pct)
+
+    # Display the analysis
+    _display_variance_analysis(analysis, params, selected_week)
+
+    # AUTO-TRIGGER reforecast if high variance and agent recommends it
+    if analysis["should_reforecast"] and is_high_variance:
+        reforecast_key = f"reforecast_week_{selected_week}"
+
+        # Check if already reforecasted
+        if not st.session_state.get(reforecast_key):
+            st.warning("🔄 Auto-triggering re-forecast based on analysis...")
+
+            with st.spinner("Running re-forecast with updated data..."):
+                try:
+                    reforecast_result = _run_direct_reforecast(params)
+                    st.session_state.reforecast_result = reforecast_result
+                    st.session_state[reforecast_key] = True
+                    st.success("✅ Re-forecast complete!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Re-forecast failed: {e}")
+        else:
+            # Already reforecasted - show the comparison
+            if st.session_state.reforecast_result:
+                _render_reforecast_comparison(params)
+
+
+def _compute_variance_analysis(params: WorkflowParams, selected_week: int, current_variance_pct: float) -> dict:
+    """
+    Compute variance analysis using intelligent rules (no LLM needed).
+
+    Analyzes:
+    - Weekly variance trend
+    - Severity based on magnitude
+    - Likely causes based on patterns
+    - Recommended actions
+    """
+    forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
+    actual_sales = st.session_state.actual_sales
+    total_weeks = len(forecast_by_week)
+    weeks_remaining = total_weeks - selected_week
+
+    # Calculate weekly variances
+    weekly_variances = []
+    for i in range(min(len(actual_sales), selected_week)):
+        if forecast_by_week[i] > 0:
+            var = (actual_sales[i] - forecast_by_week[i]) / forecast_by_week[i] * 100
+        else:
+            var = 0
+        weekly_variances.append(var)
+
+    # Determine trend
+    if len(weekly_variances) >= 2:
+        recent = weekly_variances[-1]
+        earlier = weekly_variances[0]
+        if abs(recent) > abs(earlier) + 5:
+            trend = "worsening"
+        elif abs(recent) < abs(earlier) - 5:
+            trend = "improving"
+        else:
+            trend = "stable"
+    else:
+        trend = "insufficient_data"
+
+    # Determine severity
+    abs_variance = abs(current_variance_pct * 100)
+    if abs_variance < 10:
+        severity = "low"
+    elif abs_variance < 20:
+        severity = "medium"
+    elif abs_variance < 35:
+        severity = "high"
+    else:
+        severity = "critical"
+
+    # Determine likely cause
+    if current_variance_pct > 0:  # Under-forecast (actual > forecast)
+        if trend == "worsening":
+            likely_cause = "Systematic under-forecasting - demand stronger than predicted, possibly due to favorable market conditions or unaccounted promotions"
+        else:
+            likely_cause = "Demand exceeding forecast - may indicate seasonal strength or successful marketing"
+    else:  # Over-forecast (actual < forecast)
+        if trend == "worsening":
+            likely_cause = "Systematic over-forecasting - demand weaker than predicted, possibly due to competition or market softness"
+        else:
+            likely_cause = "Sales below forecast - may indicate inventory issues, weather impact, or changing consumer preferences"
+
+    # Determine recommended action
+    if severity == "low":
+        recommended_action = "continue"
+        action_reasoning = "Variance is within acceptable range. Continue monitoring."
+        should_reforecast = False
+    elif severity == "medium" and trend != "worsening":
+        recommended_action = "continue"
+        action_reasoning = "Moderate variance but trend is stable/improving. Monitor closely."
+        should_reforecast = False
+    elif weeks_remaining < 2:
+        recommended_action = "markdown" if current_variance_pct < 0 else "continue"
+        action_reasoning = "Too few weeks remaining for reforecast to be effective."
+        should_reforecast = False
+    else:
+        recommended_action = "reforecast"
+        action_reasoning = f"High variance ({abs_variance:.1f}%) with {weeks_remaining} weeks remaining. Reforecast recommended to capture demand shift."
+        should_reforecast = True
+
+    # Build explanation
+    explanation = f"""
+**Variance Analysis for Week {selected_week}:**
+
+- Current variance: {current_variance_pct*100:+.1f}%
+- Trend: {trend.title()} (comparing week 1 to week {selected_week})
+- Weeks remaining: {weeks_remaining} of {total_weeks}
+
+**Weekly Breakdown:**
+{', '.join([f'W{i+1}: {v:+.1f}%' for i, v in enumerate(weekly_variances)])}
+
+**Assessment:**
+{likely_cause}
+
+**Recommendation:**
+{action_reasoning}
+"""
+
+    return {
+        "variance_pct": current_variance_pct * 100,
+        "severity": severity,
+        "trend_direction": trend,
+        "likely_cause": likely_cause,
+        "recommended_action": recommended_action,
+        "action_reasoning": action_reasoning,
+        "should_reforecast": should_reforecast,
+        "confidence": 0.85 if len(weekly_variances) >= 3 else 0.70,
+        "explanation": explanation,
+        "weekly_variances": weekly_variances,
+        "weeks_remaining": weeks_remaining,
+    }
+
+
+def _display_variance_analysis(analysis: dict, params: WorkflowParams, selected_week: int):
+    """Display the variance analysis results."""
+
+    # Severity badge
+    severity_colors = {
+        "low": "🟢",
+        "medium": "🟡",
+        "high": "🟠",
+        "critical": "🔴"
+    }
+    severity = analysis.get("severity", "medium")
+    severity_icon = severity_colors.get(severity, "⚪")
+
+    st.markdown(f"### {severity_icon} Analysis: **{severity.upper()}** Severity")
+
+    # Key metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Variance", f"{analysis['variance_pct']:+.1f}%")
+    with col2:
+        trend = analysis.get("trend_direction", "stable")
+        st.metric("Trend", trend.title())
+    with col3:
+        st.metric("Confidence", f"{analysis.get('confidence', 0.75):.0%}")
+    with col4:
+        action_icons = {
+            "continue": "✅",
+            "reforecast": "🔄",
+            "reallocate": "📦",
+            "markdown": "💰",
+            "investigate": "🔍"
+        }
+        action = analysis.get("recommended_action", "continue")
+        icon = action_icons.get(action, "❓")
+        st.metric("Action", f"{icon} {action.title()}")
+
+    # Likely cause
+    st.markdown("---")
+    st.markdown("#### 🔍 Likely Cause")
+    st.info(analysis.get("likely_cause", "Unknown"))
+
+    # Analysis reasoning
+    st.markdown("#### 💭 Analysis")
+    st.markdown(analysis.get("explanation", ""))
+
+    # Action recommendation box
+    st.markdown("#### 🎯 Recommended Action")
+    action = analysis.get("recommended_action", "continue")
+    action_reasoning = analysis.get("action_reasoning", "")
+
+    if action == "continue":
+        st.success(f"**{action.upper()}**: {action_reasoning}")
+    elif action == "reforecast":
+        st.warning(f"**{action.upper()}**: {action_reasoning}")
+    elif action == "markdown":
+        st.warning(f"**{action.upper()}**: {action_reasoning}")
+    else:
+        st.info(f"**{action.upper()}**: {action_reasoning}")
+
+
 def render_week_sections(params: WorkflowParams, selected_week: int, week_info: dict):
     """Render the variance, reallocation, and pricing sections for a week."""
     markdown_week = params.markdown_week
 
-    # Section 2: Variance Analysis
-    with st.expander("📉 2. Variance Analysis", expanded=False):
+    # Section 2: Variance Analysis (Always Agentic)
+    with st.expander("📉 2. Variance Analysis", expanded=True):
         if week_info["actual_sales"] is not None and st.session_state.workflow_result:
-            # Calculate and show variance
+            # Calculate and show variance metrics
             forecast_val = st.session_state.workflow_result.forecast.forecast_by_week[selected_week - 1]
             actual_val = week_info["actual_sales"]
             variance_pct = (actual_val - forecast_val) / forecast_val if forecast_val > 0 else 0
+            is_high_variance = abs(variance_pct) > params.variance_threshold
 
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -1027,19 +1532,25 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
             with col2:
                 st.metric("Actual", f"{actual_val:,}")
             with col3:
-                delta_color = "inverse" if abs(variance_pct) > params.variance_threshold else "normal"
+                delta_color = "inverse" if is_high_variance else "normal"
                 st.metric(
                     "Variance",
                     f"{variance_pct:+.1%}",
-                    delta="High" if abs(variance_pct) > params.variance_threshold else "OK",
+                    delta="High" if is_high_variance else "OK",
                     delta_color=delta_color,
                 )
 
-            if abs(variance_pct) > params.variance_threshold:
-                st.error(f"⚠️ High variance detected! Exceeds {params.variance_threshold:.0%} threshold.")
-                st.info("Consider re-forecasting with updated data.")
+            # ALWAYS show visualization (forecast vs actual chart)
+            _render_variance_chart(params, selected_week)
+
+            # AGENTIC MODE: Always use intelligent analysis
+            _render_agentic_variance_analysis(params, selected_week, variance_pct, is_high_variance)
         else:
             st.info("Upload sales data to see variance analysis.")
+
+            # Show forecast-only chart if we have a forecast
+            if st.session_state.workflow_result:
+                _render_forecast_only_chart(params)
 
     # Section 3: Reallocation Recommendations
     with st.expander("🔄 3. Reallocation", expanded=False):

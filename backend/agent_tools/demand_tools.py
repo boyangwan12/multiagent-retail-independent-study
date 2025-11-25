@@ -520,6 +520,34 @@ def clean_historical_sales(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def aggregate_to_weekly(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregate daily sales data to weekly totals for Prophet training.
+
+    Prophet expects weekly data when forecasting weekly periods.
+    This ensures forecast output matches actual weekly sales.
+
+    Args:
+        data: DataFrame with 'date' and 'quantity_sold' columns (daily data)
+
+    Returns:
+        DataFrame with weekly aggregated data
+    """
+    if data is None or len(data) == 0:
+        return pd.DataFrame(columns=["date", "quantity_sold"])
+
+    df = data.copy()
+    df["date"] = pd.to_datetime(df["date"])
+
+    # Resample to weekly (Week ending Sunday)
+    df = df.set_index("date")
+    weekly = df.resample("W").sum().reset_index()
+
+    logger.info(f"Aggregated {len(data)} daily records to {len(weekly)} weekly records")
+
+    return weekly
+
+
 # ============================================================================
 # SECTION 8: AGENT TOOL - run_demand_forecast
 # ============================================================================
@@ -583,9 +611,15 @@ def run_demand_forecast(
         # Convert to DataFrame
         df = pd.DataFrame(historical_data)
 
-        # Validate and clean
-        validate_historical_data(df, min_weeks=26)
+        # Clean daily data first
         df = clean_historical_sales(df)
+
+        # Aggregate daily data to weekly for proper forecasting
+        # This ensures forecast values match actual weekly sales totals
+        df = aggregate_to_weekly(df)
+
+        # Validate (now checking for 26 weeks minimum)
+        validate_historical_data(df, min_weeks=26)
 
         # Train ensemble
         ensemble = EnsembleForecaster()
