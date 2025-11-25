@@ -1,14 +1,63 @@
 """
-Agent Tools Package
+Agent Tools Module
 
-This package contains tool functions that agents can call to perform specialized tasks.
+Contains @function_tool decorated functions that agents can call.
+Tools perform actual computation and return Pydantic models.
 
-Tools use ToolContext to access dependencies (like data_loader) from the run context.
-No global state is used - all data is passed via context parameter.
+Key insight: Tools are called BY agents (via LLM tool calls),
+EXCEPT for variance_tools which is called DIRECTLY by the workflow.
+
+Tool Summary:
+    - run_demand_forecast: Prophet + ARIMA ensemble forecasting
+    - cluster_stores: K-means store segmentation
+    - allocate_inventory: Hierarchical inventory allocation
+    - calculate_markdown: Gap × Elasticity markdown calculation
+    - check_variance: Pure function for variance analysis (workflow-level)
 """
 
-from agent_tools.demand_tools import run_demand_forecast
+# Demand forecasting tool
+from agent_tools.demand_tools import (
+    run_demand_forecast,
+    ForecastToolResult,
+)
+
+# Inventory allocation tools
+from agent_tools.inventory_tools import (
+    cluster_stores,
+    allocate_inventory,
+    ClusteringToolResult,
+    AllocationToolResult,
+    ClusterStats,
+    ClusterQualityMetrics,
+)
+
+# Pricing/markdown tool
+from agent_tools.pricing_tools import (
+    calculate_markdown,
+    MarkdownToolResult,
+)
+
+# Variance checking (pure function, NOT an agent tool)
+from agent_tools.variance_tools import (
+    check_variance,
+    check_weekly_variance,
+)
 
 __all__ = [
-    'run_demand_forecast',
+    # Demand tools
+    "run_demand_forecast",
+    "ForecastToolResult",
+    # Inventory tools
+    "cluster_stores",
+    "allocate_inventory",
+    "ClusteringToolResult",
+    "AllocationToolResult",
+    "ClusterStats",
+    "ClusterQualityMetrics",
+    # Pricing tools
+    "calculate_markdown",
+    "MarkdownToolResult",
+    # Variance tools (workflow-level)
+    "check_variance",
+    "check_weekly_variance",
 ]

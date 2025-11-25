@@ -1,6 +1,5 @@
-from .gemini_config import MODEL as GEMINI_MODEL, gemini_client
-from .openai_config import MODEL as OPENAI_MODEL, openai_client
+"""Configuration module for the retail forecasting backend."""
 
-MODEL = OPENAI_MODEL
+from .settings import OPENAI_MODEL, OPENAI_API_KEY, settings
 
-__all__ = ['MODEL', 'GEMINI_MODEL', 'OPENAI_MODEL', 'gemini_client', 'openai_client']
+__all__ = ["OPENAI_MODEL", "OPENAI_API_KEY", "settings"]

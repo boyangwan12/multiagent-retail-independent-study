@@ -1,1145 +1,1278 @@
 """
-Retail Forecasting System - Enhanced Streamlit UI
-Professional UX with improved visual design and interactions
+Retail Forecasting Multi-Agent System - Streamlit UI
+
+This Streamlit application provides a user interface for the 3-agent
+retail forecasting system (Demand, Inventory, Pricing agents).
+
+Features:
+- Pre-season planning (forecast + allocation)
+- In-season updates with actual sales data
+- Variance analysis and re-forecasting
+- Markdown/pricing optimization
+
+Usage:
+    streamlit run streamlit_app.py
 """
+
+import asyncio
 import streamlit as st
-from agents import Runner, set_tracing_disabled, SQLiteSession
-from config import OPENAI_MODEL
-from utils import SessionManager, TrainingDataLoader, StreamlitVisualizationHooks
-from utils.context import ForecastingContext
-from my_agents.coordinator_agent import create_coordinator_agent
-from agent_tools.variance_tools import check_variance, calculate_mape
-import re
 import pandas as pd
-from datetime import datetime
-import os
-
-# ============================================================================
-# CUSTOM CSS FOR PROFESSIONAL LOOK
-# ============================================================================
-
-def inject_custom_css():
-    """Inject custom CSS for enhanced visual design"""
-    st.markdown("""
-    <style>
-    /* Main container */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-
-    /* Custom header styling */
-    .custom-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .custom-header h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-    }
-
-    .custom-header p {
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
-        opacity: 0.9;
-    }
-
-    /* Upload section styling */
-    .upload-card {
-        background: white;
-        padding: 2rem;
-        border-radius: 10px;
-        border: 2px dashed #cbd5e0;
-        transition: all 0.3s ease;
-    }
-
-    .upload-card:hover {
-        border-color: #667eea;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-    }
-
-    /* Chat message styling */
-    .stChatMessage {
-        padding: 1rem;
-        margin-bottom: 1rem;
-        border-radius: 10px;
-    }
-
-    /* Metric cards */
-    [data-testid="stMetricValue"] {
-        font-size: 1.8rem;
-        font-weight: 600;
-    }
-
-    /* Sidebar styling */
-    .css-1d391kg {
-        background-color: #f8f9fa;
-    }
-
-    /* Button enhancements */
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    /* Success/Info boxes */
-    .stSuccess, .stInfo {
-        border-radius: 8px;
-        padding: 1rem;
-    }
-
-    /* Divider */
-    hr {
-        margin: 2rem 0;
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, #cbd5e0, transparent);
-    }
-
-    /* Quick action chips */
-    .quick-action-chip {
-        display: inline-block;
-        background: #e0e7ff;
-        color: #4c51bf;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        margin: 0.25rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .quick-action-chip:hover {
-        background: #c7d2fe;
-        transform: scale(1.05);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ============================================================================
-# RESULTS DISPLAY HELPERS (Enhanced with charts)
-# ============================================================================
-
-def _display_forecast_results(response: str):
-    """Display demand forecast results using structured output data (Pydantic model)"""
-    try:
-        st.divider()
-
-        # Get structured data from session state (captured by lifecycle hook)
-        forecast_data = getattr(st.session_state, 'demand_forecast_data', None)
-
-        # Check if this is a re-forecast
-        is_reforecast = 'reforecast' in response.lower() or 'updated forecast' in response.lower()
-
-        # Header
-        if is_reforecast:
-            st.subheader("🔄 Updated Forecast Summary Dashboard")
-            st.success("**✅ Re-forecast complete!** New forecast incorporates actual sales data for improved accuracy.")
-        else:
-            st.subheader("📊 Forecast Summary Dashboard")
-
-        # VALIDATION: Check if data exists
-        if not forecast_data:
-            # FALLBACK: Try to parse from agent response text (brittle but better than nothing)
-            import re
-            total_match = re.search(r'Total Demand.*?(\d+,?\d*)\s+units', response, re.IGNORECASE)
-            confidence_match = re.search(r'Confidence.*?(\d+)%', response, re.IGNORECASE)
-
-            if total_match or confidence_match:
-                st.warning("⚠️ **Using fallback text parsing** (structured data wasn't captured)")
-                st.info(f"""
-                **Parsed from AI response:**
-                - Total Demand: {total_match.group(1) if total_match else 'Not found'} units
-                - Confidence: {confidence_match.group(1) if confidence_match else 'Not found'}%
-
-                The full forecast details are in the AI response above.
-                """)
-            else:
-                st.error("⚠️ **Forecast completed but visualization data is missing.**")
-                st.info("""
-                **What happened:** The AI agent completed the forecast, but the structured data wasn't captured.
-
-                **What to do:**
-                1. Check the AI response above for text-based results
-                2. Try running the forecast again
-                3. If this persists, check console logs for hook debug messages
-                """)
-
-            st.session_state.show_variance_section = True  # Still allow variance checking
-            return
-
-        # VALIDATION: Check required fields
-        required_fields = ['total_demand', 'forecast_by_week', 'confidence', 'safety_stock_pct']
-        missing_fields = [f for f in required_fields if f not in forecast_data or forecast_data[f] is None]
-
-        if missing_fields:
-            st.error(f"⚠️ **Incomplete forecast data. Missing: {', '.join(missing_fields)}**")
-            st.warning("The forecast may have partially failed. Please review the AI response above and try again.")
-
-            # Show whatever data we do have
-            with st.expander("🔍 Available Data (Partial)", expanded=True):
-                st.json(forecast_data)
-            return
-
-        if forecast_data:
-            # Use structured data directly - no regex needed!
-            total_demand = forecast_data.get('total_demand')
-            weekly_avg = forecast_data.get('weekly_average')
-            confidence = forecast_data.get('confidence')
-            safety_stock_pct = forecast_data.get('safety_stock_pct')
-            forecast_by_week = forecast_data.get('forecast_by_week', [])
-            model_used = forecast_data.get('model_used', 'Unknown')
-            data_quality = forecast_data.get('data_quality', 'Unknown')
-
-            # Metrics row with enhanced styling
-            cols = st.columns(4)
-            if total_demand:
-                cols[0].metric(
-                    "Total Demand",
-                    f"{total_demand:,} units",
-                    help="Predicted total units needed for the forecast period"
-                )
-            if weekly_avg:
-                cols[1].metric(
-                    "Weekly Average",
-                    f"{weekly_avg:,} units/week",
-                    help="Average demand per week"
-                )
-            if confidence is not None:
-                conf_delta = "High" if confidence >= 70 else "Medium" if confidence >= 50 else "Low"
-                cols[2].metric(
-                    "Confidence",
-                    f"{confidence}%",
-                    delta=conf_delta,
-                    help="Forecast reliability score"
-                )
-            if safety_stock_pct is not None:
-                safety_stock_display = int(safety_stock_pct * 100) if safety_stock_pct <= 1 else int(safety_stock_pct)
-                cols[3].metric(
-                    "Safety Stock",
-                    f"{safety_stock_display}%",
-                    help="Additional buffer inventory percentage"
-                )
-
-            # Additional info row
-            st.caption(f"📊 Model: **{model_used}** | Data Quality: **{data_quality}**")
-
-            # Weekly breakdown chart from structured data
-            if forecast_by_week and len(forecast_by_week) > 0:
-                st.caption("📈 Weekly Breakdown")
-
-                # Create DataFrame for chart
-                weeks = [item['week'] if isinstance(item, dict) else i+1 for i, item in enumerate(forecast_by_week)]
-                units = [item['demand'] if isinstance(item, dict) else item for item in forecast_by_week]
-
-                df_weekly = pd.DataFrame({
-                    'Week': weeks,
-                    'Forecast Units': units
-                })
-
-                # Display as line chart
-                st.line_chart(df_weekly.set_index('Week'), use_container_width=True)
-
-                # Store forecast data for variance checking
-                st.session_state.forecast_by_week = units
-                st.session_state.show_variance_section = True
-
-            # Show summary from structured output
-            summary = forecast_data.get('summary')
-            if summary:
-                with st.expander("📋 Detailed Analysis", expanded=False):
-                    st.markdown(summary)
-
-        else:
-            # Fallback: no structured data available, show info message
-            st.info("✅ **Demand forecast completed!** See the AI response above for detailed results.")
-            st.session_state.show_variance_section = True
-
-    except Exception as e:
-        # Show error for debugging
-        st.warning(f"Could not display forecast visualization: {str(e)}")
-        import traceback
-        st.caption(traceback.format_exc())
-
-
-def _display_variance_results(response: str):
-    """Parse and display variance checking results visually"""
-    try:
-        # Extract variance metrics using regex - try multiple patterns
-        # Pattern 1: "Actual Sales: X units" or "actual_total=X"
-        actual_sales = re.search(r'Actual Sales[:\s]+(\d+,?\d*)\s+units', response, re.IGNORECASE)
-        if not actual_sales:
-            actual_sales = re.search(r'actual[_\s]total[=:\s]+(\d+,?\d*)', response, re.IGNORECASE)
-
-        # Pattern 2: "Forecasted: Y units" or "forecast_total=Y"
-        forecasted = re.search(r'Forecast(?:ed)?[:\s]+(\d+,?\d*)\s+units', response, re.IGNORECASE)
-        if not forecasted:
-            forecasted = re.search(r'forecast[_\s]total[=:\s]+(\d+,?\d*)', response, re.IGNORECASE)
-
-        # Pattern 3: Variance percentage
-        variance_match = re.search(r'Variance[:\s]+(\+|\-)?\s*(\d+(?:\.\d+)?)%', response, re.IGNORECASE)
-        if not variance_match:
-            variance_match = re.search(r'variance[_\s]pct[=:\s]+(\+|\-)?\s*(\d+(?:\.\d+)?)', response, re.IGNORECASE)
-
-        high_variance = re.search(r'High Variance|⚠️|is_high_variance[=:\s]+True', response, re.IGNORECASE)
-        reforecast_triggered = re.search(r'HIGH_VARIANCE_REFORECAST_NEEDED|Triggering Automatic Re-Forecast', response, re.IGNORECASE)
-
-        if actual_sales or variance_match or 'variance' in response.lower():
-            st.divider()
-            st.subheader("📊 Variance Analysis Results")
-
-            # Metrics row
-            cols = st.columns(4)
-            if actual_sales:
-                cols[0].metric(
-                    "Actual Sales",
-                    f"{actual_sales.group(1)} units",
-                    help="Total actual sales for the week"
-                )
-            else:
-                cols[0].metric("Actual Sales", "See debug", help="Could not parse from response")
-
-            if forecasted:
-                cols[1].metric(
-                    "Forecasted",
-                    f"{forecasted.group(1)} units",
-                    help="Forecasted sales for the week"
-                )
-            else:
-                cols[1].metric("Forecasted", "See debug", help="Could not parse from response")
-
-            if variance_match:
-                variance_val = float(variance_match.group(2))
-                sign = variance_match.group(1) if variance_match.group(1) else ""
-                cols[2].metric(
-                    "Variance",
-                    f"{sign}{variance_val}%",
-                    delta="High" if high_variance else "OK",
-                    delta_color="inverse" if high_variance else "normal",
-                    help="Percentage difference between forecast and actual"
-                )
-
-            status_emoji = "⚠️" if high_variance else "✅"
-            status_text = "High Variance" if high_variance else "On Track"
-            cols[3].metric("Status", f"{status_emoji} {status_text}")
-
-            # Recommendation box with re-forecasting indicator
-            if reforecast_triggered:
-                st.error("**🔄 AUTOMATIC RE-FORECASTING TRIGGERED!**")
-                st.info("The AI coordinator is automatically generating a new forecast with updated data. This self-healing process improves forecast accuracy based on actual performance.")
-            elif high_variance:
-                st.warning("**⚠️ High variance detected!** See AI recommendation above for next steps.")
-            else:
-                st.success("**✅ Variance within acceptable range.** Forecast accuracy is good!")
-
-            # Always show debug info for variance (temporarily, to diagnose)
-            with st.expander("🔍 Debug: Raw Agent Response", expanded=not (actual_sales and forecasted)):
-                st.text(response)
-                if not actual_sales or not forecasted:
-                    st.warning("⚠️ Could not parse all numbers from response. The tool ran successfully, but the agent's text format is incorrect.")
-                    st.info("💡 **Tip:** Look for 'actual_total' and 'forecast_total' in the raw response above - those are the actual values!")
-
-    except Exception as e:
-        # Silently fail
-        pass
-
-
-def _display_inventory_results(response: str):
-    """Display inventory allocation results using structured output data (Pydantic model)"""
-    try:
-        st.divider()
-        st.subheader("🏭 Inventory Allocation Dashboard")
-
-        # Get structured data from session state (captured by lifecycle hook)
-        allocation_data = getattr(st.session_state, 'inventory_allocation_data', None)
-
-        # VALIDATION: Check if data exists
-        if not allocation_data:
-            st.error("⚠️ **Allocation completed but visualization data is missing.**")
-            st.info("""
-            **What happened:** The AI agent completed the allocation, but the structured data wasn't captured.
-
-            **What to do:**
-            1. Check the AI response above for text-based results
-            2. Try running the allocation again
-            """)
-            return
-
-        # VALIDATION: Check required fields
-        required_fields = ['manufacturing_qty', 'dc_holdback', 'initial_store_allocation']
-        missing_fields = [f for f in required_fields if f not in allocation_data or allocation_data[f] is None]
-
-        if missing_fields:
-            st.error(f"⚠️ **Incomplete allocation data. Missing: {', '.join(missing_fields)}**")
-            st.warning("The allocation may have partially failed. Please review the AI response above.")
-            with st.expander("🔍 Available Data (Partial)", expanded=True):
-                st.json(allocation_data)
-            return
-
-        if allocation_data:
-            # Use structured data directly - no regex needed!
-            manufacturing_qty = allocation_data.get('manufacturing_qty')
-            dc_holdback = allocation_data.get('dc_holdback')
-            dc_holdback_pct = allocation_data.get('dc_holdback_percentage')
-            initial_store_allocation = allocation_data.get('initial_store_allocation')
-            cluster_allocations = allocation_data.get('cluster_allocations', [])
-            store_allocations = allocation_data.get('store_allocations', [])
-            replenishment_strategy = allocation_data.get('replenishment_strategy', 'Unknown')
-            summary = allocation_data.get('summary')
-
-            # Top-level metrics
-            cols = st.columns(3)
-            if manufacturing_qty:
-                cols[0].metric(
-                    "Manufacturing Qty",
-                    f"{manufacturing_qty:,} units",
-                    help="Total units to manufacture (demand + safety stock)"
-                )
-            if dc_holdback:
-                delta_text = f"{int(dc_holdback_pct * 100)}%" if dc_holdback_pct and dc_holdback_pct <= 1 else f"{int(dc_holdback_pct)}%" if dc_holdback_pct else None
-                cols[1].metric(
-                    "DC Holdback",
-                    f"{dc_holdback:,} units",
-                    delta=delta_text,
-                    help="Units held at distribution center for replenishment"
-                )
-            if initial_store_allocation:
-                cols[2].metric(
-                    "Initial Store Allocation",
-                    f"{initial_store_allocation:,} units",
-                    help="Units allocated to stores initially"
-                )
-
-            st.caption(f"📦 Replenishment Strategy: **{replenishment_strategy}**")
-
-            # Cluster allocations from structured data
-            if cluster_allocations and len(cluster_allocations) > 0:
-                st.caption("📊 Cluster Distribution")
-
-                # Create DataFrame for chart
-                cluster_data = []
-                for cluster in cluster_allocations:
-                    cluster_data.append({
-                        'Cluster': cluster.get('cluster_name', 'Unknown').replace('_', ' '),
-                        'Units': cluster.get('allocation_units', 0),
-                        'Percentage': cluster.get('allocation_percentage', 0),
-                        'Stores': cluster.get('store_count', 0)
-                    })
-
-                df_clusters = pd.DataFrame(cluster_data)
-                st.bar_chart(df_clusters.set_index('Cluster')['Percentage'], use_container_width=True)
-
-            # Store allocations from structured data
-            if store_allocations and len(store_allocations) > 0:
-                st.divider()
-                st.subheader("🏪 Store-Level Allocations")
-
-                # Create DataFrame for table
-                store_data = []
-                for store in store_allocations:
-                    store_data.append({
-                        'Store ID': store.get('store_id', 'Unknown'),
-                        'Allocated Units': store.get('allocation_units', 0),
-                        'Cluster': store.get('cluster', 'Unknown').replace('_', ' '),
-                        'Factor': f"{store.get('allocation_factor', 1.0):.2f}"
-                    })
-
-                df_stores = pd.DataFrame(store_data)
-                st.dataframe(
-                    df_stores,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=400
-                )
-
-            # Show summary
-            if summary:
-                with st.expander("📋 Allocation Summary", expanded=False):
-                    st.markdown(summary)
-
-        else:
-            # Fallback: no structured data, show info message
-            st.info("✅ **Inventory allocation completed!** See the AI response above for detailed results.")
-
-    except Exception as e:
-        st.warning(f"Could not display inventory visualization: {str(e)}")
-        import traceback
-        st.caption(traceback.format_exc())
-
-
-def _display_in_season_prompt():
-    """Display prompt asking user if they want to start in-season planning with actual sales upload"""
-    st.divider()
-
-    # Prominent call-to-action box
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    ">
-        <h3 style="margin: 0 0 0.5rem 0; color: #2d3748;">🎯 Pre-Season Planning Complete!</h3>
-        <p style="margin: 0; color: #4a5568; font-size: 1.1rem;">
-            Your forecast and allocation are ready. Would you like to start in-season planning?
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    **In-Season Planning** allows you to:
-    - Upload actual weekly sales data as your season progresses
-    - Track forecast accuracy with variance analysis
-    - Automatically trigger re-forecasting when variance exceeds thresholds
-    - Continuously improve your predictions based on real performance
-    """)
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📈 Yes, Start In-Season Planning", type="primary", use_container_width=True, key="start_in_season"):
-            st.session_state.in_season_started = True
-            st.session_state.show_in_season_prompt = False
-            st.rerun()
-
-    with col2:
-        if st.button("⏭️ Skip for Now", use_container_width=True, key="skip_in_season"):
-            st.session_state.show_in_season_prompt = False
-            st.rerun()
-
-    # Show upload section if user clicked "Yes"
-    if getattr(st.session_state, 'in_season_started', False):
-        _display_actual_sales_upload(key_suffix="prompt")
-
-
-def _display_actual_sales_upload(key_suffix="main"):
-    """Display the actual sales CSV upload section for in-season planning
-
-    Args:
-        key_suffix: Suffix for widget keys to avoid conflicts when called from multiple places
-    """
-    st.subheader("📤 Upload Actual Sales Data")
-
-    st.info("""
-    **Upload your weekly actual sales data** to compare against forecasts.
-
-    **Required CSV format:**
-    - `date` - Date of sales (YYYY-MM-DD)
-    - `store_id` - Store identifier
-    - `quantity_sold` - Actual units sold
-
-    Optional: `category`, `revenue`
-    """)
-
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        actuals_file = st.file_uploader(
-            "📊 Actual Sales CSV",
-            type=["csv"],
-            key=f"actuals_upload_{key_suffix}",
-            help="CSV with columns: date, store_id, quantity_sold"
-        )
-
-        if actuals_file:
-            st.success(f"✅ **{actuals_file.name}** uploaded")
-
-            # Show preview
-            df_actuals = pd.read_csv(actuals_file)
-            with st.expander("👁️ Preview Data", expanded=True):
-                st.dataframe(df_actuals.head(10), use_container_width=True)
-
-                # Show data summary
-                st.caption(f"**Rows:** {len(df_actuals)} | **Columns:** {', '.join(df_actuals.columns)}")
-
-            actuals_file.seek(0)
-
-    with col2:
-        st.markdown("**Analysis Options**")
-
-        # Week number selector
-        max_weeks = len(getattr(st.session_state, 'forecast_by_week', [])) or 12
-        week_num = st.number_input(
-            "Week Number",
-            min_value=1,
-            max_value=max_weeks,
-            value=1,
-            help=f"Which week does this data represent? (1-{max_weeks})",
-            key=f"week_num_{key_suffix}"
-        )
-
-        # Variance threshold
-        variance_threshold = st.slider(
-            "Variance Threshold %",
-            min_value=5,
-            max_value=30,
-            value=15,
-            help="Variance above this % triggers re-forecast recommendation",
-            key=f"variance_threshold_{key_suffix}"
-        )
-
-    # Action button
-    if actuals_file:
-        if st.button("🔍 Analyze Variance & Save Data", type="primary", use_container_width=True, key=f"analyze_variance_btn_{key_suffix}"):
-            with st.spinner("Saving file and preparing analysis..."):
-                try:
-                    # Save uploaded file
-                    session_dir = st.session_state.session_manager.get_session_dir(st.session_state.session_id)
-                    temp_path = os.path.join(session_dir, f"actuals_week_{week_num}.csv")
-
-                    with open(temp_path, "wb") as f:
-                        f.write(actuals_file.getvalue())
-
-                    st.success(f"✅ File saved successfully!")
-
-                    # Store in session state for agent
-                    st.session_state.variance_file_path = temp_path
-                    st.session_state.variance_week = week_num
-                    st.session_state.variance_threshold = variance_threshold / 100
-
-                    # Create suggested prompt
-                    suggested_prompt = f"Check variance for week {week_num} using the uploaded actual sales data. Use {variance_threshold}% variance threshold."
-
-                    st.info(f"**Ready for analysis!** Use the chat below to ask:\n\n`{suggested_prompt}`")
-
-                    # Quick action button
-                    if st.button("🚀 Run Variance Analysis Now", use_container_width=True, key=f"run_variance_now_{key_suffix}"):
-                        st.session_state.quick_prompt = suggested_prompt
-                        st.rerun()
-
-                except Exception as e:
-                    st.error(f"Error saving file: {str(e)}")
-
-
-# ============================================================================
-# QUICK ACTION HELPERS
-# ============================================================================
-
-def render_quick_actions():
-    """Render quick action buttons for common tasks"""
-    st.markdown("### 🚀 Quick Start")
-    st.markdown("Click any option below to get started quickly:")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📈 Create Forecast", use_container_width=True, key="quick_forecast"):
-            st.session_state.quick_prompt = "I need help with forecasting"
-            st.rerun()
-
-    with col2:
-        if st.button("📦 Plan Inventory", use_container_width=True, key="quick_inventory"):
-            st.session_state.quick_prompt = "Help me plan inventory allocation"
-            st.rerun()
-
-# ============================================================================
-# MAIN APP
-# ============================================================================
-
-# Configure page
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import date, timedelta
+import uuid
+
+from utils.data_loader import TrainingDataLoader
+from utils.context import ForecastingContext
+from schemas.workflow_schemas import WorkflowParams, SeasonResult
+from schemas.forecast_schemas import ForecastResult
+from schemas.allocation_schemas import AllocationResult
+from schemas.pricing_schemas import MarkdownResult
+from schemas.variance_schemas import VarianceResult
+from workflows.season_workflow import (
+    run_full_season,
+    run_preseason_planning,
+    run_inseason_update,
+)
+from agent_tools.variance_tools import check_variance
+
+
+# =============================================================================
+# Page Configuration
+# =============================================================================
 st.set_page_config(
     page_title="Retail Forecasting System",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://github.com/your-repo',
-        'About': "AI-Powered Retail Forecasting System v2.0"
-    }
 )
 
-# Inject custom CSS
-inject_custom_css()
 
-# Disable tracing for cleaner output
-set_tracing_disabled(True)
+# =============================================================================
+# Session State Initialization
+# =============================================================================
+def init_session_state():
+    """Initialize session state variables."""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())[:8]
 
-# Initialize session state
-if "session_id" not in st.session_state:
-    session_manager = SessionManager()
-    st.session_state.session_id = session_manager.create_session()
-    st.session_state.session_manager = session_manager
-    st.session_state.uploaded = False
-    st.session_state.data_loader = None
-    st.session_state.agent = None
-    st.session_state.conversation_history = []
-    st.session_state.forecast_context = None
-    st.session_state.quick_prompt = None
+    if "data_loader" not in st.session_state:
+        st.session_state.data_loader = TrainingDataLoader()
 
-    # Forecast tracking for variance checking
-    st.session_state.latest_forecast = None  # Store latest forecast result
-    st.session_state.forecast_by_week = []   # Weekly forecast values
-    st.session_state.variance_results = []   # Variance check results
-    st.session_state.show_variance_section = False  # Toggle variance upload section
-    st.session_state.allocation_complete = False  # Track if allocation was completed (for variance section expansion)
-    st.session_state.show_in_season_prompt = False  # Show in-season planning prompt after allocation
-    st.session_state.in_season_started = False  # Track if user started in-season planning
+    if "workflow_result" not in st.session_state:
+        st.session_state.workflow_result = None
 
-    # Lifecycle hook completion flags (replaces string pattern matching)
-    st.session_state.demand_agent_completed = False
-    st.session_state.demand_agent_output = None
-    st.session_state.inventory_agent_completed = False
-    st.session_state.inventory_agent_output = None
-    st.session_state.variance_check_completed = False
-    st.session_state.variance_output = None
+    if "running" not in st.session_state:
+        st.session_state.running = False
 
-    # Real-time execution monitoring state (used by sidebar monitor)
-    st.session_state.active_agent = None
-    st.session_state.agent_is_running = False
-    st.session_state.llm_is_thinking = False
-    st.session_state.current_reasoning = None
-    st.session_state.current_tool = None
-    st.session_state.agent_timeline = []
-    st.session_state.tools_executing = []
-    st.session_state.completed_tools = []
-    st.session_state.llm_calls = []
+    if "current_week" not in st.session_state:
+        st.session_state.current_week = 0
 
-    # Structured output data (from Pydantic models via lifecycle hooks)
-    st.session_state.demand_forecast_data = None  # DemandForecastOutput as dict
-    st.session_state.inventory_allocation_data = None  # InventoryAllocationOutput as dict
-    st.session_state.variance_data = None  # VarianceCheckOutput as dict
+    if "actual_sales" not in st.session_state:
+        st.session_state.actual_sales = []
 
-    # Create SDK Session for conversation memory
-    st.session_state.sdk_session = SQLiteSession(
-        session_id=st.session_state.session_id,
-        db_path=":memory:"
+    if "total_sold" not in st.session_state:
+        st.session_state.total_sold = 0
+
+    if "variance_result" not in st.session_state:
+        st.session_state.variance_result = None
+
+    if "planning_mode" not in st.session_state:
+        st.session_state.planning_mode = "pre-season"
+
+    if "inseason_result" not in st.session_state:
+        st.session_state.inseason_result = None
+
+
+init_session_state()
+
+
+# =============================================================================
+# Sidebar - Parameters
+# =============================================================================
+def render_sidebar():
+    """Render the sidebar with workflow parameters."""
+    st.sidebar.title("📊 Workflow Parameters")
+
+    # Planning mode selection
+    st.sidebar.subheader("📅 Planning Mode")
+    planning_mode = st.sidebar.radio(
+        "Select Mode",
+        options=["Pre-Season", "In-Season"],
+        index=0 if st.session_state.planning_mode == "pre-season" else 1,
+        help="Pre-Season: Initial forecast & allocation. In-Season: Update with actual sales.",
+    )
+    st.session_state.planning_mode = planning_mode.lower().replace("-", "-")
+
+    st.sidebar.divider()
+
+    # Category selection
+    categories = st.session_state.data_loader.get_categories()
+    category = st.sidebar.selectbox(
+        "Product Category",
+        options=categories,
+        index=0 if categories else None,
+        help="Select the product category to forecast",
     )
 
-# Custom Header
-st.markdown("""
-<div class="custom-header">
-    <h1>📊 Retail Forecasting System</h1>
-    <p>AI-Powered Demand Forecasting & Inventory Planning</p>
-</div>
-""", unsafe_allow_html=True)
+    st.sidebar.divider()
 
-# Sidebar - Real-time Execution Monitor
-with st.sidebar:
-    # Only show execution monitor if data is uploaded and agent is initialized
-    if st.session_state.uploaded and st.session_state.agent:
-        # Import and render the real-time execution monitor
-        from utils.sidebar_monitor import render_execution_monitor
-        render_execution_monitor(st.session_state)
+    # Forecast parameters
+    st.sidebar.subheader("🔮 Forecast Settings")
+    forecast_horizon = st.sidebar.slider(
+        "Forecast Horizon (weeks)",
+        min_value=4,
+        max_value=52,
+        value=12,
+        help="Number of weeks to forecast",
+    )
+
+    season_start = st.sidebar.date_input(
+        "Season Start Date",
+        value=date.today(),
+        help="Start date for the season",
+    )
+
+    st.sidebar.divider()
+
+    # Inventory parameters
+    st.sidebar.subheader("📦 Inventory Settings")
+    dc_holdback = st.sidebar.slider(
+        "DC Holdback %",
+        min_value=0.20,
+        max_value=0.60,
+        value=0.45,
+        step=0.05,
+        format="%.0f%%",
+        help="Percentage to hold at Distribution Center",
+    )
+
+    safety_stock = st.sidebar.slider(
+        "Safety Stock %",
+        min_value=0.10,
+        max_value=0.50,
+        value=0.20,
+        step=0.05,
+        format="%.0f%%",
+        help="Safety stock buffer percentage",
+    )
+
+    replenishment = st.sidebar.selectbox(
+        "Replenishment Strategy",
+        options=["weekly", "bi-weekly", "none"],
+        index=0,
+        help="How often to replenish stores from DC",
+    )
+
+    st.sidebar.divider()
+
+    # Pricing parameters
+    st.sidebar.subheader("💰 Pricing Settings")
+    markdown_week = st.sidebar.slider(
+        "Markdown Checkpoint Week",
+        min_value=4,
+        max_value=12,
+        value=6,
+        help="Week to check if markdown is needed",
+    )
+
+    markdown_threshold = st.sidebar.slider(
+        "Sell-Through Target",
+        min_value=0.40,
+        max_value=0.80,
+        value=0.60,
+        step=0.05,
+        format="%.0f%%",
+        help="Target sell-through rate",
+    )
+
+    elasticity = st.sidebar.number_input(
+        "Price Elasticity",
+        min_value=1.0,
+        max_value=4.0,
+        value=2.0,
+        step=0.5,
+        help="Price elasticity factor for markdown calculation",
+    )
+
+    st.sidebar.divider()
+
+    # Variance parameters
+    st.sidebar.subheader("📉 Variance Settings")
+    variance_threshold = st.sidebar.slider(
+        "Variance Threshold",
+        min_value=0.10,
+        max_value=0.40,
+        value=0.20,
+        step=0.05,
+        format="%.0f%%",
+        help="Variance threshold to trigger re-forecast",
+    )
+
+    max_reforecasts = st.sidebar.slider(
+        "Max Re-forecasts",
+        min_value=0,
+        max_value=5,
+        value=2,
+        help="Maximum number of re-forecasts allowed",
+    )
+
+    return WorkflowParams(
+        category=category,
+        forecast_horizon_weeks=forecast_horizon,
+        season_start_date=season_start,
+        dc_holdback_pct=dc_holdback,
+        safety_stock_pct=safety_stock,
+        replenishment_strategy=replenishment,
+        markdown_week=markdown_week,
+        markdown_threshold=markdown_threshold,
+        elasticity=elasticity,
+        variance_threshold=variance_threshold,
+        max_reforecasts=max_reforecasts,
+    )
+
+
+# =============================================================================
+# Forecast Visualization
+# =============================================================================
+def render_forecast_section(
+    forecast: ForecastResult,
+    params: WorkflowParams,
+    actual_sales: list = None,
+):
+    """Render the forecast results section with optional actual sales comparison."""
+    st.subheader("🔮 Demand Forecast")
+
+    # Key metrics in columns
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            label="Total Demand",
+            value=f"{forecast.total_demand:,} units",
+        )
+
+    with col2:
+        st.metric(
+            label="Weekly Average",
+            value=f"{forecast.weekly_average:,} units",
+        )
+
+    with col3:
+        confidence_label = (
+            "Excellent"
+            if forecast.confidence >= 0.85
+            else "Good"
+            if forecast.confidence >= 0.70
+            else "Fair"
+            if forecast.confidence >= 0.60
+            else "Poor"
+        )
+        st.metric(
+            label="Confidence",
+            value=f"{forecast.confidence:.0%}",
+            delta=confidence_label,
+        )
+
+    with col4:
+        st.metric(
+            label="Safety Stock",
+            value=f"{forecast.safety_stock_pct:.0%}",
+        )
+
+    # Forecast chart with optional actual sales
+    weeks = list(range(1, len(forecast.forecast_by_week) + 1))
+
+    fig = go.Figure()
+
+    # Add confidence bands if available
+    if forecast.lower_bound and forecast.upper_bound:
+        fig.add_trace(
+            go.Scatter(
+                x=weeks + weeks[::-1],
+                y=forecast.upper_bound + forecast.lower_bound[::-1],
+                fill="toself",
+                fillcolor="rgba(0, 100, 200, 0.2)",
+                line=dict(color="rgba(255,255,255,0)"),
+                name="95% Confidence Interval",
+                showlegend=True,
+            )
+        )
+
+    # Main forecast line
+    fig.add_trace(
+        go.Scatter(
+            x=weeks,
+            y=forecast.forecast_by_week,
+            mode="lines+markers",
+            name="Forecast",
+            line=dict(color="#1f77b4", width=3),
+            marker=dict(size=8),
+        )
+    )
+
+    # Add actual sales line if available
+    if actual_sales and len(actual_sales) > 0:
+        actual_weeks = list(range(1, len(actual_sales) + 1))
+        fig.add_trace(
+            go.Scatter(
+                x=actual_weeks,
+                y=actual_sales,
+                mode="lines+markers",
+                name="Actual Sales",
+                line=dict(color="#e74c3c", width=3, dash="dash"),
+                marker=dict(size=10, symbol="diamond"),
+            )
+        )
+
+    fig.update_layout(
+        title=f"Weekly Demand Forecast vs Actual - {params.category}",
+        xaxis_title="Week",
+        yaxis_title="Units",
+        hovermode="x unified",
+        height=400,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Agent explanation
+    with st.expander("Agent Explanation", expanded=False):
+        st.markdown(f"**Model Used:** {forecast.model_used}")
+        st.markdown(f"**Data Quality:** {forecast.data_quality}")
+        st.info(forecast.explanation)
+
+
+# =============================================================================
+# Allocation Visualization
+# =============================================================================
+def render_allocation_section(allocation: AllocationResult):
+    """Render the allocation results section."""
+    st.subheader("📦 Inventory Allocation")
+
+    # Key metrics in columns
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            label="Manufacturing Qty",
+            value=f"{allocation.manufacturing_qty:,} units",
+        )
+
+    with col2:
+        st.metric(
+            label="DC Holdback",
+            value=f"{allocation.dc_holdback:,} units",
+            delta=f"{allocation.dc_holdback_percentage:.0%}",
+        )
+
+    with col3:
+        st.metric(
+            label="Store Allocation",
+            value=f"{allocation.initial_store_allocation:,} units",
+        )
+
+    with col4:
+        st.metric(
+            label="Stores",
+            value=f"{len(allocation.store_allocations)}",
+        )
+
+    # Two columns for charts
+    col_cluster, col_store = st.columns(2)
+
+    with col_cluster:
+        # Cluster allocation pie chart
+        cluster_data = pd.DataFrame(
+            [
+                {
+                    "Cluster": c.cluster_name,
+                    "Units": c.allocation_units,
+                    "Stores": c.store_count,
+                    "Percentage": c.allocation_percentage,
+                }
+                for c in allocation.cluster_allocations
+            ]
+        )
+
+        fig_cluster = px.pie(
+            cluster_data,
+            values="Units",
+            names="Cluster",
+            title="Allocation by Store Cluster",
+            color="Cluster",
+            color_discrete_map={
+                "Fashion_Forward": "#2ecc71",
+                "Mainstream": "#3498db",
+                "Value_Conscious": "#9b59b6",
+            },
+            hole=0.4,
+        )
+        fig_cluster.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_cluster, use_container_width=True)
+
+    with col_store:
+        # Cluster summary table
+        st.markdown("**Cluster Summary**")
+        st.dataframe(
+            cluster_data,
+            column_config={
+                "Cluster": st.column_config.TextColumn("Cluster"),
+                "Units": st.column_config.NumberColumn("Units", format="%d"),
+                "Stores": st.column_config.NumberColumn("Stores"),
+                "Percentage": st.column_config.NumberColumn(
+                    "Allocation %", format="%.1f%%"
+                ),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    # Store allocation bar chart
+    store_data = pd.DataFrame(
+        [
+            {
+                "Store": s.store_id,
+                "Units": s.allocation_units,
+                "Cluster": s.cluster,
+            }
+            for s in allocation.store_allocations
+        ]
+    ).sort_values("Units", ascending=False)
+
+    fig_stores = px.bar(
+        store_data.head(20),  # Top 20 stores
+        x="Store",
+        y="Units",
+        color="Cluster",
+        title="Top 20 Store Allocations",
+        color_discrete_map={
+            "Fashion_Forward": "#2ecc71",
+            "Mainstream": "#3498db",
+            "Value_Conscious": "#9b59b6",
+        },
+    )
+    fig_stores.update_layout(height=350)
+    st.plotly_chart(fig_stores, use_container_width=True)
+
+    # Agent explanation
+    with st.expander("Agent Explanation", expanded=False):
+        st.markdown(f"**Replenishment Strategy:** {allocation.replenishment_strategy}")
+        st.info(allocation.explanation)
+
+
+# =============================================================================
+# Pricing/Markdown Visualization
+# =============================================================================
+def render_pricing_section(
+    markdown: MarkdownResult | None, params: WorkflowParams
+):
+    """Render the pricing/markdown results section."""
+    st.subheader("💰 Pricing & Markdown")
+
+    if markdown is None:
+        st.info(
+            f"No markdown check performed. "
+            f"Currently at week {st.session_state.current_week}, "
+            f"markdown checkpoint is week {params.markdown_week}."
+        )
+        return
+
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            label="Recommended Markdown",
+            value=f"{markdown.recommended_markdown_pct:.0%}",
+            delta="Applied" if markdown.markdown_needed else "None needed",
+        )
+
+    with col2:
+        st.metric(
+            label="Current Sell-Through",
+            value=f"{markdown.current_sell_through:.0%}",
+        )
+
+    with col3:
+        st.metric(
+            label="Target Sell-Through",
+            value=f"{markdown.target_sell_through:.0%}",
+        )
+
+    with col4:
+        st.metric(
+            label="Gap",
+            value=f"{markdown.gap:.0%}",
+        )
+
+    # Visual indicator
+    if markdown.recommended_markdown_pct == 0:
+        st.success("✅ On track! No markdown needed.")
+    elif markdown.recommended_markdown_pct <= 0.15:
+        st.warning(
+            f"⚠️ Minor adjustment: {markdown.recommended_markdown_pct:.0%} markdown recommended"
+        )
+    elif markdown.recommended_markdown_pct <= 0.30:
+        st.warning(
+            f"⚠️ Significant markdown: {markdown.recommended_markdown_pct:.0%} recommended"
+        )
     else:
-        # Show setup status when not yet ready
-        st.markdown("### 📋 Session Info")
-        st.caption(f"**Session ID:** `{st.session_state.session_id[:12]}...`")
-        st.caption(f"**Started:** {datetime.now().strftime('%I:%M %p')}")
+        st.error(
+            f"🚨 Aggressive markdown: {markdown.recommended_markdown_pct:.0%} (near 40% cap)"
+        )
 
-        st.divider()
+    # Markdown calculation visual
+    col_calc, col_gauge = st.columns([2, 1])
 
-        # Status indicators
-        st.markdown("### 📡 System Status")
+    with col_calc:
+        st.markdown("### Markdown Calculation")
+        st.markdown(
+            f"""
+            | Step | Value |
+            |------|-------|
+            | Current Sell-Through | {markdown.current_sell_through:.0%} |
+            | Target Sell-Through | {markdown.target_sell_through:.0%} |
+            | **Gap** | {markdown.gap:.0%} |
+            | Elasticity | {markdown.elasticity_used}x |
+            | Raw Markdown | {markdown.raw_markdown_pct:.0%} |
+            | **Final Markdown** | {markdown.recommended_markdown_pct:.0%} |
+            """
+        )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.session_state.uploaded:
-                st.success("✅ Data")
-            else:
-                st.warning("⏳ Data")
+    with col_gauge:
+        # Simple gauge visualization
+        fig_gauge = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=markdown.recommended_markdown_pct * 100,
+                domain={"x": [0, 1], "y": [0, 1]},
+                gauge={
+                    "axis": {"range": [0, 40]},
+                    "bar": {"color": "#e74c3c"},
+                    "steps": [
+                        {"range": [0, 15], "color": "#2ecc71"},
+                        {"range": [15, 30], "color": "#f39c12"},
+                        {"range": [30, 40], "color": "#e74c3c"},
+                    ],
+                    "threshold": {
+                        "line": {"color": "black", "width": 4},
+                        "thickness": 0.75,
+                        "value": markdown.recommended_markdown_pct * 100,
+                    },
+                },
+                number={"suffix": "%"},
+            )
+        )
+        fig_gauge.update_layout(height=200, margin=dict(t=0, b=0))
+        st.plotly_chart(fig_gauge, use_container_width=True)
 
-        with col2:
-            if st.session_state.agent:
-                st.success("✅ Agent")
-            else:
-                st.info("⏳ Agent")
+    # Agent explanation
+    with st.expander("Agent Explanation", expanded=False):
+        st.markdown(f"**Week Number:** {markdown.week_number}")
+        if markdown.is_max_markdown:
+            st.warning("⚠️ Markdown hit the 40% cap")
+        st.info(markdown.explanation)
+
+
+# =============================================================================
+# Variance Analysis Section
+# =============================================================================
+def render_variance_analysis(
+    variance: VarianceResult,
+    forecast_by_week: list,
+    actual_sales: list,
+    params: WorkflowParams,
+):
+    """Render detailed variance analysis section."""
+    st.subheader("📉 Variance Analysis")
+
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        delta_color = "inverse" if variance.is_high_variance else "normal"
+        st.metric(
+            label="Variance",
+            value=f"{abs(variance.variance_pct):.1%}",
+            delta=variance.direction.upper(),
+            delta_color=delta_color,
+        )
+
+    with col2:
+        st.metric(
+            label="Actual Total",
+            value=f"{variance.actual_total:,}",
+        )
+
+    with col3:
+        st.metric(
+            label="Forecast Total",
+            value=f"{variance.forecast_total:,}",
+        )
+
+    with col4:
+        st.metric(
+            label="Variance (Units)",
+            value=f"{variance.variance_units:+,}",
+        )
+
+    # Status indicator
+    if variance.is_high_variance:
+        st.error(
+            f"🚨 **HIGH VARIANCE DETECTED** - {variance.direction.upper()}-forecast by {abs(variance.variance_pct):.1%} "
+            f"(threshold: {params.variance_threshold:.0%})"
+        )
+    else:
+        st.success(
+            f"✅ Variance within acceptable range ({abs(variance.variance_pct):.1%} < {params.variance_threshold:.0%})"
+        )
+
+    # Week-by-week comparison chart
+    weeks_available = min(len(actual_sales), len(forecast_by_week))
+    comparison_data = pd.DataFrame(
+        {
+            "Week": list(range(1, weeks_available + 1)),
+            "Forecast": forecast_by_week[:weeks_available],
+            "Actual": actual_sales[:weeks_available],
+        }
+    )
+    comparison_data["Variance"] = comparison_data["Forecast"] - comparison_data["Actual"]
+    comparison_data["Variance %"] = (
+        comparison_data["Variance"] / comparison_data["Forecast"] * 100
+    ).round(1)
+
+    col_chart, col_table = st.columns([2, 1])
+
+    with col_chart:
+        # Bar chart comparison
+        fig_comparison = go.Figure()
+
+        fig_comparison.add_trace(
+            go.Bar(
+                x=comparison_data["Week"],
+                y=comparison_data["Forecast"],
+                name="Forecast",
+                marker_color="#1f77b4",
+            )
+        )
+
+        fig_comparison.add_trace(
+            go.Bar(
+                x=comparison_data["Week"],
+                y=comparison_data["Actual"],
+                name="Actual",
+                marker_color="#e74c3c",
+            )
+        )
+
+        fig_comparison.update_layout(
+            title="Week-by-Week: Forecast vs Actual",
+            xaxis_title="Week",
+            yaxis_title="Units",
+            barmode="group",
+            height=350,
+            legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99),
+        )
+
+        st.plotly_chart(fig_comparison, use_container_width=True)
+
+    with col_table:
+        st.markdown("**Weekly Breakdown**")
+        st.dataframe(
+            comparison_data,
+            column_config={
+                "Week": st.column_config.NumberColumn("Week"),
+                "Forecast": st.column_config.NumberColumn("Forecast", format="%d"),
+                "Actual": st.column_config.NumberColumn("Actual", format="%d"),
+                "Variance": st.column_config.NumberColumn("Var (Units)", format="%+d"),
+                "Variance %": st.column_config.NumberColumn("Var %", format="%.1f%%"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    # Cumulative variance chart
+    comparison_data["Cumulative Forecast"] = comparison_data["Forecast"].cumsum()
+    comparison_data["Cumulative Actual"] = comparison_data["Actual"].cumsum()
+
+    fig_cumulative = go.Figure()
+
+    fig_cumulative.add_trace(
+        go.Scatter(
+            x=comparison_data["Week"],
+            y=comparison_data["Cumulative Forecast"],
+            mode="lines+markers",
+            name="Cumulative Forecast",
+            line=dict(color="#1f77b4", width=2),
+        )
+    )
+
+    fig_cumulative.add_trace(
+        go.Scatter(
+            x=comparison_data["Week"],
+            y=comparison_data["Cumulative Actual"],
+            mode="lines+markers",
+            name="Cumulative Actual",
+            line=dict(color="#e74c3c", width=2),
+        )
+    )
+
+    # Add variance area
+    fig_cumulative.add_trace(
+        go.Scatter(
+            x=comparison_data["Week"].tolist() + comparison_data["Week"].tolist()[::-1],
+            y=comparison_data["Cumulative Forecast"].tolist()
+            + comparison_data["Cumulative Actual"].tolist()[::-1],
+            fill="toself",
+            fillcolor="rgba(255, 0, 0, 0.1)",
+            line=dict(color="rgba(255,255,255,0)"),
+            name="Variance Gap",
+            showlegend=True,
+        )
+    )
+
+    fig_cumulative.update_layout(
+        title="Cumulative Forecast vs Actual (Variance Area)",
+        xaxis_title="Week",
+        yaxis_title="Cumulative Units",
+        height=350,
+    )
+
+    st.plotly_chart(fig_cumulative, use_container_width=True)
+
+    # Recommendation
+    st.markdown("### Recommendation")
+    st.info(variance.recommendation)
+
+
+# =============================================================================
+# Variance History Section (for workflow results)
+# =============================================================================
+def render_variance_history(result: SeasonResult):
+    """Render the variance history section from workflow results."""
+    if not result.variance_history:
+        return
+
+    st.subheader("📉 Variance History")
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.metric(
+            label="Re-forecasts Triggered",
+            value=result.reforecast_count,
+            delta="High variance detected" if result.had_high_variance else "All good",
+        )
+
+    with col2:
+        variance_data = pd.DataFrame(
+            [
+                {
+                    "Week": v.week_number,
+                    "Variance": f"{v.variance_pct:.1%}",
+                    "High Variance": v.is_high_variance,
+                    "Direction": v.direction,
+                    "Action": "Re-forecast" if v.is_high_variance else "Continue",
+                }
+                for v in result.variance_history
+            ]
+        )
+
+        if not variance_data.empty:
+            st.dataframe(
+                variance_data,
+                column_config={
+                    "Week": st.column_config.NumberColumn("Week"),
+                    "Variance": st.column_config.TextColumn("Variance"),
+                    "High Variance": st.column_config.CheckboxColumn("High?"),
+                    "Direction": st.column_config.TextColumn("Direction"),
+                    "Action": st.column_config.TextColumn("Action"),
+                },
+                hide_index=True,
+                use_container_width=True,
+            )
+
+
+# =============================================================================
+# In-Season Planning Section
+# =============================================================================
+def render_inseason_planning(params: WorkflowParams):
+    """Render the in-season planning interface."""
+    st.subheader("📅 In-Season Planning")
+
+    # Check if we have a pre-season forecast to compare against
+    if st.session_state.workflow_result is None:
+        st.warning(
+            "⚠️ No pre-season forecast available. Please run a pre-season workflow first, "
+            "or the system will generate one automatically."
+        )
+
+    # Current status
+    col_status1, col_status2, col_status3 = st.columns(3)
+
+    with col_status1:
+        st.metric(
+            label="Current Week",
+            value=st.session_state.current_week if st.session_state.current_week > 0 else "Not started",
+        )
+
+    with col_status2:
+        st.metric(
+            label="Total Sold",
+            value=f"{st.session_state.total_sold:,}" if st.session_state.total_sold > 0 else "No data",
+        )
+
+    with col_status3:
+        if st.session_state.workflow_result and st.session_state.total_sold > 0:
+            allocation = st.session_state.workflow_result.allocation
+            sell_through = st.session_state.total_sold / allocation.initial_store_allocation
+            st.metric(
+                label="Current Sell-Through",
+                value=f"{sell_through:.1%}",
+            )
+        else:
+            st.metric(label="Current Sell-Through", value="N/A")
 
     st.divider()
 
-    # Quick actions
-    st.markdown("### ⚙️ Actions")
-    if st.button("🔄 New Session", use_container_width=True, key="new_session"):
-        st.session_state.session_manager.clear_session(st.session_state.session_id)
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
+    # Actual sales input section
+    st.markdown("### Upload Actual Sales Data")
 
-# Main content area
-if not st.session_state.uploaded:
-    # Upload section with enhanced design
-    st.markdown("## 📤 Step 1: Upload Your Data")
-    st.info("🎯 Upload your historical sales and store data to begin AI-powered forecasting")
+    upload_method = st.radio(
+        "Input Method",
+        options=["Upload CSV", "Manual Entry"],
+        horizontal=True,
+    )
+
+    if upload_method == "Upload CSV":
+        st.markdown(
+            """
+            **CSV Format Required:**
+            ```
+            week,actual_sales
+            1,520
+            2,485
+            3,510
+            ```
+            """
+        )
+
+        actual_file = st.file_uploader(
+            "Upload actual sales CSV",
+            type=["csv"],
+            key="inseason_actual_upload",
+            help="CSV with columns: week, actual_sales",
+        )
+
+        if actual_file is not None:
+            try:
+                actual_df = pd.read_csv(actual_file)
+
+                # Validate columns
+                if "actual_sales" not in actual_df.columns:
+                    st.error("CSV must contain 'actual_sales' column")
+                else:
+                    st.session_state.actual_sales = actual_df["actual_sales"].tolist()
+                    st.session_state.total_sold = sum(st.session_state.actual_sales)
+                    st.session_state.current_week = len(st.session_state.actual_sales)
+
+                    st.success(
+                        f"✅ Loaded {len(st.session_state.actual_sales)} weeks of actual sales data"
+                    )
+
+                    # Preview data
+                    st.dataframe(actual_df, use_container_width=True)
+
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+
+    else:  # Manual Entry
+        st.markdown("Enter actual sales for each week:")
+
+        # Dynamic week entry
+        num_weeks = st.number_input(
+            "Number of weeks to enter",
+            min_value=1,
+            max_value=params.forecast_horizon_weeks,
+            value=max(1, st.session_state.current_week) if st.session_state.current_week > 0 else 1,
+        )
+
+        manual_sales = []
+        cols = st.columns(min(4, num_weeks))
+
+        for i in range(num_weeks):
+            col_idx = i % 4
+            with cols[col_idx]:
+                default_val = (
+                    st.session_state.actual_sales[i]
+                    if i < len(st.session_state.actual_sales)
+                    else 0
+                )
+                week_sales = st.number_input(
+                    f"Week {i + 1}",
+                    min_value=0,
+                    value=int(default_val),
+                    key=f"week_{i + 1}_sales",
+                )
+                manual_sales.append(week_sales)
+
+        if st.button("Apply Manual Entry", type="secondary"):
+            st.session_state.actual_sales = manual_sales
+            st.session_state.total_sold = sum(manual_sales)
+            st.session_state.current_week = len(manual_sales)
+            st.success(f"✅ Applied {len(manual_sales)} weeks of sales data")
+            st.rerun()
+
+    st.divider()
+
+    # Variance check section
+    st.markdown("### Check Variance")
+
+    if len(st.session_state.actual_sales) > 0:
+        # Get forecast to compare against
+        if st.session_state.workflow_result:
+            forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
+        else:
+            st.warning("No forecast available. Run pre-season workflow first.")
+            forecast_by_week = None
+
+        if forecast_by_week:
+            col_check, col_result = st.columns([1, 2])
+
+            with col_check:
+                if st.button("🔍 Calculate Variance", type="primary", use_container_width=True):
+                    # Calculate variance
+                    variance_result = check_variance(
+                        actual_sales=st.session_state.actual_sales,
+                        forecast_by_week=forecast_by_week,
+                        week_number=st.session_state.current_week,
+                        threshold=params.variance_threshold,
+                    )
+                    st.session_state.variance_result = variance_result
+
+            # Show variance result if calculated
+            if st.session_state.variance_result:
+                render_variance_analysis(
+                    variance=st.session_state.variance_result,
+                    forecast_by_week=forecast_by_week,
+                    actual_sales=st.session_state.actual_sales,
+                    params=params,
+                )
+    else:
+        st.info("Upload or enter actual sales data to enable variance checking.")
+
+
+# =============================================================================
+# Data Upload Section
+# =============================================================================
+def render_data_upload():
+    """Render the data upload section."""
+    st.subheader("📁 Data Management")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("#### 📊 Historical Sales Data")
-        historical_file = st.file_uploader(
-            "Drag and drop or browse",
-            type=["csv"],
-            key="historical",
-            help="CSV with: date, store_id, category, quantity_sold, revenue",
-            label_visibility="collapsed"
+        st.markdown("### Historical Sales Data")
+        st.markdown(
+            """
+            Upload historical sales data for forecasting.
+
+            **Required Columns:**
+            - `date` - Date (YYYY-MM-DD)
+            - `store_id` - Store identifier
+            - `category` - Product category
+            - `quantity_sold` - Units sold
+            """
         )
 
-        if historical_file:
-            st.success(f"✅ **{historical_file.name}**")
-            st.caption(f"Size: {historical_file.size / 1024:.1f} KB")
-
-            # Show preview
-            df = pd.read_csv(historical_file)
-            with st.expander("👁️ Preview Data"):
-                st.dataframe(df.head(5), use_container_width=True)
-            historical_file.seek(0)
+        sales_file = st.file_uploader(
+            "Upload historical sales CSV",
+            type=["csv"],
+            key="sales_upload",
+            help="CSV with columns: date, store_id, category, quantity_sold",
+        )
+        if sales_file is not None:
+            st.success(f"Uploaded: {sales_file.name}")
+            try:
+                preview_df = pd.read_csv(sales_file)
+                st.dataframe(preview_df.head(10), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error previewing file: {e}")
 
     with col2:
-        st.markdown("#### 🏪 Store Attributes")
-        store_file = st.file_uploader(
-            "Drag and drop or browse",
-            type=["csv"],
-            key="store",
-            help="CSV with: store_id, size_sqft, income_level, location, etc.",
-            label_visibility="collapsed"
+        st.markdown("### Store Attributes Data")
+        st.markdown(
+            """
+            Upload store attributes for clustering.
+
+            **Required Columns:**
+            - `store_id` - Store identifier
+            - `avg_weekly_sales_12mo` - Average weekly sales
+            - `store_size_sqft` - Store size
+            - `median_income` - Area median income
+            - `location_tier` - A/B/C tier
+            - `fashion_tier` - Premium/Mainstream/Value
+            - `store_format` - Mall/Standalone/etc.
+            - `region` - Geographic region
+            """
         )
 
-        if store_file:
-            st.success(f"✅ **{store_file.name}**")
-            st.caption(f"Size: {store_file.size / 1024:.1f} KB")
-
-            # Show preview
-            df = pd.read_csv(store_file)
-            with st.expander("👁️ Preview Data"):
-                st.dataframe(df.head(5), use_container_width=True)
-            store_file.seek(0)
+        stores_file = st.file_uploader(
+            "Upload store attributes CSV",
+            type=["csv"],
+            key="stores_upload",
+            help="CSV with store attribute columns",
+        )
+        if stores_file is not None:
+            st.success(f"Uploaded: {stores_file.name}")
+            try:
+                preview_df = pd.read_csv(stores_file)
+                st.dataframe(preview_df.head(10), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error previewing file: {e}")
 
     st.divider()
 
-    # Process uploads
-    if historical_file and store_file:
-        st.success("🎉 Both files uploaded successfully!")
+    # Show available data summary
+    st.markdown("### Available Training Data")
+    summary = st.session_state.data_loader.get_context_summary()
+    st.markdown(summary)
 
-        if st.button("🚀 Process Data & Start Forecasting", type="primary", use_container_width=True):
-            with st.spinner("🔄 Processing your data... This may take a moment."):
-                # Save files
-                st.session_state.session_manager.save_uploaded_files(
-                    st.session_state.session_id,
-                    historical_file,
-                    store_file
-                )
 
-                # Create data loader
-                st.session_state.data_loader = st.session_state.session_manager.get_data_loader(
-                    st.session_state.session_id
-                )
+# =============================================================================
+# Main Content
+# =============================================================================
+async def run_workflow_async(params: WorkflowParams):
+    """Run the workflow asynchronously."""
+    context = ForecastingContext(
+        data_loader=st.session_state.data_loader,
+        session_id=st.session_state.session_id,
+        current_week=st.session_state.current_week,
+        actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
+        total_sold=st.session_state.total_sold,
+    )
 
-                # Create ForecastingContext
-                st.session_state.forecast_context = ForecastingContext(
-                    data_loader=st.session_state.data_loader,
-                    session_id=st.session_state.session_id
-                )
-
-                # Get data summary
-                categories = st.session_state.data_loader.get_categories()
-                store_count = st.session_state.data_loader.get_store_count()
-                date_range = st.session_state.data_loader.get_date_range()
-
-                # Create coordinator agent (uses agents-as-tools pattern)
-                st.session_state.agent = create_coordinator_agent(
-                    data_loader=st.session_state.data_loader
-                )
-                st.session_state.agent.model = OPENAI_MODEL
-
-                # Mark as uploaded
-                st.session_state.uploaded = True
-
-                # Show success
-                st.success(f"""
-                ✅ **Data processed successfully!**
-
-                - **Categories**: {', '.join(categories)}
-                - **Stores**: {store_count}
-                - **Date Range**: {date_range['start']} to {date_range['end']}
-                """)
-
-                st.balloons()
-                st.rerun()
-
-else:
-    # Chat interface with enhanced design
-    st.markdown("## 💬 Chat with AI Assistant")
-
-    # Show data summary
-    with st.expander("📊 Your Data Overview", expanded=False):
-        categories = st.session_state.data_loader.get_categories()
-        store_count = st.session_state.data_loader.get_store_count()
-        date_range = st.session_state.data_loader.get_date_range()
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Product Categories", len(categories))
-            st.caption(", ".join(categories))
-        with col2:
-            st.metric("Total Stores", store_count)
-        with col3:
-            st.metric("Data Period", f"{date_range['start_year']}-{date_range['end_year']}")
-
-    # In-Season Planning Section - NOW ALWAYS VISIBLE after forecast completes
-    # FIX: Previously hidden behind in_season_started flag, making it hard to discover
-    if getattr(st.session_state, 'show_variance_section', False):
-        st.divider()
-        st.markdown("## 🎯 In-Season Planning & Variance Checking")
-
-        # Show informative message if user hasn't opted in yet
-        if not getattr(st.session_state, 'in_season_started', False):
-            st.info("""
-            **💡 Track forecast accuracy in real-time!**
-
-            Once your season is underway, upload actual sales data here to:
-            - ✅ Validate forecast accuracy
-            - ⚠️ Detect high variance (>15%)
-            - 🔄 Trigger automatic re-forecasting if needed
-            - 📈 Continuously improve predictions
-
-            Click below to get started.
-            """)
-
-            if st.button("📈 Enable In-Season Planning", type="primary", key="enable_variance"):
-                st.session_state.in_season_started = True
-                st.rerun()
-        else:
-            st.success("**📊 In-Season Mode Active!** Upload actual sales data below.")
-
-        # Show the upload section if opted in
-        if getattr(st.session_state, 'in_season_started', False):
-            _display_actual_sales_upload(key_suffix="section")
-
-        st.divider()
-
-    # Quick actions (if no conversation started)
-    if len(st.session_state.conversation_history) == 0:
-        render_quick_actions()
-        st.divider()
-
-    # Display conversation history
-    for msg in st.session_state.conversation_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            if "timestamp" in msg:
-                st.caption(f"🕐 {msg['timestamp']}")
-
-    # Handle quick prompt if set
-    if st.session_state.quick_prompt:
-        prompt = st.session_state.quick_prompt
-        st.session_state.quick_prompt = None  # Clear it
+    if st.session_state.current_week > 0 and st.session_state.actual_sales:
+        result = await run_inseason_update(
+            context=context,
+            params=params,
+            current_week=st.session_state.current_week,
+            actual_sales=st.session_state.actual_sales,
+            total_sold=st.session_state.total_sold,
+        )
     else:
-        # Chat input
-        prompt = st.chat_input("💭 Type your message here...", key="chat_input")
+        result = await run_preseason_planning(
+            context=context,
+            params=params,
+        )
 
-    if prompt:
-        # Add timestamp
-        timestamp = datetime.now().strftime("%I:%M %p")
+    return result
 
-        # Add user message to history
-        st.session_state.conversation_history.append({
-            "role": "user",
-            "content": prompt,
-            "timestamp": timestamp
-        })
 
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
-            st.caption(f"🕐 {timestamp}")
+def main():
+    """Main application entry point."""
+    st.title("📊 Retail Forecasting Multi-Agent System")
+    st.markdown(
+        """
+        This system uses **3 specialized AI agents** to forecast demand, allocate inventory,
+        and optimize pricing for fashion retail.
+        """
+    )
 
-        # Get agent response
-        with st.chat_message("assistant"):
-            with st.spinner("🤔 Analyzing your request..."):
+    # Render sidebar and get parameters
+    params = render_sidebar()
+
+    # Main content tabs based on planning mode
+    if st.session_state.planning_mode == "pre-season":
+        tab_run, tab_data, tab_results = st.tabs(
+            ["🚀 Run Workflow", "📁 Data Management", "📊 Results"]
+        )
+    else:
+        tab_run, tab_inseason, tab_data, tab_results = st.tabs(
+            ["🚀 Run Workflow", "📅 In-Season Planning", "📁 Data Management", "📊 Results"]
+        )
+
+    with tab_run:
+        st.markdown("### Run Season Planning Workflow")
+
+        # Mode indicator
+        mode_label = "Pre-Season" if st.session_state.planning_mode == "pre-season" else "In-Season"
+        st.info(f"**Current Mode:** {mode_label} Planning")
+
+        col_info, col_action = st.columns([2, 1])
+
+        with col_info:
+            st.markdown(
+                f"""
+                **Workflow Configuration:**
+                - Category: **{params.category}**
+                - Forecast Horizon: **{params.forecast_horizon_weeks} weeks**
+                - DC Holdback: **{params.dc_holdback_pct:.0%}**
+                - Markdown Week: **{params.markdown_week}**
+                - Current Week: **{st.session_state.current_week}**
+                - Actual Sales Data: **{"Yes" if st.session_state.actual_sales else "No"}**
+                """
+            )
+
+        with col_action:
+            button_label = (
+                "▶️ Run Pre-Season Workflow"
+                if st.session_state.planning_mode == "pre-season"
+                else "▶️ Run In-Season Update"
+            )
+
+            run_button = st.button(
+                button_label,
+                type="primary",
+                use_container_width=True,
+                disabled=st.session_state.running,
+            )
+
+        if run_button:
+            st.session_state.running = True
+
+            with st.status("Running workflow...", expanded=True) as status:
+                st.write("🔮 Phase 1: Running Demand Agent...")
+
                 try:
-                    # Import guardrail exception for handling
-                    from agents.exceptions import OutputGuardrailTripwireTriggered
+                    result = asyncio.run(run_workflow_async(params))
+                    st.session_state.workflow_result = result
+                    st.write("📦 Phase 2: Running Inventory Agent...")
+                    st.write("💰 Phase 3: Running Pricing Agent...")
+                    status.update(
+                        label="✅ Workflow complete!",
+                        state="complete",
+                        expanded=False,
+                    )
+                except Exception as e:
+                    status.update(label=f"❌ Error: {e}", state="error")
+                    st.error(f"Workflow failed: {e}")
+                finally:
+                    st.session_state.running = False
+                    st.rerun()
 
-                    # Reset completion flags before running agent
-                    st.session_state.demand_agent_completed = False
-                    st.session_state.inventory_agent_completed = False
-                    st.session_state.variance_check_completed = False
+        # Show results summary if available
+        if st.session_state.workflow_result:
+            result = st.session_state.workflow_result
+            st.success(
+                f"✅ Workflow completed in {result.total_duration_seconds:.2f}s | "
+                f"Phases: {', '.join(result.phases_completed)}"
+            )
 
-                    # Update context with variance data if available
-                    if hasattr(st.session_state, 'variance_file_path') and st.session_state.variance_file_path:
-                        st.session_state.forecast_context.variance_file_path = st.session_state.variance_file_path
+    # In-Season tab (only shown in in-season mode)
+    if st.session_state.planning_mode != "pre-season":
+        with tab_inseason:
+            render_inseason_planning(params)
 
-                    if hasattr(st.session_state, 'variance_week'):
-                        st.session_state.forecast_context.variance_week = st.session_state.variance_week
-                    if hasattr(st.session_state, 'variance_threshold'):
-                        st.session_state.forecast_context.variance_threshold = st.session_state.variance_threshold
-                    if hasattr(st.session_state, 'forecast_by_week') and len(st.session_state.forecast_by_week) > 0:
-                        st.session_state.forecast_context.forecast_by_week = st.session_state.forecast_by_week
+    with tab_data:
+        render_data_upload()
 
-                    # Create lifecycle hooks for event-based visualization triggering
-                    visualization_hooks = StreamlitVisualizationHooks(st.session_state)
+    with tab_results:
+        if st.session_state.workflow_result is None:
+            st.info("No results yet. Run the workflow to see results here.")
+        else:
+            result = st.session_state.workflow_result
 
-                    # Run agent with lifecycle hooks
-                    res = Runner.run_sync(
-                        starting_agent=st.session_state.agent,
-                        input=prompt,
-                        session=st.session_state.sdk_session,
-                        context=st.session_state.forecast_context,
-                        hooks=visualization_hooks  # Pass hooks for agent completion detection
+            # Forecast section with actual sales comparison
+            render_forecast_section(
+                result.forecast,
+                params,
+                actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
+            )
+
+            st.divider()
+
+            # Allocation section
+            render_allocation_section(result.allocation)
+
+            st.divider()
+
+            # Pricing section
+            render_pricing_section(result.markdown, params)
+
+            st.divider()
+
+            # Variance history section
+            render_variance_history(result)
+
+            # Export results
+            st.divider()
+            st.markdown("### Export Results")
+
+            col_export1, col_export2, col_export3, col_export4 = st.columns(4)
+
+            with col_export1:
+                forecast_df = pd.DataFrame(
+                    {
+                        "Week": list(
+                            range(1, len(result.forecast.forecast_by_week) + 1)
+                        ),
+                        "Forecast": result.forecast.forecast_by_week,
+                    }
+                )
+                # Add actual sales if available
+                if st.session_state.actual_sales:
+                    forecast_df["Actual"] = (
+                        st.session_state.actual_sales
+                        + [None] * (len(forecast_df) - len(st.session_state.actual_sales))
                     )
 
-                    # Extract response
-                    if hasattr(res, 'final_output'):
-                        response = res.final_output
-                    elif hasattr(res, 'output'):
-                        response = res.output
-                    else:
-                        response = str(res)
+                st.download_button(
+                    "📥 Download Forecast",
+                    forecast_df.to_csv(index=False),
+                    "forecast.csv",
+                    "text/csv",
+                )
 
-                    # Display response
-                    st.markdown(response)
-                    st.caption(f"🕐 {datetime.now().strftime('%I:%M %p')}")
+            with col_export2:
+                allocation_df = pd.DataFrame(
+                    [
+                        {
+                            "Store": s.store_id,
+                            "Units": s.allocation_units,
+                            "Cluster": s.cluster,
+                        }
+                        for s in result.allocation.store_allocations
+                    ]
+                )
+                st.download_button(
+                    "📥 Download Allocation",
+                    allocation_df.to_csv(index=False),
+                    "allocation.csv",
+                    "text/csv",
+                )
 
-                    # Enhanced results display using lifecycle hook flags
-                    # This replaces brittle string pattern matching with reliable event-based detection
-                    # WRAPPED IN ERROR BOUNDARIES to prevent visualization failures from breaking the UI
+            with col_export3:
+                if result.markdown:
+                    markdown_data = {
+                        "Recommended Markdown": [result.markdown.recommended_markdown_pct],
+                        "Current Sell-Through": [result.markdown.current_sell_through],
+                        "Target Sell-Through": [result.markdown.target_sell_through],
+                        "Gap": [result.markdown.gap],
+                    }
+                    st.download_button(
+                        "📥 Download Pricing",
+                        pd.DataFrame(markdown_data).to_csv(index=False),
+                        "pricing.csv",
+                        "text/csv",
+                    )
 
-                    # Check for variance check completion (via lifecycle hook)
-                    if st.session_state.variance_check_completed:
-                        try:
-                            _display_variance_results(response)
-                            print("[UI] Displayed variance results based on lifecycle hook")
-                        except Exception as viz_error:
-                            st.error(f"⚠️ **Failed to display variance visualization:** {str(viz_error)}")
-                            st.info("The variance check completed successfully, but the chart couldn't render. Check the AI response above for results.")
-                            import traceback
-                            with st.expander("🔍 Technical Details"):
-                                st.code(traceback.format_exc())
+            with col_export4:
+                if st.session_state.variance_result:
+                    variance_data = {
+                        "Week": [st.session_state.variance_result.week_number],
+                        "Variance %": [st.session_state.variance_result.variance_pct],
+                        "High Variance": [st.session_state.variance_result.is_high_variance],
+                        "Direction": [st.session_state.variance_result.direction],
+                    }
+                    st.download_button(
+                        "📥 Download Variance",
+                        pd.DataFrame(variance_data).to_csv(index=False),
+                        "variance.csv",
+                        "text/csv",
+                    )
 
-                    # Check for inventory allocation completion (via lifecycle hook)
-                    if st.session_state.inventory_agent_completed:
-                        try:
-                            _display_inventory_results(response)
-                            st.session_state.allocation_complete = True
-                            st.session_state.show_in_season_prompt = True  # Trigger in-season planning prompt
-                            print("[UI] Displayed inventory results based on lifecycle hook")
 
-                            # Show in-season planning prompt immediately after allocation
-                            _display_in_season_prompt()
-                        except Exception as viz_error:
-                            st.error(f"⚠️ **Failed to display inventory visualization:** {str(viz_error)}")
-                            st.info("The allocation completed successfully, but the chart couldn't render. Check the AI response above for results.")
-                            import traceback
-                            with st.expander("🔍 Technical Details"):
-                                st.code(traceback.format_exc())
-
-                    # Check for demand forecast completion (via lifecycle hook)
-                    if st.session_state.demand_agent_completed:
-                        try:
-                            _display_forecast_results(response)
-                            print("[UI] Displayed forecast results based on lifecycle hook")
-                        except Exception as viz_error:
-                            st.error(f"⚠️ **Failed to display forecast visualization:** {str(viz_error)}")
-                            st.info("The forecast completed successfully, but the chart couldn't render. Check the AI response above for results.")
-                            import traceback
-                            with st.expander("🔍 Technical Details"):
-                                st.code(traceback.format_exc())
-
-                    # Add to history
-                    st.session_state.conversation_history.append({
-                        "role": "assistant",
-                        "content": response,
-                        "timestamp": datetime.now().strftime("%I:%M %p")
-                    })
-
-                except OutputGuardrailTripwireTriggered as guardrail_error:
-                    # Guardrail caught invalid output - show user-friendly error
-                    st.error("⚠️ **Data Validation Failed**")
-                    st.warning("""
-                    The AI completed your request, but the output failed quality checks.
-                    This prevents invalid data from breaking your analysis.
-                    """)
-
-                    # Extract validation errors from guardrail
-                    if hasattr(guardrail_error, 'guardrail_result') and guardrail_error.guardrail_result:
-                        output_info = guardrail_error.guardrail_result.output_info
-                        if output_info and 'validation_errors' in output_info:
-                            st.markdown("**Issues detected:**")
-                            for error in output_info['validation_errors']:
-                                st.markdown(f"- {error}")
-
-                    st.info("""
-                    **What to do:**
-                    1. Try running the request again
-                    2. If this persists, the AI may be struggling with your data
-                    3. Check console logs for detailed guardrail messages
-                    """)
-
-                    error_msg = f"❌ Output validation failed: {str(guardrail_error)}"
-                    st.session_state.conversation_history.append({
-                        "role": "assistant",
-                        "content": error_msg,
-                        "timestamp": datetime.now().strftime("%I:%M %p")
-                    })
-
-                except Exception as e:
-                    import traceback
-                    error_msg = f"❌ **Error:** {str(e)}"
-                    st.error(error_msg)
-
-                    # Show detailed traceback in expander
-                    with st.expander("🔍 Technical Details"):
-                        st.code(traceback.format_exc())
-
-                    st.session_state.conversation_history.append({
-                        "role": "assistant",
-                        "content": error_msg,
-                        "timestamp": datetime.now().strftime("%I:%M %p")
-                    })
-
-    # Initial greeting
-    if len(st.session_state.conversation_history) == 0:
-        with st.chat_message("assistant"):
-            categories = st.session_state.data_loader.get_categories()
-            store_count = st.session_state.data_loader.get_store_count()
-
-            greeting = f"""
-👋 **Welcome! I'm your AI retail planning assistant.**
-
-I've analyzed your uploaded data and I'm ready to help you create accurate forecasts and optimize inventory.
-
-📊 **Your Loaded Data:**
-- **Product Categories**: {', '.join(categories)}
-- **Store Network**: {store_count} locations
-- **AI Models**: Demand Forecasting, Inventory Optimization, Markdown Planning
-
-🎯 **How I can help:**
-- Generate demand forecasts for any category
-- Plan inventory allocation across stores
-- Recommend markdown strategies
-- Optimize replenishment schedules
-
-💡 **Try saying:**
-- "I need help with forecasting"
-- "Forecast women's dresses for 12 weeks"
-- "Plan inventory with weekly replenishment"
-
-I'll guide you with numbered options at each step!
-            """
-            st.markdown(greeting)
-            st.session_state.conversation_history.append({
-                "role": "assistant",
-                "content": greeting,
-                "timestamp": datetime.now().strftime("%I:%M %p")
-            })
-
-# Footer
-st.divider()
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.caption("🤖 Powered by OpenAI Agents SDK")
-with col2:
-    st.caption("📊 Retail Forecasting System v2.0")
-with col3:
-    st.caption(f"⚡ {datetime.now().strftime('%B %d, %Y')}")
+if __name__ == "__main__":
+    main()

@@ -1,29 +1,18 @@
 """
 Data Loader Utility
-
-Loads and analyzes training data to provide context for agent tools.
-Ported from backend-agent-as-tool with minimal changes.
+Loads and analyzes training data to provide context for agent elicitation
 """
-
 import csv
 from pathlib import Path
-from typing import List, Dict, Optional
-from collections import defaultdict
+from typing import List, Dict, Set
+from datetime import datetime
 import pandas as pd
-import numpy as np
 
 
 class TrainingDataLoader:
-    """Loads and analyzes training data for agent context."""
+    """Loads and analyzes training data for agent context"""
 
-    def __init__(self, data_dir: Optional[str] = None):
-        """
-        Initialize the data loader.
-
-        Args:
-            data_dir: Path to training data directory. If None, uses default
-                     location relative to project root: data/training/
-        """
+    def __init__(self, data_dir: str = None):
         if data_dir is None:
             # Default to data/training directory relative to project root
             backend_dir = Path(__file__).parent.parent
@@ -36,53 +25,53 @@ class TrainingDataLoader:
         self.store_attributes_path = self.data_dir / "store_attributes.csv"
 
         # Cache loaded data
-        self._categories: Optional[List[str]] = None
-        self._stores: Optional[List[str]] = None
-        self._date_range: Optional[Dict[str, str]] = None
-        self._store_attributes: Optional[Dict] = None
+        self._categories = None
+        self._stores = None
+        self._date_range = None
+        self._store_attributes = None
 
     def get_categories(self) -> List[str]:
-        """Get unique product categories from historical sales data."""
+        """Get unique product categories from historical sales data"""
         if self._categories is None:
             categories = set()
-            with open(self.historical_sales_path, "r") as f:
+            with open(self.historical_sales_path, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    categories.add(row["category"])
+                    categories.add(row['category'])
             self._categories = sorted(list(categories))
         return self._categories
 
     def get_stores(self) -> List[str]:
-        """Get unique store IDs."""
+        """Get unique store IDs"""
         if self._stores is None:
             stores = set()
-            with open(self.historical_sales_path, "r") as f:
+            with open(self.historical_sales_path, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    stores.add(row["store_id"])
+                    stores.add(row['store_id'])
             self._stores = sorted(list(stores))
         return self._stores
 
     def get_date_range(self) -> Dict[str, str]:
-        """Get the date range of historical data."""
+        """Get the date range of historical data"""
         if self._date_range is None:
             dates = []
-            with open(self.historical_sales_path, "r") as f:
+            with open(self.historical_sales_path, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    dates.append(row["date"])
+                    dates.append(row['date'])
 
             dates.sort()
             self._date_range = {
-                "start": dates[0],
-                "end": dates[-1],
-                "start_year": dates[0][:4],
-                "end_year": dates[-1][:4],
+                'start': dates[0],
+                'end': dates[-1],
+                'start_year': dates[0][:4],
+                'end_year': dates[-1][:4]
             }
         return self._date_range
 
     def get_store_count(self) -> int:
-        """Get total number of stores."""
+        """Get total number of stores"""
         return len(self.get_stores())
 
     def get_store_attributes_df(self) -> pd.DataFrame:
@@ -108,8 +97,8 @@ class TrainingDataLoader:
         df = pd.read_csv(self.store_attributes_path)
 
         # Set store_id as index
-        if "store_id" in df.columns:
-            df = df.set_index("store_id")
+        if 'store_id' in df.columns:
+            df = df.set_index('store_id')
 
         return df
 
@@ -123,6 +112,8 @@ class TrainingDataLoader:
         Returns:
             DataFrame with mock store attributes
         """
+        import numpy as np
+
         np.random.seed(42)
 
         # Generate store IDs
@@ -130,72 +121,43 @@ class TrainingDataLoader:
 
         # Generate features with realistic distributions
         data = {
-            "avg_weekly_sales_12mo": np.random.normal(600, 250, n_stores).clip(
-                200, 1500
-            ),
-            "store_size_sqft": np.random.normal(35000, 15000, n_stores).clip(
-                15000, 80000
-            ),
-            "median_income": np.random.normal(65000, 20000, n_stores).clip(
-                35000, 120000
-            ),
-            "location_tier": np.random.choice(
-                ["A", "B", "C"], n_stores, p=[0.2, 0.5, 0.3]
-            ),
-            "fashion_tier": np.random.choice(
-                ["Premium", "Mainstream", "Value"], n_stores, p=[0.3, 0.5, 0.2]
-            ),
-            "store_format": np.random.choice(
-                ["Mall", "Standalone", "ShoppingCenter", "Outlet"],
-                n_stores,
-                p=[0.4, 0.3, 0.2, 0.1],
-            ),
-            "region": np.random.choice(
-                ["Northeast", "Southeast", "Midwest", "West"],
-                n_stores,
-                p=[0.25, 0.25, 0.25, 0.25],
-            ),
+            'avg_weekly_sales_12mo': np.random.normal(600, 250, n_stores).clip(200, 1500),
+            'store_size_sqft': np.random.normal(35000, 15000, n_stores).clip(15000, 80000),
+            'median_income': np.random.normal(65000, 20000, n_stores).clip(35000, 120000),
+            'location_tier': np.random.choice(['A', 'B', 'C'], n_stores, p=[0.2, 0.5, 0.3]),
+            'fashion_tier': np.random.choice(['Premium', 'Mainstream', 'Value'], n_stores, p=[0.3, 0.5, 0.2]),
+            'store_format': np.random.choice(['Mall', 'Standalone', 'ShoppingCenter', 'Outlet'], n_stores, p=[0.4, 0.3, 0.2, 0.1]),
+            'region': np.random.choice(['Northeast', 'Southeast', 'Midwest', 'West'], n_stores, p=[0.25, 0.25, 0.25, 0.25])
         }
 
         df = pd.DataFrame(data, index=store_ids)
-        df.index.name = "store_id"
+        df.index.name = 'store_id'
 
         return df
 
     def get_store_attributes_summary(self) -> Dict:
-        """Get summary statistics of store attributes."""
+        """Get summary statistics of store attributes"""
         if self._store_attributes is None:
             stores = []
-            if self.store_attributes_path.exists():
-                with open(self.store_attributes_path, "r") as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        stores.append(row)
+            with open(self.store_attributes_path, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    stores.append(row)
 
-                # Calculate summaries
-                mall_stores = sum(
-                    1 for s in stores if s.get("mall_location") == "True"
-                )
+            # Calculate summaries
+            mall_stores = sum(1 for s in stores if s['mall_location'] == 'True')
 
-                self._store_attributes = {
-                    "total_stores": len(stores),
-                    "mall_stores": mall_stores,
-                    "standalone_stores": len(stores) - mall_stores,
-                    "store_ids": [s["store_id"] for s in stores],
-                }
-            else:
-                # Use mock data count
-                self._store_attributes = {
-                    "total_stores": 50,
-                    "mall_stores": 20,
-                    "standalone_stores": 30,
-                    "store_ids": [f"store_{i:03d}" for i in range(1, 51)],
-                }
+            self._store_attributes = {
+                'total_stores': len(stores),
+                'mall_stores': mall_stores,
+                'standalone_stores': len(stores) - mall_stores,
+                'store_ids': [s['store_id'] for s in stores]
+            }
         return self._store_attributes
 
     def get_historical_sales(self, category: str) -> Dict[str, List]:
         """
-        Get aggregated historical sales data for a specific category.
+        Get aggregated historical sales data for a specific category
 
         Args:
             category: Product category name (e.g., "Women's Dresses")
@@ -204,27 +166,29 @@ class TrainingDataLoader:
             Dictionary with 'date' and 'quantity_sold' lists aggregated across all stores
             Format: {'date': ['2022-01-01', ...], 'quantity_sold': [150, ...]}
         """
+        from collections import defaultdict
+
         # Aggregate sales by date across all stores
         date_quantities = defaultdict(int)
 
-        with open(self.historical_sales_path, "r") as f:
+        with open(self.historical_sales_path, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row["category"] == category:
-                    date = row["date"]
-                    quantity = int(row["quantity_sold"])
+                if row['category'] == category:
+                    date = row['date']
+                    quantity = int(row['quantity_sold'])
                     date_quantities[date] += quantity
 
         # Sort by date and convert to lists
         sorted_dates = sorted(date_quantities.keys())
 
         return {
-            "date": sorted_dates,
-            "quantity_sold": [date_quantities[date] for date in sorted_dates],
+            'date': sorted_dates,
+            'quantity_sold': [date_quantities[date] for date in sorted_dates]
         }
 
     def get_context_summary(self) -> str:
-        """Get a formatted summary of available data for agent context."""
+        """Get a formatted summary of available data for agent context"""
         categories = self.get_categories()
         date_range = self.get_date_range()
         store_attrs = self.get_store_attributes_summary()
@@ -252,11 +216,10 @@ All {len(categories)} categories across all {store_attrs['total_stores']} stores
 
 
 # Global instance for easy access
-_data_loader: Optional[TrainingDataLoader] = None
-
+_data_loader = None
 
 def get_data_loader() -> TrainingDataLoader:
-    """Get or create the global data loader instance."""
+    """Get or create the global data loader instance"""
     global _data_loader
     if _data_loader is None:
         _data_loader = TrainingDataLoader()

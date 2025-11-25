@@ -1,161 +1,325 @@
 """
-Variance Checking Tools - Compare actual sales vs forecasts
+Variance Checking Tools - Pure Functions for Workflow Layer
 
-Provides tools for variance analysis to trigger re-forecasting when needed.
+IMPORTANT: These are NOT agent tools. They are pure functions called directly
+by the workflow layer for deterministic variance analysis.
+
+The variance check determines if re-forecasting is needed based on:
+- Actual vs forecasted sales comparison
+- Threshold-based high variance detection
+- Store-level variance breakdown (optional)
+
+Usage in workflow:
+    variance = check_variance(
+        actual_sales=[500, 480, 520],
+        forecast_by_week=[550, 500, 510],
+        week_number=3,
+        threshold=0.20
+    )
+
+    if variance.is_high_variance:
+        # Re-forecast needed
+        new_forecast = await Runner.run(demand_agent, ...)
 """
 
-import pandas as pd
-from typing import Dict, Any
-from pydantic import BaseModel, Field
-from agents import function_tool, RunContextWrapper
+# ============================================================================
+# SECTION 1: Imports & Models
+# ============================================================================
+
+from typing import Dict, List, Optional
 import logging
 
-logger = logging.getLogger(__name__)
+from schemas.variance_schemas import VarianceResult
+
+logger = logging.getLogger("variance_tools")
 
 
-class VarianceResult(BaseModel):
-    """Result from variance analysis"""
-    week_number: int = Field(description="Week number analyzed")
-    actual_total: int = Field(description="Total actual sales")
-    forecast_total: int = Field(description="Total forecasted sales")
-    variance_pct: float = Field(description="Variance percentage (positive = over-forecast, negative = under-forecast)")
-    is_high_variance: bool = Field(description="True if variance exceeds threshold (15%)")
-    recommendation: str = Field(description="Business recommendation based on variance")
-    store_level_variance: Dict[str, float] = Field(description="Variance by store ID")
+# ============================================================================
+# SECTION 2: Helper Functions
+# ============================================================================
 
 
-@function_tool
-def check_variance(
-    ctx: RunContextWrapper,
-    week_number: int,
-    variance_threshold: float = 0.15
-) -> VarianceResult:
+def calculate_cumulative_variance(
+    actual: List[int], forecast: List[int]
+) -> tuple[int, int, int, float]:
     """
-    Compare actual sales against forecast for a specific week to determine if re-forecasting is needed.
-
-    Use this tool when the user uploads actual sales data or wants to check forecast accuracy.
-    The tool will analyze variance and recommend re-forecasting if variance exceeds the threshold.
-
-    **IMPORTANT:** This tool accesses data from the context (like other tools). The agent does NOT need to provide:
-    - actual_sales_csv path (automatically retrieved from context.variance_file_path)
-    - forecast_by_week (automatically retrieved from context.forecast_by_week)
+    Calculate cumulative variance between actual and forecast.
 
     Args:
-        ctx: Run context wrapper (provides access to variance_file_path and forecast_by_week)
-        week_number: Which week to check (1-indexed, e.g., 1 for first week, 6 for mid-season)
-        variance_threshold: Variance threshold percentage to trigger re-forecast recommendation (default 0.15 = 15%)
+        actual: List of actual sales by week
+        forecast: List of forecasted sales by week
 
     Returns:
-        VarianceResult with detailed comparison metrics and business recommendations
+        Tuple of (actual_total, forecast_total, variance_units, variance_pct)
+    """
+    # Calculate totals up to the available data
+    weeks_with_data = min(len(actual), len(forecast))
+
+    if weeks_with_data == 0:
+        return 0, 0, 0, 0.0
+
+    actual_total = sum(actual[:weeks_with_data])
+    forecast_total = sum(forecast[:weeks_with_data])
+
+    variance_units = forecast_total - actual_total
+
+    # Calculate variance percentage
+    if forecast_total > 0:
+        variance_pct = variance_units / forecast_total
+    elif actual_total > 0:
+        variance_pct = 1.0 if variance_units > 0 else -1.0
+    else:
+        variance_pct = 0.0
+
+    return actual_total, forecast_total, variance_units, variance_pct
+
+
+def determine_variance_direction(variance_pct: float, threshold: float) -> str:
+    """
+    Determine variance direction: 'over', 'under', or 'on_target'.
+
+    Args:
+        variance_pct: Variance as percentage (positive = over-forecast)
+        threshold: Threshold for considering variance significant
+
+    Returns:
+        'over', 'under', or 'on_target'
+    """
+    if abs(variance_pct) <= threshold:
+        return "on_target"
+    elif variance_pct > 0:
+        return "over"  # Forecast was higher than actual (over-forecast)
+    else:
+        return "under"  # Forecast was lower than actual (under-forecast)
+
+
+def generate_variance_recommendation(
+    variance_pct: float,
+    direction: str,
+    is_high_variance: bool,
+    week_number: int,
+) -> str:
+    """
+    Generate human-readable recommendation based on variance analysis.
+
+    Args:
+        variance_pct: Variance as percentage
+        direction: 'over', 'under', or 'on_target'
+        is_high_variance: Whether variance exceeds threshold
+        week_number: Current week number
+
+    Returns:
+        Recommendation string
+    """
+    abs_variance = abs(variance_pct) * 100
+
+    if not is_high_variance:
+        return (
+            f"Week {week_number}: Variance of {abs_variance:.1f}% is within acceptable range. "
+            "No action needed - continue with current forecast."
+        )
+
+    if direction == "over":
+        return (
+            f"Week {week_number}: OVER-FORECAST by {abs_variance:.1f}%. "
+            "Actual sales are lower than predicted. Consider: "
+            "(1) Re-forecast with updated data, "
+            "(2) Review inventory levels at DC, "
+            "(3) Evaluate markdown strategy to accelerate sales."
+        )
+    else:  # under
+        return (
+            f"Week {week_number}: UNDER-FORECAST by {abs_variance:.1f}%. "
+            "Actual sales exceed predictions. Consider: "
+            "(1) Re-forecast to capture momentum, "
+            "(2) Expedite replenishment from DC, "
+            "(3) Review store allocations for high-performers."
+        )
+
+
+def calculate_store_level_variance(
+    store_actuals: Dict[str, List[int]],
+    store_forecasts: Dict[str, List[int]],
+    week_number: int,
+) -> Dict[str, float]:
+    """
+    Calculate variance at store level.
+
+    Args:
+        store_actuals: Dict of store_id -> list of weekly actuals
+        store_forecasts: Dict of store_id -> list of weekly forecasts
+        week_number: Number of weeks to analyze
+
+    Returns:
+        Dict of store_id -> variance_pct
+    """
+    store_variance = {}
+
+    for store_id in store_actuals.keys():
+        if store_id in store_forecasts:
+            actual = store_actuals[store_id][:week_number]
+            forecast = store_forecasts[store_id][:week_number]
+
+            actual_sum = sum(actual)
+            forecast_sum = sum(forecast)
+
+            if forecast_sum > 0:
+                variance_pct = (forecast_sum - actual_sum) / forecast_sum
+            elif actual_sum > 0:
+                variance_pct = -1.0  # Complete under-forecast
+            else:
+                variance_pct = 0.0
+
+            store_variance[store_id] = variance_pct
+
+    return store_variance
+
+
+# ============================================================================
+# SECTION 3: Main Variance Check Function (Pure Function - NOT an agent tool)
+# ============================================================================
+
+
+def check_variance(
+    actual_sales: List[int],
+    forecast_by_week: List[int],
+    week_number: int,
+    threshold: float = 0.20,
+    store_actuals: Optional[Dict[str, List[int]]] = None,
+    store_forecasts: Optional[Dict[str, List[int]]] = None,
+) -> VarianceResult:
+    """
+    Check variance between actual sales and forecast.
+
+    THIS IS A PURE FUNCTION - called directly by workflow, NOT by an agent.
+    The workflow uses the returned is_high_variance flag to decide whether
+    to trigger re-forecasting.
+
+    Formula:
+        variance_pct = (forecast_total - actual_total) / forecast_total
+        is_high_variance = abs(variance_pct) > threshold
+
+    Args:
+        actual_sales: List of actual sales by week (cumulative through current week)
+        forecast_by_week: Original forecast by week
+        week_number: Current week number being analyzed
+        threshold: Variance threshold for triggering re-forecast (default: 0.20 = 20%)
+        store_actuals: Optional dict of store_id -> weekly actuals
+        store_forecasts: Optional dict of store_id -> weekly forecasts
+
+    Returns:
+        VarianceResult with is_high_variance flag for workflow decision
+
+    Example:
+        >>> variance = check_variance(
+        ...     actual_sales=[500, 480, 520],
+        ...     forecast_by_week=[550, 500, 510, 520, 530, 540],
+        ...     week_number=3,
+        ...     threshold=0.20
+        ... )
+        >>> if variance.is_high_variance:
+        ...     # Trigger re-forecast
+        ...     pass
     """
     logger.info("=" * 80)
-    logger.info("TOOL: check_variance - Variance Analysis")
+    logger.info("FUNCTION: check_variance - Variance Analysis")
     logger.info("=" * 80)
 
-    # Get variance data from context (like cluster_stores and run_demand_forecast do)
-    try:
-        variance_file_path = ctx.context.variance_file_path
-        forecast_by_week = ctx.context.forecast_by_week
+    logger.info(
+        f"Inputs: week={week_number}, threshold={threshold:.0%}, "
+        f"actual_weeks={len(actual_sales)}, forecast_weeks={len(forecast_by_week)}"
+    )
 
-        if variance_file_path is None:
-            raise RuntimeError(
-                "Variance file path not found in context. "
-                "Please ensure the user has uploaded actual sales data through the UI first."
+    # Calculate cumulative variance
+    actual_total, forecast_total, variance_units, variance_pct = calculate_cumulative_variance(
+        actual=actual_sales,
+        forecast=forecast_by_week[:len(actual_sales)],  # Only compare available weeks
+    )
+
+    # Determine if high variance
+    is_high_variance = abs(variance_pct) > threshold
+
+    # Determine direction
+    direction = determine_variance_direction(variance_pct, threshold)
+
+    # Generate recommendation
+    recommendation = generate_variance_recommendation(
+        variance_pct=variance_pct,
+        direction=direction,
+        is_high_variance=is_high_variance,
+        week_number=week_number,
+    )
+
+    # Calculate store-level variance if provided
+    store_level_variance = None
+    if store_actuals is not None and store_forecasts is not None:
+        store_level_variance = calculate_store_level_variance(
+            store_actuals=store_actuals,
+            store_forecasts=store_forecasts,
+            week_number=week_number,
+        )
+
+        # Log stores with high variance
+        high_variance_stores = [
+            store_id for store_id, var in store_level_variance.items()
+            if abs(var) > threshold
+        ]
+        if high_variance_stores:
+            logger.warning(
+                f"High variance stores ({len(high_variance_stores)}): "
+                f"{high_variance_stores[:5]}..."
             )
 
-        if forecast_by_week is None or len(forecast_by_week) == 0:
-            raise RuntimeError(
-                "Forecast data not found in context. "
-                "Please ensure a forecast has been generated before checking variance."
-            )
-
-        logger.info(f"Loading actual sales from: {variance_file_path}")
-        logger.info(f"Forecast by week: {forecast_by_week}")
-        logger.info(f"Checking week: {week_number}")
-
-    except AttributeError as e:
-        logger.error("Required data not found in context")
-        raise RuntimeError(
-            "Variance checking data not available in context. "
-            "Ensure the user has uploaded actual sales data and generated a forecast."
-        ) from e
-
-    # Load actual sales
-    df_actuals = pd.read_csv(variance_file_path)
-
-    # Calculate total actual sales
-    actual_total = df_actuals['quantity_sold'].sum()
-
-    # Get forecasted amount for this week
-    if week_number < 1 or week_number > len(forecast_by_week):
-        raise ValueError(f"Week number {week_number} out of range (1-{len(forecast_by_week)})")
-
-    forecast_total = forecast_by_week[week_number - 1]  # 0-indexed
-
-    # Calculate variance
-    variance_pct = (forecast_total - actual_total) / actual_total if actual_total > 0 else 0.0
-
-    # Check if high variance
-    is_high_variance = abs(variance_pct) > variance_threshold
-
-    # Store-level variance
-    store_variance = {}
-    for _, row in df_actuals.iterrows():
-        store_id = row['store_id']
-        actual = row['quantity_sold']
-        # Approximate per-store forecast (this could be improved with actual store-level forecasts)
-        avg_forecast_per_store = forecast_total / len(df_actuals)
-        store_var = (avg_forecast_per_store - actual) / actual if actual > 0 else 0.0
-        store_variance[store_id] = round(store_var, 3)
-
-    # Generate recommendation with signal for coordinator
-    if is_high_variance:
-        if variance_pct > 0:
-            # Over-forecasted (actual < forecast)
-            recommendation = f"⚠️ Over-forecasted by {abs(variance_pct)*100:.1f}%. Actual demand is lower than predicted. Consider re-forecasting with updated data to avoid excess inventory.\n\n**Action Required:** HIGH_VARIANCE_REFORECAST_NEEDED"
-        else:
-            # Under-forecasted (actual > forecast)
-            recommendation = f"⚠️ Under-forecasted by {abs(variance_pct)*100:.1f}%. Actual demand is higher than predicted. Consider re-forecasting and increasing safety stock to prevent stock-outs.\n\n**Action Required:** HIGH_VARIANCE_REFORECAST_NEEDED"
-    else:
-        recommendation = f"✅ Variance is within acceptable range ({abs(variance_pct)*100:.1f}%). Forecast accuracy is good. Continue with current plan.\n\n**Status:** No re-forecasting needed."
-
+    # Build result
     result = VarianceResult(
         week_number=week_number,
         actual_total=actual_total,
         forecast_total=forecast_total,
-        variance_pct=round(variance_pct, 4),
+        variance_units=variance_units,
+        variance_pct=variance_pct,
+        threshold_pct=threshold,
         is_high_variance=is_high_variance,
+        direction=direction,
+        store_level_variance=store_level_variance,
         recommendation=recommendation,
-        store_level_variance=store_variance
     )
 
-    logger.info(f"Variance check complete: Actual={actual_total}, Forecast={forecast_total}, Variance={variance_pct*100:.1f}%")
+    logger.info(
+        f"Result: actual={actual_total}, forecast={forecast_total}, "
+        f"variance={variance_pct:.1%}, high_variance={is_high_variance}"
+    )
+
+    if is_high_variance:
+        logger.warning(f"HIGH VARIANCE DETECTED: {direction}-forecast by {abs(variance_pct):.1%}")
+    else:
+        logger.info(f"Variance within threshold: {direction}")
 
     return result
 
 
-def calculate_mape(actuals: list, forecasts: list) -> float:
+def check_weekly_variance(
+    actual_week: int,
+    forecast_week: int,
+    week_number: int,
+    threshold: float = 0.20,
+) -> VarianceResult:
     """
-    Calculate Mean Absolute Percentage Error (MAPE).
+    Check variance for a single week (simplified version).
+
+    Useful for quick single-week checks without cumulative analysis.
 
     Args:
-        actuals: List of actual sales values
-        forecasts: List of forecasted values
+        actual_week: Actual sales for the week
+        forecast_week: Forecasted sales for the week
+        week_number: Week number being analyzed
+        threshold: Variance threshold
 
     Returns:
-        MAPE as a percentage (0-100)
+        VarianceResult for single week
     """
-    if len(actuals) != len(forecasts):
-        raise ValueError("Actuals and forecasts must have same length")
-
-    absolute_percentage_errors = []
-    for actual, forecast in zip(actuals, forecasts):
-        if actual > 0:
-            ape = abs((actual - forecast) / actual)
-            absolute_percentage_errors.append(ape)
-
-    if len(absolute_percentage_errors) == 0:
-        return 0.0
-
-    mape = sum(absolute_percentage_errors) / len(absolute_percentage_errors) * 100
-    return round(mape, 2)
+    return check_variance(
+        actual_sales=[actual_week],
+        forecast_by_week=[forecast_week],
+        week_number=week_number,
+        threshold=threshold,
+    )
