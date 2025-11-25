@@ -83,6 +83,23 @@ def init_session_state():
     if "inseason_result" not in st.session_state:
         st.session_state.inseason_result = None
 
+    # In-Season Timeline State
+    if "inseason_setup_complete" not in st.session_state:
+        st.session_state.inseason_setup_complete = False
+
+    if "total_season_weeks" not in st.session_state:
+        st.session_state.total_season_weeks = 12  # Default
+
+    if "season_start_date" not in st.session_state:
+        st.session_state.season_start_date = None
+
+    if "selected_week" not in st.session_state:
+        st.session_state.selected_week = 1  # Currently selected week in timeline
+
+    if "week_data" not in st.session_state:
+        # Stores data for each week: {week_num: {status, actual_sales, variance, etc}}
+        st.session_state.week_data = {}
+
 
 init_session_state()
 
@@ -93,18 +110,6 @@ init_session_state()
 def render_sidebar():
     """Render the sidebar with workflow parameters."""
     st.sidebar.title("📊 Workflow Parameters")
-
-    # Planning mode selection
-    st.sidebar.subheader("📅 Planning Mode")
-    planning_mode = st.sidebar.radio(
-        "Select Mode",
-        options=["Pre-Season", "In-Season"],
-        index=0 if st.session_state.planning_mode == "pre-season" else 1,
-        help="Pre-Season: Initial forecast & allocation. In-Season: Update with actual sales.",
-    )
-    st.session_state.planning_mode = planning_mode.lower().replace("-", "-")
-
-    st.sidebar.divider()
 
     # Category selection
     categories = st.session_state.data_loader.get_categories()
@@ -383,13 +388,16 @@ def render_allocation_section(allocation: AllocationResult):
 
     with col_cluster:
         # Cluster allocation pie chart
+        # Calculate total units for actual percentage calculation
+        total_cluster_units = sum(c.allocation_units for c in allocation.cluster_allocations)
         cluster_data = pd.DataFrame(
             [
                 {
                     "Cluster": c.cluster_name,
                     "Units": c.allocation_units,
                     "Stores": c.store_count,
-                    "Percentage": c.allocation_percentage,
+                    # Use actual unit percentage instead of historical sales percentage
+                    "Percentage": (c.allocation_units / total_cluster_units * 100) if total_cluster_units > 0 else 0,
                 }
                 for c in allocation.cluster_allocations
             ]
@@ -795,172 +803,369 @@ def render_variance_history(result: SeasonResult):
 
 
 # =============================================================================
-# In-Season Planning Section
+# In-Season Timeline Visualization
 # =============================================================================
-def render_inseason_planning(params: WorkflowParams):
-    """Render the in-season planning interface."""
-    st.subheader("📅 In-Season Planning")
+def get_week_status(week_num: int, params: WorkflowParams) -> dict:
+    """Get the status of a specific week."""
+    week_data = st.session_state.week_data.get(week_num, {})
+    current_week = st.session_state.current_week
+    markdown_week = params.markdown_week
 
-    # Check if we have a pre-season forecast to compare against
+    # Determine status
+    if week_data.get("actual_sales") is not None:
+        status = "completed"
+        icon = "✓"
+    elif week_num == current_week + 1:
+        status = "current"
+        icon = "●"
+    elif week_num == markdown_week:
+        status = "markdown_checkpoint"
+        icon = "◆"
+    else:
+        status = "locked"
+        icon = "○"
+
+    return {
+        "status": status,
+        "icon": icon,
+        "week_num": week_num,
+        "is_markdown_week": week_num == markdown_week,
+        "actual_sales": week_data.get("actual_sales"),
+        "variance": week_data.get("variance"),
+    }
+
+
+def render_timeline(params: WorkflowParams):
+    """Render a clean, modern timeline using native Streamlit components."""
+    total_weeks = st.session_state.total_season_weeks
+    markdown_week = params.markdown_week
+    selected_week = st.session_state.selected_week
+
+    # Calculate progress
+    completed_weeks = len([w for w in range(1, total_weeks + 1)
+                          if st.session_state.week_data.get(w, {}).get("actual_sales") is not None])
+    progress_pct = (completed_weeks / total_weeks) * 100 if total_weeks > 0 else 0
+
+    # Timeline header
+    st.markdown("### 📅 Season Timeline")
+
+    # Progress bar
+    st.progress(progress_pct / 100, text=f"Season Progress: {completed_weeks} of {total_weeks} weeks completed ({progress_pct:.0f}%)")
+
+    st.markdown("")  # Spacer
+
+    # Week buttons in a clean grid
+    cols_per_row = min(total_weeks, 12)
+
+    for row_start in range(1, total_weeks + 1, cols_per_row):
+        row_end = min(row_start + cols_per_row, total_weeks + 1)
+        cols = st.columns(cols_per_row)
+
+        for idx, week_num in enumerate(range(row_start, row_end)):
+            week_info = get_week_status(week_num, params)
+            is_selected = week_num == selected_week
+
+            with cols[idx]:
+                # Determine button style based on status
+                if week_info["status"] == "completed":
+                    icon = "✅"
+                    btn_type = "secondary"
+                elif week_info["status"] == "current":
+                    icon = "🔵"
+                    btn_type = "primary"
+                elif week_info["is_markdown_week"]:
+                    icon = "💰"
+                    btn_type = "secondary"
+                else:
+                    icon = "⚪"
+                    btn_type = "secondary"
+
+                # Override to primary if selected
+                if is_selected:
+                    btn_type = "primary"
+
+                # Button label
+                label = f"{icon} {week_num}"
+                if week_info["is_markdown_week"]:
+                    label = f"💰 {week_num}"
+
+                if st.button(
+                    label,
+                    key=f"week_btn_{week_num}",
+                    use_container_width=True,
+                    type=btn_type,
+                    help=f"Week {week_num} - {week_info['status'].replace('_', ' ').title()}{' (Markdown Checkpoint)' if week_info['is_markdown_week'] else ''}"
+                ):
+                    st.session_state.selected_week = week_num
+                    st.rerun()
+
+    # Legend using columns
+    st.markdown("")  # Spacer
+    leg_cols = st.columns(4)
+    with leg_cols[0]:
+        st.caption("✅ Completed")
+    with leg_cols[1]:
+        st.caption("🔵 Current")
+    with leg_cols[2]:
+        st.caption("💰 Markdown")
+    with leg_cols[3]:
+        st.caption("⚪ Upcoming")
+
+
+def render_week_workspace(params: WorkflowParams):
+    """Render the workspace for the selected week."""
+    selected_week = st.session_state.selected_week
+    week_info = get_week_status(selected_week, params)
+    markdown_week = params.markdown_week
+
+    st.markdown(f"---")
+    st.markdown(f"## Week {selected_week} of {st.session_state.total_season_weeks}")
+
+    # Status indicator
+    if week_info["status"] == "completed":
+        st.success(f"✓ **Week {selected_week} Complete** - View-only mode")
+    elif week_info["status"] == "current":
+        st.info(f"● **Week {selected_week} Active** - Ready for data entry")
+    elif week_info["status"] == "markdown_checkpoint":
+        st.warning(f"◆ **Markdown Checkpoint Week** - Pricing agent available")
+    else:
+        st.caption(f"○ **Week {selected_week} Locked** - Complete previous weeks first")
+
+    # Week workspace sections
+    st.markdown("---")
+
+    # Section 1: Sales Data Upload
+    with st.expander("📊 1. Sales Data", expanded=(week_info["status"] in ["current", "locked"])):
+        if week_info["status"] == "completed":
+            # View-only mode
+            st.markdown(f"**Actual Sales:** {week_info['actual_sales']:,} units")
+            if st.session_state.workflow_result:
+                forecast_val = st.session_state.workflow_result.forecast.forecast_by_week[selected_week - 1]
+                st.markdown(f"**Forecasted:** {forecast_val:,} units")
+        elif week_info["status"] in ["current", "locked"]:
+            st.markdown("Upload actual sales data for this week:")
+
+            st.markdown("""
+            **CSV Format:** Must contain `quantity_sold` column
+            ```
+            date,store_id,quantity_sold
+            2025-03-01,S001,44
+            2025-03-01,S002,46
+            ```
+            """)
+
+            uploaded_file = st.file_uploader(
+                "Upload sales CSV",
+                type=["csv"],
+                key=f"upload_week_{selected_week}",
+                help="Upload a CSV file with sales data for this week",
+            )
+
+            if uploaded_file is not None:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    if "quantity_sold" in df.columns:
+                        total_sales = int(df["quantity_sold"].sum())
+                        st.success(f"📊 Loaded {len(df)} rows, Total: **{total_sales:,}** units")
+
+                        # Preview (no nested expander)
+                        st.markdown("**Preview:**")
+                        st.dataframe(df.head(10), use_container_width=True, height=200)
+
+                        if st.button("💾 Save Week Data", key=f"save_upload_{selected_week}", type="primary", use_container_width=True):
+                            _save_week_sales(selected_week, total_sales)
+                    else:
+                        st.error("CSV must contain 'quantity_sold' column")
+                except Exception as e:
+                    st.error(f"Error reading file: {e}")
+
+        else:
+            st.info("Complete previous weeks to unlock this week.")
+
+    # Render remaining sections (Variance, Reallocation, Pricing)
+    render_week_sections(params, selected_week, week_info)
+
+
+def _save_week_sales(week_num: int, sales_value: int):
+    """Helper to save week sales data and update session state."""
+    # Save to week_data
+    if week_num not in st.session_state.week_data:
+        st.session_state.week_data[week_num] = {}
+    st.session_state.week_data[week_num]["actual_sales"] = sales_value
+
+    # Update current_week
+    st.session_state.current_week = max(st.session_state.current_week, week_num)
+
+    # Rebuild actual_sales list
+    actual_sales_list = []
+    for w in range(1, st.session_state.total_season_weeks + 1):
+        wd = st.session_state.week_data.get(w, {})
+        if wd.get("actual_sales") is not None:
+            actual_sales_list.append(wd.get("actual_sales", 0))
+
+    st.session_state.actual_sales = actual_sales_list
+    st.session_state.total_sold = sum(actual_sales_list)
+
+    st.rerun()
+
+
+def render_week_sections(params: WorkflowParams, selected_week: int, week_info: dict):
+    """Render the variance, reallocation, and pricing sections for a week."""
+    markdown_week = params.markdown_week
+
+    # Section 2: Variance Analysis
+    with st.expander("📉 2. Variance Analysis", expanded=False):
+        if week_info["actual_sales"] is not None and st.session_state.workflow_result:
+            # Calculate and show variance
+            forecast_val = st.session_state.workflow_result.forecast.forecast_by_week[selected_week - 1]
+            actual_val = week_info["actual_sales"]
+            variance_pct = (actual_val - forecast_val) / forecast_val if forecast_val > 0 else 0
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Forecast", f"{forecast_val:,}")
+            with col2:
+                st.metric("Actual", f"{actual_val:,}")
+            with col3:
+                delta_color = "inverse" if abs(variance_pct) > params.variance_threshold else "normal"
+                st.metric(
+                    "Variance",
+                    f"{variance_pct:+.1%}",
+                    delta="High" if abs(variance_pct) > params.variance_threshold else "OK",
+                    delta_color=delta_color,
+                )
+
+            if abs(variance_pct) > params.variance_threshold:
+                st.error(f"⚠️ High variance detected! Exceeds {params.variance_threshold:.0%} threshold.")
+                st.info("Consider re-forecasting with updated data.")
+        else:
+            st.info("Upload sales data to see variance analysis.")
+
+    # Section 3: Reallocation Recommendations
+    with st.expander("🔄 3. Reallocation", expanded=False):
+        if week_info["actual_sales"] is not None:
+            st.markdown("Based on sales performance, consider these adjustments:")
+            st.info("Reallocation recommendations will appear here based on variance analysis.")
+        else:
+            st.info("Complete sales data entry to see reallocation recommendations.")
+
+    # Section 4: Pricing Agent (only at/after markdown checkpoint)
+    is_pricing_available = selected_week >= markdown_week
+    with st.expander(
+        f"💰 4. Pricing Agent {'🔓' if is_pricing_available else '🔒 (Week ' + str(markdown_week) + '+)'}",
+        expanded=False,
+    ):
+        if is_pricing_available:
+            st.success("✅ Pricing Agent is available!")
+
+            # Show current sell-through if we have data
+            if st.session_state.workflow_result and st.session_state.total_sold > 0:
+                allocation = st.session_state.workflow_result.allocation
+                sell_through = st.session_state.total_sold / allocation.initial_store_allocation
+                st.metric("Current Sell-Through", f"{sell_through:.1%}")
+                st.metric("Target Sell-Through", f"{params.markdown_threshold:.0%}")
+
+                gap = params.markdown_threshold - sell_through
+                if gap > 0:
+                    st.warning(f"⚠️ Behind target by {gap:.1%}")
+                    if st.button("🏷️ Calculate Markdown Recommendation", key=f"calc_markdown_{selected_week}"):
+                        st.info("Markdown calculation would run here...")
+                else:
+                    st.success("✅ On track or ahead of target!")
+            else:
+                st.info("Run pre-season workflow and enter sales data to enable pricing recommendations.")
+        else:
+            st.info(f"🔒 Pricing agent unlocks at Week {markdown_week} (Markdown Checkpoint)")
+            weeks_until = markdown_week - selected_week
+            st.caption(f"{weeks_until} week(s) until pricing tools available")
+
+
+def render_inseason_setup(params: WorkflowParams):
+    """Render the in-season setup flow for first-time configuration."""
+    st.markdown("### 🚀 In-Season Setup")
+    st.info("Configure your season before starting in-season planning.")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        total_weeks = st.number_input(
+            "Total Season Weeks",
+            min_value=4,
+            max_value=52,
+            value=st.session_state.total_season_weeks,
+            help="How many weeks is this season?",
+        )
+
+    with col2:
+        start_date = st.date_input(
+            "Season Start Date",
+            value=st.session_state.season_start_date or date.today(),
+            help="When does/did the season start?",
+        )
+
+    st.divider()
+
+    # Show preview of timeline
+    st.markdown("**Timeline Preview:**")
+    preview_text = " → ".join([f"Wk{i}" for i in range(1, min(total_weeks + 1, 13))])
+    if total_weeks > 12:
+        preview_text += f" → ... → Wk{total_weeks}"
+    st.code(preview_text)
+
+    st.caption(f"Markdown checkpoint: Week {params.markdown_week}")
+
+    if st.button("✅ Start In-Season Planning", type="primary", use_container_width=True):
+        st.session_state.total_season_weeks = total_weeks
+        st.session_state.season_start_date = start_date
+        st.session_state.inseason_setup_complete = True
+        st.session_state.selected_week = 1
+        st.success("✅ In-season planning initialized!")
+        st.rerun()
+
+
+def render_inseason_planning(params: WorkflowParams):
+    """Render the complete in-season planning interface with timeline."""
+
+    # Check if setup is complete
+    if not st.session_state.inseason_setup_complete:
+        render_inseason_setup(params)
+        return
+
+    # Check if we have a pre-season forecast
     if st.session_state.workflow_result is None:
         st.warning(
-            "⚠️ No pre-season forecast available. Please run a pre-season workflow first, "
-            "or the system will generate one automatically."
+            "⚠️ No pre-season forecast available. Please complete pre-season planning first."
         )
+        if st.button("↩️ Go to Pre-Season", key="goto_preseason"):
+            st.session_state.planning_mode = "pre-season"
+            st.rerun()
+        return
 
-    # Current status
-    col_status1, col_status2, col_status3 = st.columns(3)
+    # Season header with key metrics
+    st.markdown(f"## 📅 In-Season: {params.category}")
 
-    with col_status1:
-        st.metric(
-            label="Current Week",
-            value=st.session_state.current_week if st.session_state.current_week > 0 else "Not started",
-        )
-
-    with col_status2:
-        st.metric(
-            label="Total Sold",
-            value=f"{st.session_state.total_sold:,}" if st.session_state.total_sold > 0 else "No data",
-        )
-
-    with col_status3:
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Season Week", f"{st.session_state.current_week} of {st.session_state.total_season_weeks}")
+    with col2:
+        st.metric("Total Sold", f"{st.session_state.total_sold:,}" if st.session_state.total_sold > 0 else "—")
+    with col3:
         if st.session_state.workflow_result and st.session_state.total_sold > 0:
             allocation = st.session_state.workflow_result.allocation
             sell_through = st.session_state.total_sold / allocation.initial_store_allocation
-            st.metric(
-                label="Current Sell-Through",
-                value=f"{sell_through:.1%}",
-            )
+            st.metric("Sell-Through", f"{sell_through:.1%}")
         else:
-            st.metric(label="Current Sell-Through", value="N/A")
+            st.metric("Sell-Through", "—")
+    with col4:
+        st.metric("Markdown Week", f"Week {params.markdown_week}")
 
     st.divider()
 
-    # Actual sales input section
-    st.markdown("### Upload Actual Sales Data")
+    # Render the timeline
+    render_timeline(params)
 
-    upload_method = st.radio(
-        "Input Method",
-        options=["Upload CSV", "Manual Entry"],
-        horizontal=True,
-    )
-
-    if upload_method == "Upload CSV":
-        st.markdown(
-            """
-            **CSV Format Required:**
-            ```
-            week,actual_sales
-            1,520
-            2,485
-            3,510
-            ```
-            """
-        )
-
-        actual_file = st.file_uploader(
-            "Upload actual sales CSV",
-            type=["csv"],
-            key="inseason_actual_upload",
-            help="CSV with columns: week, actual_sales",
-        )
-
-        if actual_file is not None:
-            try:
-                actual_df = pd.read_csv(actual_file)
-
-                # Validate columns
-                if "actual_sales" not in actual_df.columns:
-                    st.error("CSV must contain 'actual_sales' column")
-                else:
-                    st.session_state.actual_sales = actual_df["actual_sales"].tolist()
-                    st.session_state.total_sold = sum(st.session_state.actual_sales)
-                    st.session_state.current_week = len(st.session_state.actual_sales)
-
-                    st.success(
-                        f"✅ Loaded {len(st.session_state.actual_sales)} weeks of actual sales data"
-                    )
-
-                    # Preview data
-                    st.dataframe(actual_df, use_container_width=True)
-
-            except Exception as e:
-                st.error(f"Error loading file: {e}")
-
-    else:  # Manual Entry
-        st.markdown("Enter actual sales for each week:")
-
-        # Dynamic week entry
-        num_weeks = st.number_input(
-            "Number of weeks to enter",
-            min_value=1,
-            max_value=params.forecast_horizon_weeks,
-            value=max(1, st.session_state.current_week) if st.session_state.current_week > 0 else 1,
-        )
-
-        manual_sales = []
-        cols = st.columns(min(4, num_weeks))
-
-        for i in range(num_weeks):
-            col_idx = i % 4
-            with cols[col_idx]:
-                default_val = (
-                    st.session_state.actual_sales[i]
-                    if i < len(st.session_state.actual_sales)
-                    else 0
-                )
-                week_sales = st.number_input(
-                    f"Week {i + 1}",
-                    min_value=0,
-                    value=int(default_val),
-                    key=f"week_{i + 1}_sales",
-                )
-                manual_sales.append(week_sales)
-
-        if st.button("Apply Manual Entry", type="secondary"):
-            st.session_state.actual_sales = manual_sales
-            st.session_state.total_sold = sum(manual_sales)
-            st.session_state.current_week = len(manual_sales)
-            st.success(f"✅ Applied {len(manual_sales)} weeks of sales data")
-            st.rerun()
-
-    st.divider()
-
-    # Variance check section
-    st.markdown("### Check Variance")
-
-    if len(st.session_state.actual_sales) > 0:
-        # Get forecast to compare against
-        if st.session_state.workflow_result:
-            forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
-        else:
-            st.warning("No forecast available. Run pre-season workflow first.")
-            forecast_by_week = None
-
-        if forecast_by_week:
-            col_check, col_result = st.columns([1, 2])
-
-            with col_check:
-                if st.button("🔍 Calculate Variance", type="primary", use_container_width=True):
-                    # Calculate variance
-                    variance_result = check_variance(
-                        actual_sales=st.session_state.actual_sales,
-                        forecast_by_week=forecast_by_week,
-                        week_number=st.session_state.current_week,
-                        threshold=params.variance_threshold,
-                    )
-                    st.session_state.variance_result = variance_result
-
-            # Show variance result if calculated
-            if st.session_state.variance_result:
-                render_variance_analysis(
-                    variance=st.session_state.variance_result,
-                    forecast_by_week=forecast_by_week,
-                    actual_sales=st.session_state.actual_sales,
-                    params=params,
-                )
-    else:
-        st.info("Upload or enter actual sales data to enable variance checking.")
+    # Render the week workspace
+    render_week_workspace(params)
 
 
 # =============================================================================
@@ -1070,6 +1275,91 @@ async def run_workflow_async(params: WorkflowParams):
     return result
 
 
+def render_preseason_tab(params: WorkflowParams):
+    """Render the Pre-Season planning tab."""
+    st.markdown("## 🌱 Pre-Season Planning")
+    st.markdown(
+        "Generate demand forecasts and initial inventory allocations before the season begins."
+    )
+
+    # Check if pre-season is already complete
+    if st.session_state.workflow_result:
+        st.success("✅ Pre-season planning complete! View results below or proceed to In-Season tab.")
+
+    st.divider()
+
+    # Workflow configuration display
+    col_info, col_action = st.columns([2, 1])
+
+    with col_info:
+        st.markdown("### Workflow Configuration")
+        st.markdown(
+            f"""
+            - **Category:** {params.category}
+            - **Forecast Horizon:** {params.forecast_horizon_weeks} weeks
+            - **DC Holdback:** {params.dc_holdback_pct:.0%}
+            - **Safety Stock:** {params.safety_stock_pct:.0%}
+            - **Replenishment:** {params.replenishment_strategy}
+            """
+        )
+
+    with col_action:
+        run_button = st.button(
+            "▶️ Run Pre-Season Workflow",
+            type="primary",
+            use_container_width=True,
+            disabled=st.session_state.running,
+        )
+
+    if run_button:
+        st.session_state.running = True
+
+        with st.status("Running pre-season workflow...", expanded=True) as status:
+            st.write("🔮 Phase 1: Running Demand Agent...")
+
+            try:
+                result = asyncio.run(run_workflow_async(params))
+                st.session_state.workflow_result = result
+                st.write("📦 Phase 2: Running Inventory Agent...")
+                st.write("✅ Pre-season planning complete!")
+                status.update(
+                    label="✅ Pre-season workflow complete!",
+                    state="complete",
+                    expanded=False,
+                )
+            except Exception as e:
+                status.update(label=f"❌ Error: {e}", state="error")
+                st.error(f"Workflow failed: {e}")
+            finally:
+                st.session_state.running = False
+                st.rerun()
+
+    # Show results if available
+    if st.session_state.workflow_result:
+        result = st.session_state.workflow_result
+
+        st.divider()
+        st.markdown("### 📊 Pre-Season Results")
+
+        # Forecast section
+        render_forecast_section(
+            result.forecast,
+            params,
+            actual_sales=None,  # No actuals in pre-season
+        )
+
+        st.divider()
+
+        # Allocation section
+        render_allocation_section(result.allocation)
+
+        st.divider()
+
+        # Data upload section
+        with st.expander("📁 Data Management", expanded=False):
+            render_data_upload()
+
+
 def main():
     """Main application entry point."""
     st.title("📊 Retail Forecasting Multi-Agent System")
@@ -1083,195 +1373,16 @@ def main():
     # Render sidebar and get parameters
     params = render_sidebar()
 
-    # Main content tabs based on planning mode
-    if st.session_state.planning_mode == "pre-season":
-        tab_run, tab_data, tab_results = st.tabs(
-            ["🚀 Run Workflow", "📁 Data Management", "📊 Results"]
-        )
-    else:
-        tab_run, tab_inseason, tab_data, tab_results = st.tabs(
-            ["🚀 Run Workflow", "📅 In-Season Planning", "📁 Data Management", "📊 Results"]
-        )
+    # NEW: Two primary tabs - Preseason and In-Season
+    tab_preseason, tab_inseason = st.tabs(
+        ["🌱 Pre-Season", "📅 In-Season"]
+    )
 
-    with tab_run:
-        st.markdown("### Run Season Planning Workflow")
+    with tab_preseason:
+        render_preseason_tab(params)
 
-        # Mode indicator
-        mode_label = "Pre-Season" if st.session_state.planning_mode == "pre-season" else "In-Season"
-        st.info(f"**Current Mode:** {mode_label} Planning")
-
-        col_info, col_action = st.columns([2, 1])
-
-        with col_info:
-            st.markdown(
-                f"""
-                **Workflow Configuration:**
-                - Category: **{params.category}**
-                - Forecast Horizon: **{params.forecast_horizon_weeks} weeks**
-                - DC Holdback: **{params.dc_holdback_pct:.0%}**
-                - Markdown Week: **{params.markdown_week}**
-                - Current Week: **{st.session_state.current_week}**
-                - Actual Sales Data: **{"Yes" if st.session_state.actual_sales else "No"}**
-                """
-            )
-
-        with col_action:
-            button_label = (
-                "▶️ Run Pre-Season Workflow"
-                if st.session_state.planning_mode == "pre-season"
-                else "▶️ Run In-Season Update"
-            )
-
-            run_button = st.button(
-                button_label,
-                type="primary",
-                use_container_width=True,
-                disabled=st.session_state.running,
-            )
-
-        if run_button:
-            st.session_state.running = True
-
-            with st.status("Running workflow...", expanded=True) as status:
-                st.write("🔮 Phase 1: Running Demand Agent...")
-
-                try:
-                    result = asyncio.run(run_workflow_async(params))
-                    st.session_state.workflow_result = result
-                    st.write("📦 Phase 2: Running Inventory Agent...")
-                    st.write("💰 Phase 3: Running Pricing Agent...")
-                    status.update(
-                        label="✅ Workflow complete!",
-                        state="complete",
-                        expanded=False,
-                    )
-                except Exception as e:
-                    status.update(label=f"❌ Error: {e}", state="error")
-                    st.error(f"Workflow failed: {e}")
-                finally:
-                    st.session_state.running = False
-                    st.rerun()
-
-        # Show results summary if available
-        if st.session_state.workflow_result:
-            result = st.session_state.workflow_result
-            st.success(
-                f"✅ Workflow completed in {result.total_duration_seconds:.2f}s | "
-                f"Phases: {', '.join(result.phases_completed)}"
-            )
-
-    # In-Season tab (only shown in in-season mode)
-    if st.session_state.planning_mode != "pre-season":
-        with tab_inseason:
-            render_inseason_planning(params)
-
-    with tab_data:
-        render_data_upload()
-
-    with tab_results:
-        if st.session_state.workflow_result is None:
-            st.info("No results yet. Run the workflow to see results here.")
-        else:
-            result = st.session_state.workflow_result
-
-            # Forecast section with actual sales comparison
-            render_forecast_section(
-                result.forecast,
-                params,
-                actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
-            )
-
-            st.divider()
-
-            # Allocation section
-            render_allocation_section(result.allocation)
-
-            st.divider()
-
-            # Pricing section
-            render_pricing_section(result.markdown, params)
-
-            st.divider()
-
-            # Variance history section
-            render_variance_history(result)
-
-            # Export results
-            st.divider()
-            st.markdown("### Export Results")
-
-            col_export1, col_export2, col_export3, col_export4 = st.columns(4)
-
-            with col_export1:
-                forecast_df = pd.DataFrame(
-                    {
-                        "Week": list(
-                            range(1, len(result.forecast.forecast_by_week) + 1)
-                        ),
-                        "Forecast": result.forecast.forecast_by_week,
-                    }
-                )
-                # Add actual sales if available
-                if st.session_state.actual_sales:
-                    forecast_df["Actual"] = (
-                        st.session_state.actual_sales
-                        + [None] * (len(forecast_df) - len(st.session_state.actual_sales))
-                    )
-
-                st.download_button(
-                    "📥 Download Forecast",
-                    forecast_df.to_csv(index=False),
-                    "forecast.csv",
-                    "text/csv",
-                )
-
-            with col_export2:
-                allocation_df = pd.DataFrame(
-                    [
-                        {
-                            "Store": s.store_id,
-                            "Units": s.allocation_units,
-                            "Cluster": s.cluster,
-                        }
-                        for s in result.allocation.store_allocations
-                    ]
-                )
-                st.download_button(
-                    "📥 Download Allocation",
-                    allocation_df.to_csv(index=False),
-                    "allocation.csv",
-                    "text/csv",
-                )
-
-            with col_export3:
-                if result.markdown:
-                    markdown_data = {
-                        "Recommended Markdown": [result.markdown.recommended_markdown_pct],
-                        "Current Sell-Through": [result.markdown.current_sell_through],
-                        "Target Sell-Through": [result.markdown.target_sell_through],
-                        "Gap": [result.markdown.gap],
-                    }
-                    st.download_button(
-                        "📥 Download Pricing",
-                        pd.DataFrame(markdown_data).to_csv(index=False),
-                        "pricing.csv",
-                        "text/csv",
-                    )
-
-            with col_export4:
-                if st.session_state.variance_result:
-                    variance_data = {
-                        "Week": [st.session_state.variance_result.week_number],
-                        "Variance %": [st.session_state.variance_result.variance_pct],
-                        "High Variance": [st.session_state.variance_result.is_high_variance],
-                        "Direction": [st.session_state.variance_result.direction],
-                    }
-                    st.download_button(
-                        "📥 Download Variance",
-                        pd.DataFrame(variance_data).to_csv(index=False),
-                        "variance.csv",
-                        "text/csv",
-                    )
+    with tab_inseason:
+        render_inseason_planning(params)
 
 
 if __name__ == "__main__":

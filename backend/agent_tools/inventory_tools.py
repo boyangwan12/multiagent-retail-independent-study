@@ -64,7 +64,7 @@ class ClusterStats(BaseModel):
     )
     store_count: int = Field(..., description="Number of stores in cluster", ge=0)
     allocation_percentage: float = Field(
-        ..., description="Percentage of total sales (allocation basis)", ge=0, le=100
+        ..., description="Percentage of total sales as decimal (0.0-1.0)", ge=0.0, le=1.0
     )
     avg_weekly_sales: float = Field(..., description="Average weekly sales for cluster")
     avg_store_size: float = Field(..., description="Average store size (sqft)")
@@ -115,7 +115,7 @@ class ClusterAllocationDetail(BaseModel):
     cluster_id: int = Field(..., description="Cluster ID (0, 1, or 2)")
     cluster_label: str = Field(..., description="Cluster name")
     allocation_percentage: float = Field(
-        ..., description="Percentage of total allocation", ge=0, le=100
+        ..., description="Percentage of total allocation as decimal (0.0-1.0)", ge=0.0, le=1.0
     )
     total_units: int = Field(..., description="Total units allocated to cluster", ge=0)
     stores: List[StoreAllocationDetail] = Field(
@@ -369,9 +369,9 @@ class StoreClusterer:
             "avg_weekly_sales_12mo"
         ].sum()
 
-        # Calculate allocation percentages
+        # Calculate allocation percentages as decimal (0.0-1.0)
         total_sales = cluster_totals.sum()
-        cluster_percentages = (cluster_totals / total_sales * 100).round(1)
+        cluster_percentages = (cluster_totals / total_sales).round(4)
 
         # Build stats DataFrame
         stats_df = pd.DataFrame(
@@ -508,24 +508,24 @@ def _allocate_to_stores(
         ["avg_weekly_sales_12mo", "store_size_sqft", "median_income"]
     ].mean().to_dict()
 
-    # Calculate allocation factor for each store
-    store_factors = {}
+    # Calculate allocation factor for each store (raw factors typically 0.5-1.5)
+    store_raw_factors = {}
     for store_id, store_row in cluster_stores.iterrows():
         factor = _calculate_allocation_factor(
             store_row, cluster_avg, location_tier_map
         )
-        store_factors[store_id] = factor
+        store_raw_factors[store_id] = factor
 
-    # Normalize factors to sum to 1.0
-    total_factor = sum(store_factors.values())
+    # Normalize factors to sum to 1.0 for unit distribution
+    total_factor = sum(store_raw_factors.values())
     if total_factor > 0:
         normalized_factors = {
-            sid: f / total_factor for sid, f in store_factors.items()
+            sid: f / total_factor for sid, f in store_raw_factors.items()
         }
     else:
         # Equal allocation if all factors are zero
         normalized_factors = {
-            sid: 1.0 / len(store_factors) for sid in store_factors.keys()
+            sid: 1.0 / len(store_raw_factors) for sid in store_raw_factors.keys()
         }
 
     # Calculate minimum based on average store forecast
@@ -540,14 +540,15 @@ def _allocate_to_stores(
     base_allocations = []
     total_allocated = 0
 
-    for store_id, factor in normalized_factors.items():
-        base_allocation = int(cluster_units * factor)
+    for store_id, norm_factor in normalized_factors.items():
+        base_allocation = int(cluster_units * norm_factor)
 
         # Enforce 2-week minimum
         final_allocation = max(base_allocation, min_allocation_units)
 
+        # Store raw factor (0.5-1.5 range) for output, not normalized factor
         base_allocations.append(
-            {"store_id": store_id, "allocation": final_allocation, "factor": factor}
+            {"store_id": store_id, "allocation": final_allocation, "factor": store_raw_factors[store_id]}
         )
         total_allocated += final_allocation
 
@@ -832,7 +833,7 @@ def allocate_inventory(
             # Access as BaseModel attributes (not dict keys)
             cluster_id = stat.cluster_id
             cluster_label = stat.cluster_label
-            allocation_pct = stat.allocation_percentage / 100.0
+            allocation_pct = stat.allocation_percentage  # Already decimal (0.0-1.0)
             store_count = stat.store_count
 
             # Calculate raw allocation
