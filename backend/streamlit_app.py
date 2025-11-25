@@ -1027,49 +1027,81 @@ def _save_week_sales(week_num: int, sales_value: int):
 # Variance Visualization & Auto-Reforecast Helpers
 # =============================================================================
 def _render_variance_chart(params: WorkflowParams, selected_week: int):
-    """Render forecast vs actual comparison chart - ALWAYS shown when data exists."""
+    """Render unified forecast vs actual comparison chart with full forecast horizon."""
     if not st.session_state.workflow_result:
         return
 
     forecast = st.session_state.workflow_result.forecast
     actual_sales = st.session_state.actual_sales
 
-    # Build comparison data
-    weeks_available = min(len(actual_sales), len(forecast.forecast_by_week))
-    if weeks_available == 0:
+    # Full forecast horizon (show ALL forecast weeks, not truncated)
+    full_forecast = forecast.forecast_by_week
+    total_forecast_weeks = len(full_forecast)
+
+    if total_forecast_weeks == 0:
         return
 
-    forecast_data = forecast.forecast_by_week[:weeks_available]
-    actual_data = actual_sales[:weeks_available]
+    # Actual sales data (only weeks we have)
+    weeks_with_actuals = len(actual_sales) if actual_sales else 0
 
-    # Create comparison chart
+    # Create unified comparison chart
     fig = go.Figure()
 
-    # Forecast line
+    # 1. Add confidence bands for full forecast horizon (if available)
+    if forecast.lower_bound and forecast.upper_bound:
+        weeks = list(range(1, total_forecast_weeks + 1))
+        fig.add_trace(
+            go.Scatter(
+                x=weeks + weeks[::-1],
+                y=forecast.upper_bound + forecast.lower_bound[::-1],
+                fill="toself",
+                fillcolor="rgba(31, 119, 180, 0.15)",
+                line=dict(color="rgba(255,255,255,0)"),
+                name="95% Confidence Interval",
+                showlegend=True,
+            )
+        )
+
+    # 2. FULL Forecast line (all weeks in horizon)
     fig.add_trace(
         go.Scatter(
-            x=list(range(1, weeks_available + 1)),
-            y=forecast_data,
+            x=list(range(1, total_forecast_weeks + 1)),
+            y=full_forecast,
             mode="lines+markers",
             name="Original Forecast",
             line=dict(color="#1f77b4", width=2),
-            marker=dict(size=8),
+            marker=dict(size=6),
         )
     )
 
-    # Actual sales line
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, weeks_available + 1)),
-            y=actual_data,
-            mode="lines+markers",
-            name="Actual Sales",
-            line=dict(color="#e74c3c", width=3, dash="solid"),
-            marker=dict(size=10, symbol="diamond"),
+    # 3. Actual sales line (only weeks with data)
+    if weeks_with_actuals > 0:
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(1, weeks_with_actuals + 1)),
+                y=actual_sales,
+                mode="lines+markers",
+                name="Actual Sales",
+                line=dict(color="#e74c3c", width=3),
+                marker=dict(size=10, symbol="diamond"),
+            )
         )
-    )
 
-    # If reforecast exists, show it too
+        # 4. Variance shading (only for weeks with both forecast and actual)
+        forecast_subset = full_forecast[:weeks_with_actuals]
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(1, weeks_with_actuals + 1)) + list(range(weeks_with_actuals, 0, -1)),
+                y=forecast_subset + actual_sales[::-1],
+                fill="toself",
+                fillcolor="rgba(231, 76, 60, 0.15)",
+                line=dict(color="rgba(255,255,255,0)"),
+                name="Variance Gap",
+                showlegend=True,
+            )
+        )
+
+    # 5. Reforecast line (if triggered) - show full horizon
     if st.session_state.reforecast_result:
         reforecast = st.session_state.reforecast_result
         fig.add_trace(
@@ -1077,32 +1109,30 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
                 x=list(range(1, len(reforecast.forecast_by_week) + 1)),
                 y=reforecast.forecast_by_week,
                 mode="lines+markers",
-                name="Re-forecast (Updated)",
+                name="Updated Forecast",
                 line=dict(color="#2ecc71", width=3, dash="dash"),
                 marker=dict(size=8, symbol="star"),
             )
         )
 
-    # Add variance area shading
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, weeks_available + 1)) + list(range(weeks_available, 0, -1)),
-            y=forecast_data + actual_data[::-1],
-            fill="toself",
-            fillcolor="rgba(231, 76, 60, 0.1)",
-            line=dict(color="rgba(255,255,255,0)"),
-            name="Variance Gap",
-            showlegend=True,
+    # 6. Add vertical line for current week
+    if weeks_with_actuals > 0:
+        fig.add_vline(
+            x=weeks_with_actuals,
+            line_dash="dot",
+            line_color="gray",
+            annotation_text=f"Week {weeks_with_actuals}",
+            annotation_position="top"
         )
-    )
 
     fig.update_layout(
-        title=f"Forecast vs Actual Sales - {params.category}",
+        title=f"Season Performance: Forecast vs Actual - {params.category}",
         xaxis_title="Week",
         yaxis_title="Units",
         hovermode="x unified",
-        height=350,
+        height=400,
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        xaxis=dict(dtick=1, range=[0.5, total_forecast_weeks + 0.5]),
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -1209,7 +1239,7 @@ def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
 
 
 def _render_reforecast_comparison(params: WorkflowParams):
-    """Render comparison between original forecast, actuals, and new reforecast."""
+    """Render re-forecast metrics summary (chart is now unified in _render_variance_chart)."""
     if not st.session_state.reforecast_result or not st.session_state.workflow_result:
         return
 
@@ -1217,92 +1247,49 @@ def _render_reforecast_comparison(params: WorkflowParams):
     reforecast = st.session_state.reforecast_result
     actuals = st.session_state.actual_sales
 
-    st.markdown("### 📊 Re-forecast Results")
+    st.markdown("### 📊 Re-forecast Summary")
 
-    # Metrics comparison
-    col1, col2, col3 = st.columns(3)
+    # Metrics comparison - 4 columns for better insight
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
-            "Original Forecast (Total)",
+            "Original Forecast",
             f"{original.total_demand:,}",
         )
 
     with col2:
         st.metric(
-            "Actual Sales (To Date)",
+            "Actual (To Date)",
             f"{sum(actuals):,}",
         )
 
     with col3:
         change_pct = (reforecast.total_demand - original.total_demand) / original.total_demand if original.total_demand > 0 else 0
         st.metric(
-            "New Forecast (Total)",
+            "Updated Forecast",
             f"{reforecast.total_demand:,}",
             delta=f"{change_pct:+.1%}",
         )
 
-    # Show updated forecast chart
-    fig = go.Figure()
-
-    weeks = list(range(1, max(len(original.forecast_by_week), len(reforecast.forecast_by_week)) + 1))
-
-    # Original forecast (faded)
-    fig.add_trace(
-        go.Scatter(
-            x=weeks[:len(original.forecast_by_week)],
-            y=original.forecast_by_week,
-            mode="lines",
-            name="Original Forecast",
-            line=dict(color="rgba(31, 119, 180, 0.4)", width=2, dash="dot"),
-        )
-    )
-
-    # Actual sales
-    if actuals:
-        fig.add_trace(
-            go.Scatter(
-                x=list(range(1, len(actuals) + 1)),
-                y=actuals,
-                mode="lines+markers",
-                name="Actual Sales",
-                line=dict(color="#e74c3c", width=3),
-                marker=dict(size=10, symbol="diamond"),
-            )
+    with col4:
+        # Show remaining demand projection
+        remaining = reforecast.total_demand - sum(actuals)
+        st.metric(
+            "Remaining Demand",
+            f"{remaining:,}",
         )
 
-    # New reforecast (prominent)
-    fig.add_trace(
-        go.Scatter(
-            x=weeks[:len(reforecast.forecast_by_week)],
-            y=reforecast.forecast_by_week,
-            mode="lines+markers",
-            name="Updated Forecast",
-            line=dict(color="#2ecc71", width=3),
-            marker=dict(size=8),
-        )
-    )
-
-    fig.update_layout(
-        title="Forecast Comparison: Original vs Re-forecast",
-        xaxis_title="Week",
-        yaxis_title="Units",
-        hovermode="x unified",
-        height=400,
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Explanation (no expander to avoid nesting issues)
-    st.markdown("#### 📝 Re-forecast Details")
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    # Re-forecast details
+    st.markdown("---")
+    detail_cols = st.columns(3)
+    with detail_cols[0]:
         st.markdown(f"**Model:** {reforecast.model_used}")
-    with col2:
+    with detail_cols[1]:
         st.markdown(f"**Confidence:** {reforecast.confidence:.0%}")
-    with col3:
+    with detail_cols[2]:
         st.markdown(f"**Data Quality:** {reforecast.data_quality}")
+
     st.info(reforecast.explanation)
 
 

@@ -6,13 +6,12 @@ which orchestrates all three agents (demand, inventory, pricing).
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import date
 
 from .forecast_schemas import ForecastResult
 from .allocation_schemas import AllocationResult
 from .pricing_schemas import MarkdownResult
-from .variance_schemas import VarianceResult
 
 
 class WorkflowParams(BaseModel):
@@ -121,10 +120,10 @@ class SeasonResult(BaseModel):
         description="Markdown result (None if no markdown needed)",
     )
 
-    # Variance tracking
-    variance_history: List[VarianceResult] = Field(
+    # Variance tracking (uses VarianceAnalysis from variance_agent)
+    variance_history: List[Any] = Field(
         default_factory=list,
-        description="History of variance checks performed",
+        description="History of variance analyses performed by variance agent",
     )
     reforecast_count: int = Field(
         default=0,
@@ -149,5 +148,5 @@ class SeasonResult(BaseModel):
 
     @property
     def had_high_variance(self) -> bool:
-        """Returns True if any variance check triggered re-forecast."""
-        return any(v.is_high_variance for v in self.variance_history)
+        """Returns True if any variance analysis recommended reforecast."""
+        return any(getattr(v, 'should_reforecast', False) for v in self.variance_history)

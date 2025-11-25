@@ -2,11 +2,15 @@
 Season Workflow - Full Season Orchestration
 
 This workflow orchestrates all three agents through a complete season:
-1. Demand Agent → ForecastResult (with variance loop)
+1. Demand Agent → ForecastResult (with agentic variance analysis)
 2. Inventory Agent → AllocationResult
 3. Pricing Agent → MarkdownResult (if needed)
 
 This is the main entry point for the retail forecasting system.
+
+The variance analysis is handled by an intelligent Variance Agent that
+reasons about trends, causes, and remaining season to decide whether
+to trigger a reforecast.
 
 Usage:
     result = await run_full_season(
@@ -26,6 +30,7 @@ from schemas.workflow_schemas import WorkflowParams, SeasonResult
 from schemas.forecast_schemas import ForecastResult
 from schemas.allocation_schemas import AllocationResult
 from schemas.pricing_schemas import MarkdownResult
+from my_agents.variance_agent import VarianceAnalysis
 from utils.context import ForecastingContext
 
 logger = logging.getLogger("season_workflow")
@@ -38,13 +43,16 @@ async def run_full_season(
     """
     Full season workflow with all 3 agents.
 
-    DETERMINISTIC FLOW:
-    1. Demand Agent → ForecastResult (with variance loop if actual sales exist)
+    AGENTIC FLOW:
+    1. Demand Agent → ForecastResult (with agentic variance analysis)
     2. Inventory Agent → AllocationResult (clustering + allocation)
     3. Pricing Agent → MarkdownResult (only if below sell-through threshold)
 
     The workflow layer controls WHEN each agent runs (deterministic Python code),
     while agents control HOW they produce results (agentic LLM reasoning).
+
+    The Variance Agent reasons about variance patterns and decides whether
+    to trigger a reforecast based on trends, causes, and remaining season.
 
     Args:
         context: ForecastingContext with data_loader and session state
@@ -54,10 +62,9 @@ async def run_full_season(
         SeasonResult with all phase outputs and metadata
     """
     logger.info("=" * 80)
-    logger.info("WORKFLOW: Full Season Orchestration")
+    logger.info("WORKFLOW: Full Season Orchestration (Agentic Variance)")
     logger.info(f"Category: {params.category}")
     logger.info(f"Horizon: {params.forecast_horizon_weeks} weeks")
-    logger.info(f"Variance threshold: {params.variance_threshold:.0%}")
     logger.info(f"Markdown week: {params.markdown_week}, threshold: {params.markdown_threshold:.0%}")
     logger.info("=" * 80)
 
@@ -65,10 +72,10 @@ async def run_full_season(
     phases_completed = []
 
     # ==========================================================================
-    # PHASE 1: Demand Forecast (with variance loop)
+    # PHASE 1: Demand Forecast (with agentic variance analysis)
     # ==========================================================================
     logger.info("\n" + "=" * 40)
-    logger.info("PHASE 1: Demand Forecasting")
+    logger.info("PHASE 1: Demand Forecasting (Agentic Variance)")
     logger.info("=" * 40)
 
     forecast, variance_history = await run_forecast_with_variance_loop(
@@ -80,7 +87,7 @@ async def run_full_season(
     )
 
     phases_completed.append("forecast")
-    reforecast_count = len([v for v in variance_history if v.is_high_variance])
+    reforecast_count = len([v for v in variance_history if v.should_reforecast])
 
     logger.info(f"Forecast complete: {forecast.total_demand} units")
     logger.info(f"Reforecasts triggered: {reforecast_count}")
