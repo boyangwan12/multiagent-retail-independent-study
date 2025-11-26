@@ -1187,54 +1187,98 @@ def _render_forecast_only_chart(params: WorkflowParams):
 
 def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
     """
-    Run reforecast directly using the forecasting tools (no agent).
+    Run reforecast that incorporates actual sales performance.
 
-    This is faster and more reliable for in-session reforecasting
-    since it skips the LLM agent overhead.
+    This adjusts the remaining forecast based on observed variance
+    between actuals and original forecast.
     """
-    import pandas as pd
+    # Get original forecast and actuals
+    original_forecast = st.session_state.workflow_result.forecast
+    actual_sales = st.session_state.actual_sales
+    original_by_week = original_forecast.forecast_by_week
 
-    # Get historical data
-    data_loader = st.session_state.data_loader
-    historical_data = data_loader.get_historical_sales(params.category)
+    weeks_with_actuals = len(actual_sales)
+    total_weeks = len(original_by_week)
 
-    # Convert to DataFrame
-    df = pd.DataFrame(historical_data)
+    if weeks_with_actuals == 0 or total_weeks == 0:
+        # No actuals yet, return original forecast
+        return original_forecast
 
-    # Clean and aggregate to weekly
-    df = clean_historical_sales(df)
-    df = aggregate_to_weekly(df)
+    # Calculate performance ratio (actual / forecast) for weeks with data
+    performance_ratios = []
+    for i in range(weeks_with_actuals):
+        if original_by_week[i] > 0:
+            ratio = actual_sales[i] / original_by_week[i]
+            performance_ratios.append(ratio)
 
-    # Train ensemble forecaster
-    ensemble = EnsembleForecaster()
-    ensemble.train(df)
+    if not performance_ratios:
+        return original_forecast
 
-    # Generate forecast
-    forecast_result = ensemble.forecast(params.forecast_horizon_weeks)
+    # Calculate adjustment factor with trend weighting (recent weeks matter more)
+    # Use exponential weighting: more recent weeks get higher weight
+    weights = [1.5 ** i for i in range(len(performance_ratios))]
+    weighted_sum = sum(r * w for r, w in zip(performance_ratios, weights))
+    total_weight = sum(weights)
+    adjustment_factor = weighted_sum / total_weight
 
-    # Calculate totals
-    total_demand = sum(forecast_result["predictions"])
-    weekly_average = total_demand // params.forecast_horizon_weeks if params.forecast_horizon_weeks > 0 else 0
+    # Build adjusted forecast
+    adjusted_forecast = []
 
-    # Calculate safety stock (inverse of confidence, clamped)
-    confidence = forecast_result["confidence"]
-    safety_stock_pct = 1.0 - confidence
-    safety_stock_pct = max(0.10, min(0.50, safety_stock_pct))
+    # Weeks with actuals: use actual values
+    for i in range(weeks_with_actuals):
+        adjusted_forecast.append(actual_sales[i])
 
-    # Assess data quality
-    data_quality = "excellent" if confidence >= 0.7 else "good" if confidence >= 0.5 else "poor"
+    # Remaining weeks: apply adjustment factor to original forecast
+    for i in range(weeks_with_actuals, total_weeks):
+        adjusted_value = int(original_by_week[i] * adjustment_factor)
+        adjusted_forecast.append(adjusted_value)
+
+    # Calculate new totals
+    total_demand = sum(adjusted_forecast)
+    weekly_average = total_demand // total_weeks if total_weeks > 0 else 0
+
+    # Adjust confidence based on variance consistency
+    variance_std = (
+        (sum((r - adjustment_factor) ** 2 for r in performance_ratios) / len(performance_ratios)) ** 0.5
+        if len(performance_ratios) > 1 else 0
+    )
+    # Lower confidence if variance is inconsistent
+    base_confidence = original_forecast.confidence
+    confidence = max(0.5, base_confidence - (variance_std * 0.3))
+
+    # Calculate new bounds
+    lower_bound = [int(v * 0.85) for v in adjusted_forecast]
+    upper_bound = [int(v * 1.15) for v in adjusted_forecast]
+
+    # Determine trend direction for explanation
+    if adjustment_factor > 1.05:
+        trend_desc = f"outperforming by {(adjustment_factor - 1) * 100:.1f}%"
+        direction = "upward"
+    elif adjustment_factor < 0.95:
+        trend_desc = f"underperforming by {(1 - adjustment_factor) * 100:.1f}%"
+        direction = "downward"
+    else:
+        trend_desc = "tracking close to forecast"
+        direction = "stable"
+
+    explanation = (
+        f"Re-forecast adjusted based on {weeks_with_actuals} weeks of actual sales data. "
+        f"Performance is {trend_desc}. Applied {adjustment_factor:.2f}x adjustment factor "
+        f"to remaining {total_weeks - weeks_with_actuals} weeks. "
+        f"Original forecast: {original_forecast.total_demand:,} → Updated: {total_demand:,} units."
+    )
 
     return ForecastResult(
         total_demand=total_demand,
-        forecast_by_week=forecast_result["predictions"],
-        safety_stock_pct=round(safety_stock_pct, 2),
+        forecast_by_week=adjusted_forecast,
+        safety_stock_pct=original_forecast.safety_stock_pct,
         confidence=round(confidence, 2),
-        model_used=forecast_result["model_used"],
-        lower_bound=forecast_result.get("lower_bound", []),
-        upper_bound=forecast_result.get("upper_bound", []),
+        model_used=f"Variance-Adjusted ({direction})",
+        lower_bound=lower_bound,
+        upper_bound=upper_bound,
         weekly_average=weekly_average,
-        data_quality=data_quality,
-        explanation=f"Re-forecast generated using {forecast_result['model_used']} based on historical data plus actual sales performance. Total demand: {total_demand:,} units over {params.forecast_horizon_weeks} weeks.",
+        data_quality="adjusted",
+        explanation=explanation,
     )
 
 
