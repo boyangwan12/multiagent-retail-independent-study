@@ -22,7 +22,7 @@ SDK Pattern:
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Any
 from .data_loader import TrainingDataLoader
 
 
@@ -80,6 +80,7 @@ class ForecastingContext:
     # Allocation state
     manufacturing_qty: int = 0
     dc_holdback: int = 0
+    allocation_result: Optional[Any] = None  # AllocationResult - stored for reallocation agent
 
     def __post_init__(self):
         """Validate context after initialization."""

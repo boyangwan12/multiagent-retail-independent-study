@@ -29,6 +29,7 @@ from schemas.forecast_schemas import ForecastResult
 from schemas.allocation_schemas import AllocationResult
 from schemas.pricing_schemas import MarkdownResult
 from schemas.variance_schemas import VarianceResult
+from schemas.reallocation_schemas import ReallocationAnalysis, TransferOrder
 from workflows.season_workflow import (
     run_full_season,
     run_preseason_planning,
@@ -36,6 +37,7 @@ from workflows.season_workflow import (
 )
 from workflows.forecast_workflow import run_forecast
 from agent_tools.variance_tools import check_variance
+from agent_tools.bayesian_reforecast import bayesian_reforecast
 from agent_tools.demand_tools import (
     clean_historical_sales,
     aggregate_to_weekly,
@@ -113,6 +115,17 @@ def init_session_state():
     if "week_data" not in st.session_state:
         # Stores data for each week: {week_num: {status, actual_sales, variance, etc}}
         st.session_state.week_data = {}
+
+    # Strategic Replenishment state
+    if "reallocation_result" not in st.session_state:
+        st.session_state.reallocation_result = None
+
+    if "selected_reallocation_strategy" not in st.session_state:
+        st.session_state.selected_reallocation_strategy = "dc_only"
+
+    # Pending upload data for callback pattern
+    if "pending_week_sales" not in st.session_state:
+        st.session_state.pending_week_sales = {}  # {week_num: sales_value}
 
 
 init_session_state()
@@ -849,6 +862,11 @@ def get_week_status(week_num: int, params: WorkflowParams) -> dict:
     }
 
 
+def _on_week_select(week_num: int):
+    """Callback for week button selection - avoids double-rerun issues."""
+    st.session_state.selected_week = week_num
+
+
 def render_timeline(params: WorkflowParams):
     """Render a clean, modern timeline using native Streamlit components."""
     total_weeks = st.session_state.total_season_weeks
@@ -903,15 +921,15 @@ def render_timeline(params: WorkflowParams):
                 if week_info["is_markdown_week"]:
                     label = f"💰 {week_num}"
 
-                if st.button(
+                st.button(
                     label,
                     key=f"week_btn_{week_num}",
                     use_container_width=True,
                     type=btn_type,
-                    help=f"Week {week_num} - {week_info['status'].replace('_', ' ').title()}{' (Markdown Checkpoint)' if week_info['is_markdown_week'] else ''}"
-                ):
-                    st.session_state.selected_week = week_num
-                    st.rerun()
+                    help=f"Week {week_num} - {week_info['status'].replace('_', ' ').title()}{' (Markdown Checkpoint)' if week_info['is_markdown_week'] else ''}",
+                    on_click=_on_week_select,
+                    args=(week_num,),
+                )
 
     # Legend using columns
     st.markdown("")  # Spacer
@@ -982,12 +1000,21 @@ def render_week_workspace(params: WorkflowParams):
                         total_sales = int(df["quantity_sold"].sum())
                         st.success(f"📊 Loaded {len(df)} rows, Total: **{total_sales:,}** units")
 
+                        # Store pending data for callback
+                        st.session_state.pending_week_sales[selected_week] = total_sales
+
                         # Preview (no nested expander)
                         st.markdown("**Preview:**")
                         st.dataframe(df.head(10), use_container_width=True, height=200)
 
-                        if st.button("💾 Save Week Data", key=f"save_upload_{selected_week}", type="primary", use_container_width=True):
-                            _save_week_sales(selected_week, total_sales)
+                        st.button(
+                            "💾 Save Week Data",
+                            key=f"save_upload_{selected_week}",
+                            type="primary",
+                            use_container_width=True,
+                            on_click=_save_week_sales_callback,
+                            args=(selected_week,),
+                        )
                     else:
                         st.error("CSV must contain 'quantity_sold' column")
                 except Exception as e:
@@ -1000,8 +1027,12 @@ def render_week_workspace(params: WorkflowParams):
     render_week_sections(params, selected_week, week_info)
 
 
-def _save_week_sales(week_num: int, sales_value: int):
-    """Helper to save week sales data and update session state."""
+def _save_week_sales_callback(week_num: int):
+    """Callback for save button - reads from pending_week_sales to avoid double-rerun."""
+    sales_value = st.session_state.pending_week_sales.get(week_num)
+    if sales_value is None:
+        return
+
     # Save to week_data
     if week_num not in st.session_state.week_data:
         st.session_state.week_data[week_num] = {}
@@ -1020,7 +1051,8 @@ def _save_week_sales(week_num: int, sales_value: int):
     st.session_state.actual_sales = actual_sales_list
     st.session_state.total_sold = sum(actual_sales_list)
 
-    st.rerun()
+    # Clear pending data after save
+    st.session_state.pending_week_sales.pop(week_num, None)
 
 
 # =============================================================================
@@ -1187,10 +1219,13 @@ def _render_forecast_only_chart(params: WorkflowParams):
 
 def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
     """
-    Run reforecast that incorporates actual sales performance.
+    Run reforecast using Bayesian updating with actual sales performance.
 
-    This adjusts the remaining forecast based on observed variance
-    between actuals and original forecast.
+    This uses a statistically rigorous Bayesian approach that:
+    1. Treats original forecast as prior belief
+    2. Updates beliefs based on actual sales data
+    3. Applies adjustments proportional to statistical confidence
+    4. Properly propagates uncertainty for future weeks
     """
     # Get original forecast and actuals
     original_forecast = st.session_state.workflow_result.forecast
@@ -1204,81 +1239,37 @@ def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
         # No actuals yet, return original forecast
         return original_forecast
 
-    # Calculate performance ratio (actual / forecast) for weeks with data
-    performance_ratios = []
-    for i in range(weeks_with_actuals):
-        if original_by_week[i] > 0:
-            ratio = actual_sales[i] / original_by_week[i]
-            performance_ratios.append(ratio)
-
-    if not performance_ratios:
-        return original_forecast
-
-    # Calculate adjustment factor with trend weighting (recent weeks matter more)
-    # Use exponential weighting: more recent weeks get higher weight
-    weights = [1.5 ** i for i in range(len(performance_ratios))]
-    weighted_sum = sum(r * w for r, w in zip(performance_ratios, weights))
-    total_weight = sum(weights)
-    adjustment_factor = weighted_sum / total_weight
-
-    # Build adjusted forecast
-    adjusted_forecast = []
-
-    # Weeks with actuals: use actual values
-    for i in range(weeks_with_actuals):
-        adjusted_forecast.append(actual_sales[i])
-
-    # Remaining weeks: apply adjustment factor to original forecast
-    for i in range(weeks_with_actuals, total_weeks):
-        adjusted_value = int(original_by_week[i] * adjustment_factor)
-        adjusted_forecast.append(adjusted_value)
-
-    # Calculate new totals
-    total_demand = sum(adjusted_forecast)
-    weekly_average = total_demand // total_weeks if total_weeks > 0 else 0
-
-    # Adjust confidence based on variance consistency
-    variance_std = (
-        (sum((r - adjustment_factor) ** 2 for r in performance_ratios) / len(performance_ratios)) ** 0.5
-        if len(performance_ratios) > 1 else 0
+    # Run Bayesian reforecast
+    bayesian_result = bayesian_reforecast(
+        original_forecast_by_week=original_by_week,
+        actual_sales=actual_sales,
+        original_confidence=original_forecast.confidence,
+        original_lower_bound=original_forecast.lower_bound,
+        original_upper_bound=original_forecast.upper_bound,
     )
-    # Lower confidence if variance is inconsistent
-    base_confidence = original_forecast.confidence
-    confidence = max(0.5, base_confidence - (variance_std * 0.3))
 
-    # Calculate new bounds
-    lower_bound = [int(v * 0.85) for v in adjusted_forecast]
-    upper_bound = [int(v * 1.15) for v in adjusted_forecast]
-
-    # Determine trend direction for explanation
-    if adjustment_factor > 1.05:
-        trend_desc = f"outperforming by {(adjustment_factor - 1) * 100:.1f}%"
+    # Determine trend direction for model name
+    if bayesian_result.adjustment_applied > 1.05:
         direction = "upward"
-    elif adjustment_factor < 0.95:
-        trend_desc = f"underperforming by {(1 - adjustment_factor) * 100:.1f}%"
+    elif bayesian_result.adjustment_applied < 0.95:
         direction = "downward"
     else:
-        trend_desc = "tracking close to forecast"
         direction = "stable"
 
-    explanation = (
-        f"Re-forecast adjusted based on {weeks_with_actuals} weeks of actual sales data. "
-        f"Performance is {trend_desc}. Applied {adjustment_factor:.2f}x adjustment factor "
-        f"to remaining {total_weeks - weeks_with_actuals} weeks. "
-        f"Original forecast: {original_forecast.total_demand:,} → Updated: {total_demand:,} units."
-    )
+    # Calculate weekly average
+    weekly_average = bayesian_result.total_demand // total_weeks if total_weeks > 0 else 0
 
     return ForecastResult(
-        total_demand=total_demand,
-        forecast_by_week=adjusted_forecast,
+        total_demand=bayesian_result.total_demand,
+        forecast_by_week=bayesian_result.forecast_by_week,
         safety_stock_pct=original_forecast.safety_stock_pct,
-        confidence=round(confidence, 2),
-        model_used=f"Variance-Adjusted ({direction})",
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
+        confidence=bayesian_result.confidence,
+        model_used=f"Bayesian-Reforecast ({direction})",
+        lower_bound=bayesian_result.lower_bound,
+        upper_bound=bayesian_result.upper_bound,
         weekly_average=weekly_average,
-        data_quality="adjusted",
-        explanation=explanation,
+        data_quality="bayesian_updated",
+        explanation=bayesian_result.explanation,
     )
 
 
@@ -1350,8 +1341,9 @@ def _render_agentic_variance_analysis(params: WorkflowParams, selected_week: int
     # Display the analysis
     _display_variance_analysis(analysis, params, selected_week)
 
-    # AUTO-TRIGGER reforecast if high variance and agent recommends it
-    if analysis["should_reforecast"] and is_high_variance:
+    # AUTO-TRIGGER reforecast if agent analysis recommends it
+    # (analysis already accounts for severity, trend, and weeks remaining)
+    if analysis["should_reforecast"]:
         reforecast_key = f"reforecast_week_{selected_week}"
 
         # Check if already reforecasted
@@ -1544,6 +1536,482 @@ def _display_variance_analysis(analysis: dict, params: WorkflowParams, selected_
         st.info(f"**{action.upper()}**: {action_reasoning}")
 
 
+# =============================================================================
+# Strategic Replenishment Visualization
+# =============================================================================
+
+def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int, strategy: str) -> dict:
+    """Generate mock reallocation data for UI demonstration.
+
+    Velocity is calculated based on:
+    - Overall variance (actual vs forecast cumulative)
+    - Selected week (performance evolves over time)
+    - Store cluster (high-volume stores tend to vary more)
+    - Actual sales data hash (changes when new data uploaded)
+    """
+    import random
+
+    if not st.session_state.workflow_result:
+        return None
+
+    allocation = st.session_state.workflow_result.allocation
+    forecast = st.session_state.workflow_result.forecast
+    actual_sales = st.session_state.actual_sales or []
+    total_weeks = len(forecast.forecast_by_week)
+    weeks_remaining = total_weeks - selected_week
+
+    # Calculate overall variance from actual uploaded data
+    if actual_sales and len(actual_sales) > 0:
+        total_forecast = sum(forecast.forecast_by_week[:len(actual_sales)])
+        total_actual = sum(actual_sales)
+        overall_variance = (total_actual - total_forecast) / total_forecast if total_forecast > 0 else 0
+
+        # Calculate week-over-week trend (are things getting better or worse?)
+        if len(actual_sales) >= 2:
+            recent_forecast = forecast.forecast_by_week[len(actual_sales)-1]
+            recent_actual = actual_sales[-1]
+            recent_variance = (recent_actual - recent_forecast) / recent_forecast if recent_forecast > 0 else 0
+        else:
+            recent_variance = overall_variance
+    else:
+        overall_variance = 0
+        recent_variance = 0
+
+    # Create a dynamic seed based on actual data (changes when uploads change)
+    data_signature = sum(actual_sales) if actual_sales else 0
+
+    # Generate store performance data (simulated based on cluster and actual data)
+    store_performances = []
+    high_performers = []
+    underperformers = []
+    on_target = []
+
+    for i, store_alloc in enumerate(allocation.store_allocations):
+        # Dynamic seed: combines store, week, and actual sales data
+        # This ensures values change when week changes OR when sales data changes
+        seed_value = hash((store_alloc.store_id, selected_week, data_signature))
+        random.seed(seed_value)
+
+        # Base velocity influenced by overall performance
+        base_velocity = 1.0 + (overall_variance * 0.5) + (recent_variance * 0.3)
+
+        # Cluster-based variation (high-volume clusters tend to have more variance)
+        cluster_factor = 0.3 if store_alloc.cluster in ["high_volume", "A"] else 0.2
+
+        # Week-based evolution (performance tends to diverge more as season progresses)
+        week_factor = 0.1 + (selected_week / total_weeks) * 0.2
+
+        # Random store-specific variation
+        store_variation = random.uniform(-cluster_factor - week_factor, cluster_factor + week_factor)
+
+        velocity = base_velocity + store_variation
+        velocity = max(0.5, min(1.8, velocity))  # Clamp to realistic range
+
+        status = "needs_more" if velocity > 1.15 else "excess" if velocity < 0.85 else "on_target"
+
+        perf = {
+            "store_id": store_alloc.store_id,
+            "cluster": store_alloc.cluster,
+            "allocated": store_alloc.allocation_units,
+            "velocity": round(velocity, 2),
+            "status": status,
+        }
+        store_performances.append(perf)
+
+        if status == "needs_more":
+            high_performers.append(perf)
+        elif status == "excess":
+            underperformers.append(perf)
+        else:
+            on_target.append(perf)
+
+    # Generate transfers based on strategy
+    transfers = []
+    dc_released = 0
+
+    # Sort high performers by velocity (highest first)
+    high_performers_sorted = sorted(high_performers, key=lambda x: x["velocity"], reverse=True)[:5]
+
+    if strategy == "dc_only":
+        # DC-only transfers
+        available = min(allocation.dc_holdback, int(allocation.dc_holdback * 0.5))
+        per_store = available // max(len(high_performers_sorted), 1)
+
+        for perf in high_performers_sorted:
+            if available < 50:
+                break
+            units = min(per_store, available, 500)
+            transfers.append({
+                "from": "DC",
+                "to": perf["store_id"],
+                "units": units,
+                "priority": "high" if perf["velocity"] > 1.3 else "medium",
+                "reason": f"High velocity ({perf['velocity']:.2f}x)"
+            })
+            dc_released += units
+            available -= units
+
+    elif strategy == "hybrid":
+        # DC transfers first
+        available = min(allocation.dc_holdback, int(allocation.dc_holdback * 0.4))
+        per_store = available // max(len(high_performers_sorted), 1)
+
+        for perf in high_performers_sorted[:3]:
+            if available < 50:
+                break
+            units = min(per_store, available, 400)
+            transfers.append({
+                "from": "DC",
+                "to": perf["store_id"],
+                "units": units,
+                "priority": "high",
+                "reason": f"High velocity ({perf['velocity']:.2f}x)"
+            })
+            dc_released += units
+            available -= units
+
+        # Store-to-store transfers
+        underperformers_sorted = sorted(underperformers, key=lambda x: x["velocity"])[:3]
+        for i, under in enumerate(underperformers_sorted):
+            if i >= len(high_performers_sorted):
+                break
+            high = high_performers_sorted[min(i, len(high_performers_sorted)-1)]
+            units = min(int(under["allocated"] * 0.2), 300)
+            if units >= 50:
+                transfers.append({
+                    "from": under["store_id"],
+                    "to": high["store_id"],
+                    "units": units,
+                    "priority": "medium" if under["velocity"] < 0.7 else "low",
+                    "reason": f"Velocity differential ({under['velocity']:.2f}x → {high['velocity']:.2f}x)"
+                })
+
+    total_units = sum(t["units"] for t in transfers)
+
+    # Confidence based on data quality and variance significance
+    weeks_of_data = len(actual_sales)
+    variance_magnitude = abs(overall_variance)
+    confidence = 0.60 + (min(weeks_of_data, 6) * 0.05)  # 60-90% based on weeks of data
+    if variance_magnitude > 0.15:
+        confidence += 0.05  # Higher confidence when variance is significant
+
+    return {
+        "should_reallocate": len(transfers) > 0 and total_units >= 100,
+        "strategy": strategy,
+        "dc_available": allocation.dc_holdback,
+        "dc_released": dc_released,
+        "dc_remaining": allocation.dc_holdback - dc_released,
+        "transfers": transfers,
+        "total_units": total_units,
+        "high_performers": [p["store_id"] for p in high_performers],
+        "underperformers": [p["store_id"] for p in underperformers],
+        "on_target": [p["store_id"] for p in on_target],
+        "store_performances": store_performances,
+        "weeks_remaining": weeks_remaining,
+        "confidence": min(confidence, 0.95),
+        # New fields for UI display
+        "overall_variance": overall_variance,
+        "recent_variance": recent_variance,
+        "weeks_of_data": weeks_of_data,
+        "selected_week": selected_week,
+    }
+
+
+def _on_strategy_select(strategy: str):
+    """Callback for strategy button selection - avoids double-rerun issues."""
+    st.session_state.selected_reallocation_strategy = strategy
+
+
+def render_strategic_replenishment_section(params: WorkflowParams, selected_week: int):
+    """Render the Strategic Replenishment analysis and recommendations."""
+
+    if not st.session_state.workflow_result:
+        st.info("Run pre-season workflow first to enable strategic replenishment.")
+        return
+
+    if not st.session_state.actual_sales or len(st.session_state.actual_sales) == 0:
+        st.info("Upload sales data to enable strategic replenishment analysis.")
+        return
+
+    # Strategy selector
+    st.markdown("#### 📋 Select Replenishment Strategy")
+
+    col_dc, col_hybrid = st.columns(2)
+
+    with col_dc:
+        dc_selected = st.session_state.selected_reallocation_strategy == "dc_only"
+        st.button(
+            "🏭 DC-to-Store",
+            key="strategy_dc",
+            type="primary" if dc_selected else "secondary",
+            use_container_width=True,
+            on_click=_on_strategy_select,
+            args=("dc_only",),
+        )
+        st.caption("Release from DC to high-performers. Simple logistics.")
+
+    with col_hybrid:
+        hybrid_selected = st.session_state.selected_reallocation_strategy == "hybrid"
+        st.button(
+            "🔀 Hybrid (DC + Store)",
+            key="strategy_hybrid",
+            type="primary" if hybrid_selected else "secondary",
+            use_container_width=True,
+            on_click=_on_strategy_select,
+            args=("hybrid",),
+        )
+        st.caption("DC release + store-to-store transfers.")
+
+    st.markdown("---")
+
+    # Generate mock data based on selected strategy
+    strategy = st.session_state.selected_reallocation_strategy
+    realloc_data = _generate_mock_reallocation_data(params, selected_week, strategy)
+
+    if not realloc_data:
+        st.warning("Unable to generate reallocation analysis.")
+        return
+
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "DC Available",
+            f"{realloc_data['dc_available']:,}",
+            delta="Release recommended" if realloc_data['should_reallocate'] else None,
+        )
+
+    with col2:
+        st.metric(
+            "Units to Move",
+            f"{realloc_data['total_units']:,}",
+            delta=f"{len(realloc_data['transfers'])} transfers",
+        )
+
+    with col3:
+        strategy_label = "🏭 DC Only" if strategy == "dc_only" else "🔀 Hybrid"
+        st.metric("Strategy", strategy_label)
+
+    with col4:
+        st.metric("Confidence", f"{realloc_data['confidence']:.0%}")
+
+    # Sankey-style transfer visualization
+    if realloc_data['transfers']:
+        st.markdown("#### 📊 Transfer Flow")
+
+        # Build Sankey data
+        transfers = realloc_data['transfers']
+
+        # Get unique nodes
+        sources = list(set([t['from'] for t in transfers]))
+        destinations = list(set([t['to'] for t in transfers]))
+        all_nodes = sources + [d for d in destinations if d not in sources]
+
+        # Add stores with no changes (sample)
+        on_target_sample = realloc_data['on_target'][:5]
+        for store in on_target_sample:
+            if store not in all_nodes:
+                all_nodes.append(store)
+
+        # Build indices
+        source_indices = []
+        target_indices = []
+        values = []
+        colors = []
+
+        priority_colors = {
+            "high": "rgba(231, 76, 60, 0.6)",
+            "medium": "rgba(241, 196, 15, 0.6)",
+            "low": "rgba(46, 204, 113, 0.6)",
+        }
+
+        for t in transfers:
+            source_indices.append(all_nodes.index(t['from']))
+            target_indices.append(all_nodes.index(t['to']))
+            values.append(t['units'])
+            colors.append(priority_colors.get(t['priority'], "rgba(149, 165, 166, 0.6)"))
+
+        # Add dim flows for no-change stores
+        for store in on_target_sample:
+            if "DC" in all_nodes:
+                source_indices.append(all_nodes.index("DC"))
+                target_indices.append(all_nodes.index(store))
+                values.append(50)  # Small representative flow
+                colors.append("rgba(149, 165, 166, 0.2)")
+
+        # Node colors
+        node_colors = []
+        for node in all_nodes:
+            if node == "DC":
+                node_colors.append("#3498db")
+            elif node in [t['to'] for t in transfers]:
+                node_colors.append("#2ecc71")
+            elif node in [t['from'] for t in transfers if t['from'] != "DC"]:
+                node_colors.append("#e74c3c")
+            else:
+                node_colors.append("#95a5a6")
+
+        fig_sankey = go.Figure(data=[go.Sankey(
+            node=dict(
+                pad=15,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=all_nodes,
+                color=node_colors,
+            ),
+            link=dict(
+                source=source_indices,
+                target=target_indices,
+                value=values,
+                color=colors,
+            )
+        )])
+
+        fig_sankey.update_layout(
+            title=f"Inventory Transfer Flow - {strategy.replace('_', ' ').title()} Strategy",
+            font_size=12,
+            height=400,
+        )
+
+        st.plotly_chart(fig_sankey, use_container_width=True)
+
+        # Legend
+        leg_cols = st.columns(4)
+        with leg_cols[0]:
+            st.caption("🔵 Distribution Center")
+        with leg_cols[1]:
+            st.caption("🟢 Receiving (needs more)")
+        with leg_cols[2]:
+            st.caption("🔴 Sending (excess)")
+        with leg_cols[3]:
+            st.caption("⚪ No Change")
+
+    # Two columns: Performance chart + Transfer table
+    col_perf, col_table = st.columns([1.5, 1])
+
+    with col_perf:
+        st.markdown("#### 🌡️ Store Velocity")
+
+        # Get sample of stores for visualization
+        sample_perfs = realloc_data['store_performances'][:12]
+        stores = [p['store_id'] for p in sample_perfs]
+        velocities = [p['velocity'] for p in sample_perfs]
+        colors_bar = ['#2ecc71' if v > 1.15 else '#e74c3c' if v < 0.85 else '#95a5a6' for v in velocities]
+
+        fig_perf = go.Figure(data=[
+            go.Bar(
+                x=stores,
+                y=velocities,
+                marker_color=colors_bar,
+                text=[f"{v:.2f}x" for v in velocities],
+                textposition='outside',
+            )
+        ])
+
+        fig_perf.add_hline(y=1.0, line_dash="dash", line_color="gray",
+                          annotation_text="Target", annotation_position="right")
+
+        fig_perf.update_layout(
+            xaxis_title="Store",
+            yaxis_title="Velocity",
+            height=300,
+            margin=dict(t=20, b=50),
+            yaxis=dict(range=[0, max(velocities) * 1.2]),
+        )
+
+        st.plotly_chart(fig_perf, use_container_width=True)
+
+    with col_table:
+        st.markdown("#### 📋 Transfer Orders")
+
+        if realloc_data['transfers']:
+            transfer_df = pd.DataFrame([
+                {
+                    "From": t['from'],
+                    "To": t['to'],
+                    "Units": t['units'],
+                    "Priority": t['priority'].upper(),
+                }
+                for t in realloc_data['transfers']
+            ])
+
+            st.dataframe(
+                transfer_df,
+                column_config={
+                    "From": st.column_config.TextColumn("From", width="small"),
+                    "To": st.column_config.TextColumn("To", width="small"),
+                    "Units": st.column_config.NumberColumn("Units", format="%d"),
+                    "Priority": st.column_config.TextColumn("Priority", width="small"),
+                },
+                hide_index=True,
+                use_container_width=True,
+                height=280,
+            )
+        else:
+            st.info("No transfers recommended.")
+
+    # Agent explanation (using container instead of expander to avoid nesting)
+    st.markdown("---")
+    st.markdown("#### 🤖 Agent Analysis")
+
+    # Show variance-driven insights
+    overall_var = realloc_data.get('overall_variance', 0)
+    recent_var = realloc_data.get('recent_variance', 0)
+    weeks_data = realloc_data.get('weeks_of_data', 0)
+
+    var_trend = "improving" if recent_var > overall_var else "worsening" if recent_var < overall_var else "stable"
+    var_direction = "overperforming" if overall_var > 0 else "underperforming" if overall_var < 0 else "on target"
+
+    st.markdown(f"""
+**Week {realloc_data.get('selected_week', selected_week)} Analysis** (based on {weeks_data} weeks of data)
+
+**Variance Summary:**
+- Overall Variance: **{overall_var:+.1%}** ({var_direction})
+- Recent Trend: **{recent_var:+.1%}** ({var_trend})
+
+**Strategy:** {strategy.replace('_', ' ').title()}
+
+**Store Performance Summary:**
+- High Performers (need more): {len(realloc_data['high_performers'])} stores
+- Underperformers (excess): {len(realloc_data['underperformers'])} stores
+- On Target: {len(realloc_data['on_target'])} stores
+
+**Recommendation:**
+{"Strategic replenishment recommended to optimize sell-through." if realloc_data['should_reallocate'] else "No significant reallocation needed at this time."}
+
+**Weeks Remaining:** {realloc_data['weeks_remaining']}
+
+**Expected Impact:**
+- Reduce stockout risk at high-velocity stores
+- {"Reduce excess at underperforming stores" if strategy == "hybrid" else "DC inventory released to market"}
+- Estimated sell-through improvement: 5-12%
+    """)
+
+    # Action buttons
+    st.markdown("---")
+    col_approve, col_skip = st.columns(2)
+
+    with col_approve:
+        if st.button(
+            "✅ Approve Transfers",
+            key=f"approve_realloc_{selected_week}",
+            type="primary",
+            use_container_width=True,
+            disabled=not realloc_data['should_reallocate'],
+        ):
+            st.success(f"Approved {len(realloc_data['transfers'])} transfers ({realloc_data['total_units']:,} units)")
+            st.session_state.reallocation_result = realloc_data
+
+    with col_skip:
+        if st.button(
+            "⏭️ Skip Replenishment",
+            key=f"skip_realloc_{selected_week}",
+            use_container_width=True,
+        ):
+            st.info("Strategic replenishment skipped for this week.")
+
+
 def render_week_sections(params: WorkflowParams, selected_week: int, week_info: dict):
     """Render the variance, reallocation, and pricing sections for a week."""
     markdown_week = params.markdown_week
@@ -1583,13 +2051,9 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
             if st.session_state.workflow_result:
                 _render_forecast_only_chart(params)
 
-    # Section 3: Reallocation Recommendations
-    with st.expander("🔄 3. Reallocation", expanded=False):
-        if week_info["actual_sales"] is not None:
-            st.markdown("Based on sales performance, consider these adjustments:")
-            st.info("Reallocation recommendations will appear here based on variance analysis.")
-        else:
-            st.info("Complete sales data entry to see reallocation recommendations.")
+    # Section 3: Strategic Replenishment
+    with st.expander("🔄 3. Strategic Replenishment", expanded=False):
+        render_strategic_replenishment_section(params, selected_week)
 
     # Section 4: Pricing Agent (only at/after markdown checkpoint)
     is_pricing_available = selected_week >= markdown_week

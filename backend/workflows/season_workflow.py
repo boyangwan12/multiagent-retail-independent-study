@@ -25,10 +25,12 @@ from typing import Optional
 
 from workflows.forecast_workflow import run_forecast_with_variance_loop
 from workflows.allocation_workflow import run_allocation
+from workflows.reallocation_workflow import run_strategic_replenishment
 from workflows.pricing_workflow import run_markdown_if_needed
 from schemas.workflow_schemas import WorkflowParams, SeasonResult
 from schemas.forecast_schemas import ForecastResult
 from schemas.allocation_schemas import AllocationResult
+from schemas.reallocation_schemas import ReallocationAnalysis
 from schemas.pricing_schemas import MarkdownResult
 from my_agents.variance_agent import VarianceAnalysis
 from utils.context import ForecastingContext
@@ -111,11 +113,47 @@ async def run_full_season(
     logger.info(f"Allocation complete: {allocation.manufacturing_qty} units manufactured")
     logger.info(f"DC holdback: {allocation.dc_holdback}, Store allocation: {allocation.initial_store_allocation}")
 
+    # Store allocation result in context for reallocation agent
+    context.allocation_result = allocation
+
     # ==========================================================================
-    # PHASE 3: Markdown Check (if at or past markdown week)
+    # PHASE 3: Strategic Replenishment (if variance detected in-season)
     # ==========================================================================
     logger.info("\n" + "=" * 40)
-    logger.info("PHASE 3: Pricing/Markdown Check")
+    logger.info("PHASE 3: Strategic Replenishment Check")
+    logger.info("=" * 40)
+
+    reallocation: Optional[ReallocationAnalysis] = None
+
+    # DETERMINISTIC: Python decides if reallocation agent should run
+    # Only run if we have actual sales (in-season) and had variance
+    if context.has_actual_sales and variance_history:
+        # Get the latest variance for trigger decision
+        latest_variance = variance_history[-1] if variance_history else None
+        variance_pct = getattr(latest_variance, 'variance_pct', 0) if latest_variance else 0
+
+        reallocation = await run_strategic_replenishment(
+            context=context,
+            current_week=context.current_week,
+            variance_pct=variance_pct,
+        )
+
+        if reallocation is not None and reallocation.should_reallocate:
+            phases_completed.append("reallocation")
+            logger.info(f"Strategic replenishment recommended: {len(reallocation.transfers)} transfers")
+            logger.info(f"Strategy: {reallocation.strategy}, Units to move: {reallocation.total_units_to_move}")
+        else:
+            logger.info("Strategic replenishment not needed or not triggered")
+    else:
+        logger.info(
+            "Skipping strategic replenishment - no actual sales data (pre-season mode)"
+        )
+
+    # ==========================================================================
+    # PHASE 4: Markdown Check (if at or past markdown week)
+    # ==========================================================================
+    logger.info("\n" + "=" * 40)
+    logger.info("PHASE 4: Pricing/Markdown Check")
     logger.info("=" * 40)
 
     markdown: Optional[MarkdownResult] = None
@@ -148,6 +186,7 @@ async def run_full_season(
     result = SeasonResult(
         forecast=forecast,
         allocation=allocation,
+        reallocation=reallocation,
         markdown=markdown,
         variance_history=variance_history,
         reforecast_count=reforecast_count,
@@ -160,6 +199,7 @@ async def run_full_season(
     logger.info(f"Duration: {total_duration:.2f}s")
     logger.info(f"Phases: {', '.join(phases_completed)}")
     logger.info(f"High variance events: {len([v for v in variance_history if v.is_high_variance])}")
+    logger.info(f"Reallocation applied: {result.reallocation_applied}")
     logger.info(f"Markdown applied: {result.markdown_applied}")
     logger.info("=" * 80)
 

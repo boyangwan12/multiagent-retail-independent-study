@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reallocation UI Mock - Retail Forecasting System</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0e1117;
+            color: #fafafa;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #fafafa;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            margin: 24px 0 16px 0;
+            color: #fafafa;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+            margin: 16px 0 12px 0;
+            color: #ccc;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 24px;
+        }
+
+        /* Strategy Selector */
+        .strategy-selector {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .strategy-selector h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #fafafa;
+        }
+
+        .strategy-options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .strategy-option {
+            flex: 1;
+            min-width: 200px;
+            background: #262730;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .strategy-option:hover {
+            border-color: #555;
+            background: #2a2a3e;
+        }
+
+        .strategy-option.selected {
+            border-color: #ff4b4b;
+            background: rgba(255, 75, 75, 0.1);
+        }
+
+        .strategy-option input {
+            display: none;
+        }
+
+        .strategy-option .option-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .strategy-option .option-desc {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .strategy-option .option-stats {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+            font-size: 0.85rem;
+        }
+
+        .strategy-option .option-stats span {
+            display: block;
+            color: #2ecc71;
+        }
+
+        /* Metrics Row */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: #262730;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #fafafa;
+        }
+
+        .metric-delta {
+            font-size: 0.8rem;
+            color: #2ecc71;
+            margin-top: 4px;
+        }
+
+        .metric-delta.warning {
+            color: #f39c12;
+        }
+
+        /* Charts */
+        .chart-container {
+            background: #262730;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* Legend */
+        .chart-legend {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background: #1a1a2e;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #888;
+            border-bottom: 1px solid #333;
+        }
+
+        .data-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #333;
+        }
+
+        .data-table tr:hover {
+            background: #1a1a2e;
+        }
+
+        .priority-high {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+
+        .priority-medium {
+            color: #f39c12;
+            font-weight: 600;
+        }
+
+        .priority-low {
+            color: #2ecc71;
+            font-weight: 600;
+        }
+
+        /* Expander */
+        .expander {
+            background: #262730;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+
+        .expander-header {
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .expander-header:hover {
+            background: #2a2a3e;
+            border-radius: 8px;
+        }
+
+        .expander-content {
+            padding: 0 16px 16px 16px;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .expander-content p {
+            margin-bottom: 12px;
+        }
+
+        /* Buttons */
+        .button-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #ff4b4b;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #ff6b6b;
+        }
+
+        .btn-secondary {
+            background: #3a3a4a;
+            color: #fafafa;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4a5a;
+        }
+
+        /* Info box */
+        .info-box {
+            background: #1a3a5c;
+            border-left: 4px solid #3498db;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+
+        /* Status indicator */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-recommended {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        /* Section divider */
+        .divider {
+            height: 1px;
+            background: #333;
+            margin: 24px 0;
+        }
+
+        /* Header with status */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        /* No changes indicator */
+        .no-change-badge {
+            display: inline-block;
+            background: #333;
+            color: #888;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Page Header -->
+        <h1>Week 4 of 12</h1>
+        <p class="subtitle">In-Season Reallocation Analysis - Women's Dresses</p>
+
+        <div class="divider"></div>
+
+        <!-- Section Header -->
+        <div class="section-header">
+            <h2>🔄 3. Inventory Reallocation Analysis</h2>
+            <span class="status-badge status-recommended">Reallocation Recommended</span>
+        </div>
+
+        <!-- Strategy Selector -->
+        <div class="strategy-selector">
+            <h3>📋 Select Reallocation Strategy</h3>
+            <div class="strategy-options">
+                <label class="strategy-option selected" onclick="selectStrategy('dc_only')">
+                    <input type="radio" name="strategy" value="dc_only" checked>
+                    <div class="option-title">🏭 DC-to-Store</div>
+                    <div class="option-desc">Release inventory from Distribution Center to high-performing stores. Simple logistics - standard replenishment acceleration.</div>
+                    <div class="option-stats">
+                        <span>DC units available: 2,450</span>
+                        <span>Recommended releases: 3 stores</span>
+                    </div>
+                </label>
+                <label class="strategy-option" onclick="selectStrategy('hybrid')">
+                    <input type="radio" name="strategy" value="hybrid">
+                    <div class="option-title">🔀 Hybrid (DC + Store Transfer)</div>
+                    <div class="option-desc">DC release plus store-to-store transfers from underperformers. Maximum optimization but higher logistics complexity.</div>
+                    <div class="option-stats">
+                        <span>Total units to move: 1,850</span>
+                        <span>Transfers: 3 from DC + 3 store-to-store</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Key Metrics Row -->
+        <div class="metrics-row">
+            <div class="metric-card">
+                <div class="metric-label">DC Available</div>
+                <div class="metric-value" id="metric-dc">2,450</div>
+                <div class="metric-delta warning" id="metric-dc-delta">Release recommended</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Units to Move</div>
+                <div class="metric-value" id="metric-units">1,150</div>
+                <div class="metric-delta" id="metric-transfers">3 transfers</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Strategy</div>
+                <div class="metric-value" id="metric-strategy">🏭 DC Only</div>
+                <div class="metric-delta" id="metric-strategy-desc">DC to Store</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Confidence</div>
+                <div class="metric-value">87%</div>
+                <div class="metric-delta">High confidence</div>
+            </div>
+        </div>
+
+        <!-- Sankey Diagram -->
+        <h3>📊 Inventory Flow (All Stores)</h3>
+        <div class="chart-container">
+            <div id="sankey-chart"></div>
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3498db;"></div>
+                    <span>Distribution Center</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71;"></div>
+                    <span>Receiving (needs more)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c;"></div>
+                    <span>Sending (excess)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #95a5a6;"></div>
+                    <span>No Change</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout: Performance + Table -->
+        <div class="two-col">
+            <div>
+                <h3>🌡️ Store Performance vs Allocation</h3>
+                <div class="chart-container">
+                    <div id="performance-chart"></div>
+                </div>
+            </div>
+            <div>
+                <h3>📋 Transfer Orders</h3>
+                <div class="chart-container" style="height: 100%;">
+                    <table class="data-table" id="transfer-table">
+                        <thead>
+                            <tr>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Units</th>
+                                <th>Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transfer-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Before/After Comparison -->
+        <h3>📊 Allocation: Before vs After Reallocation</h3>
+        <div class="chart-container">
+            <div id="comparison-chart"></div>
+        </div>
+
+        <!-- Agent Explanation -->
+        <div class="expander">
+            <div class="expander-header" onclick="toggleExpander(this)">
+                <span>▼</span>
+                <span>🤖 Agent Analysis</span>
+            </div>
+            <div class="expander-content" id="agent-explanation">
+                <!-- Populated by JS based on strategy -->
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-row">
+            <button class="btn btn-primary" onclick="alert('Transfers approved! (Mock)')">✅ Approve Transfers</button>
+            <button class="btn btn-secondary" onclick="alert('Modification UI would open')">✏️ Modify Plan</button>
+            <button class="btn btn-secondary" onclick="alert('Reallocation skipped')">⏭️ Skip Reallocation</button>
+        </div>
+
+        <div class="divider"></div>
+        <p style="color: #666; text-align: center; font-size: 0.85rem;">
+            Mock UI Preview - Retail Forecasting Multi-Agent System
+        </p>
+    </div>
+
+    <script>
+        // =================================================================
+        // DATA FOR EACH STRATEGY
+        // =================================================================
+
+        // All stores with their performance data
+        const allStores = [
+            { id: 'S001', allocated: 850, sold: 680, velocity: 1.35, status: 'needs_more' },
+            { id: 'S002', allocated: 800, sold: 640, velocity: 1.02, status: 'on_target' },
+            { id: 'S003', allocated: 720, sold: 612, velocity: 1.42, status: 'needs_more' },
+            { id: 'S004', allocated: 700, sold: 546, velocity: 0.98, status: 'on_target' },
+            { id: 'S005', allocated: 690, sold: 538, velocity: 1.00, status: 'on_target' },
+            { id: 'S006', allocated: 685, sold: 548, velocity: 1.03, status: 'on_target' },
+            { id: 'S007', allocated: 680, sold: 544, velocity: 1.28, status: 'needs_more' },
+            { id: 'S008', allocated: 650, sold: 507, velocity: 1.00, status: 'on_target' },
+            { id: 'S009', allocated: 640, sold: 499, velocity: 0.99, status: 'on_target' },
+            { id: 'S010', allocated: 630, sold: 485, velocity: 0.97, status: 'on_target' },
+            { id: 'S011', allocated: 625, sold: 469, velocity: 0.95, status: 'on_target' },
+            { id: 'S012', allocated: 620, sold: 310, velocity: 0.72, status: 'excess' },
+            { id: 'S013', allocated: 600, sold: 456, velocity: 0.96, status: 'on_target' },
+            { id: 'S014', allocated: 590, sold: 443, velocity: 0.95, status: 'on_target' },
+            { id: 'S015', allocated: 580, sold: 261, velocity: 0.68, status: 'excess' },
+            { id: 'S018', allocated: 550, sold: 220, velocity: 0.61, status: 'excess' },
+        ];
+
+        // Strategy configurations
+        const strategies = {
+            dc_only: {
+                name: '🏭 DC Only',
+                desc: 'DC to Store',
+                units: 1150,
+                transferCount: 3,
+                transfers: [
+                    { from: 'DC', to: 'S001', units: 450, priority: 'high' },
+                    { from: 'DC', to: 'S003', units: 380, priority: 'high' },
+                    { from: 'DC', to: 'S007', units: 320, priority: 'medium' },
+                ],
+                explanation: `
+                    <p><strong>Strategy Selected:</strong> DC-to-Store Only</p>
+                    <p><strong>Analysis Summary:</strong><br>
+                    Releasing inventory from DC holdback to high-velocity stores. This is the simplest approach with minimal logistics complexity.</p>
+                    <ul style="margin: 12px 0 12px 24px;">
+                        <li><strong>S001</strong>: Velocity 1.35x - Receives 450 units from DC</li>
+                        <li><strong>S003</strong>: Velocity 1.42x - Receives 380 units from DC</li>
+                        <li><strong>S007</strong>: Velocity 1.28x - Receives 320 units from DC</li>
+                    </ul>
+                    <div class="info-box">
+                        <strong>Expected Impact:</strong><br>
+                        • DC holdback reduced from 2,450 to 1,300 units<br>
+                        • Reduce stockout risk at top 3 performing stores<br>
+                        • Estimated sell-through improvement: 5-8%
+                    </div>
+                    <p><strong>Note:</strong> Underperforming stores (S012, S015, S018) retain current inventory. Consider markdowns if performance doesn't improve.</p>
+                `
+            },
+            hybrid: {
+                name: '🔀 Hybrid',
+                desc: 'DC + Store-Store',
+                units: 1850,
+                transferCount: 6,
+                transfers: [
+                    { from: 'DC', to: 'S001', units: 450, priority: 'high' },
+                    { from: 'DC', to: 'S003', units: 380, priority: 'high' },
+                    { from: 'DC', to: 'S007', units: 320, priority: 'medium' },
+                    { from: 'S012', to: 'S003', units: 200, priority: 'medium' },
+                    { from: 'S015', to: 'S001', units: 250, priority: 'low' },
+                    { from: 'S018', to: 'S007', units: 250, priority: 'low' },
+                ],
+                explanation: `
+                    <p><strong>Strategy Selected:</strong> Hybrid (DC Release + Store-to-Store)</p>
+                    <p><strong>Analysis Summary:</strong><br>
+                    Maximum optimization combining DC release with inter-store transfers for comprehensive rebalancing.</p>
+                    <ul style="margin: 12px 0 12px 24px;">
+                        <li><strong>DC Release</strong>: 1,150 units to high-velocity stores</li>
+                        <li><strong>Store Transfers</strong>: 700 units from underperformers</li>
+                        <li><strong>Total Movement</strong>: 1,850 units</li>
+                    </ul>
+                    <div class="info-box">
+                        <strong>Expected Impact:</strong><br>
+                        • DC holdback reduced to 1,300 units<br>
+                        • Reduce stockout risk at S001, S003, S007<br>
+                        • Prevent excess inventory at S012, S015, S018<br>
+                        • Most complex logistics (6 transfers)<br>
+                        • Estimated sell-through improvement: 8-12%
+                    </div>
+                `
+            }
+        };
+
+        let currentStrategy = 'dc_only';
+
+        // =================================================================
+        // STRATEGY SELECTION
+        // =================================================================
+        function selectStrategy(strategy) {
+            currentStrategy = strategy;
+
+            // Update UI selection
+            document.querySelectorAll('.strategy-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.querySelector(`input[value="${strategy}"]`).parentElement.classList.add('selected');
+
+            // Update metrics
+            const config = strategies[strategy];
+            document.getElementById('metric-units').textContent = config.units.toLocaleString();
+            document.getElementById('metric-transfers').textContent = `${config.transferCount} transfers`;
+            document.getElementById('metric-strategy').textContent = config.name;
+            document.getElementById('metric-strategy-desc').textContent = config.desc;
+
+            // Update charts and table
+            updateSankeyChart(strategy);
+            updateTransferTable(strategy);
+            updateComparisonChart(strategy);
+            updateExplanation(strategy);
+        }
+
+        // =================================================================
+        // SANKEY CHART - Shows ALL stores
+        // =================================================================
+        function updateSankeyChart(strategy) {
+            const config = strategies[strategy];
+            const transfers = config.transfers;
+
+            // Build node list: DC + all stores
+            const nodes = ['DC'];
+            allStores.forEach(s => nodes.push(s.id));
+
+            // Determine which stores are involved in transfers
+            const receivingStores = new Set(transfers.map(t => t.to));
+            const sendingStores = new Set(transfers.filter(t => t.from !== 'DC').map(t => t.from));
+
+            // Build node colors
+            const nodeColors = nodes.map(node => {
+                if (node === 'DC') return '#3498db';
+                if (receivingStores.has(node)) return '#2ecc71';
+                if (sendingStores.has(node)) return '#e74c3c';
+                return '#95a5a6';  // No change - gray
+            });
+
+            // Build links
+            const sourceIndices = [];
+            const targetIndices = [];
+            const values = [];
+            const linkColors = [];
+
+            const priorityColors = {
+                high: 'rgba(231, 76, 60, 0.6)',
+                medium: 'rgba(241, 196, 15, 0.6)',
+                low: 'rgba(46, 204, 113, 0.6)',
+            };
+
+            // Add transfer links
+            transfers.forEach(t => {
+                sourceIndices.push(nodes.indexOf(t.from));
+                targetIndices.push(nodes.indexOf(t.to));
+                values.push(t.units);
+                linkColors.push(priorityColors[t.priority]);
+            });
+
+            // Add "no change" links for stores not involved (from DC with 0 or small value for visualization)
+            // Actually, let's show their current allocation as a static flow
+            allStores.forEach(store => {
+                if (!receivingStores.has(store.id) && !sendingStores.has(store.id)) {
+                    // Show existing allocation as a dim flow
+                    sourceIndices.push(0);  // DC
+                    targetIndices.push(nodes.indexOf(store.id));
+                    values.push(Math.round(store.allocated * 0.1));  // Small representation
+                    linkColors.push('rgba(149, 165, 166, 0.3)');  // Dim gray
+                }
+            });
+
+            const sankeyData = {
+                type: 'sankey',
+                orientation: 'h',
+                node: {
+                    pad: 12,
+                    thickness: 18,
+                    line: { color: 'black', width: 0.5 },
+                    label: nodes,
+                    color: nodeColors
+                },
+                link: {
+                    source: sourceIndices,
+                    target: targetIndices,
+                    value: values,
+                    color: linkColors,
+                    hovertemplate: '%{source.label} → %{target.label}<br>Units: %{value}<extra></extra>'
+                }
+            };
+
+            const layout = {
+                title: {
+                    text: `Inventory Flow - ${config.name} Strategy`,
+                    font: { color: '#fafafa', size: 14 }
+                },
+                font: { size: 11, color: '#fafafa' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                height: 450,
+                margin: { t: 40, b: 20, l: 20, r: 20 }
+            };
+
+            Plotly.newPlot('sankey-chart', [sankeyData], layout, {responsive: true});
+        }
+
+        // =================================================================
+        // TRANSFER TABLE
+        // =================================================================
+        function updateTransferTable(strategy) {
+            const transfers = strategies[strategy].transfers;
+            const tbody = document.getElementById('transfer-tbody');
+
+            tbody.innerHTML = transfers.map(t => `
+                <tr>
+                    <td>${t.from}</td>
+                    <td>${t.to}</td>
+                    <td>${t.units}</td>
+                    <td class="priority-${t.priority}">${t.priority.toUpperCase()}</td>
+                </tr>
+            `).join('');
+        }
+
+        // =================================================================
+        // PERFORMANCE CHART
+        // =================================================================
+        function renderPerformanceChart() {
+            const stores = allStores.map(s => s.id);
+            const velocities = allStores.map(s => s.velocity);
+            const colors = velocities.map(v => {
+                if (v > 1.15) return '#2ecc71';      // High performer - green
+                if (v < 0.85) return '#e74c3c';      // Underperformer - red
+                return '#95a5a6';                     // On target - gray
+            });
+
+            const data = [{
+                type: 'bar',
+                x: stores,
+                y: velocities,
+                marker: { color: colors },
+                text: velocities.map(v => v.toFixed(2) + 'x'),
+                textposition: 'outside',
+                textfont: { color: '#fafafa', size: 10 }
+            }];
+
+            const layout = {
+                title: { text: 'Sales Velocity Index (Actual/Expected)', font: { color: '#fafafa', size: 14 } },
+                font: { color: '#888' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {
+                    title: 'Store',
+                    gridcolor: '#333',
+                    tickfont: { color: '#888', size: 10 },
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Velocity',
+                    gridcolor: '#333',
+                    tickfont: { color: '#888' },
+                    range: [0, 1.7]
+                },
+                height: 320,
+                margin: { t: 40, b: 80, l: 60, r: 20 },
+                shapes: [{
+                    type: 'line',
+                    x0: -0.5,
+                    x1: allStores.length - 0.5,
+                    y0: 1.0,
+                    y1: 1.0,
+                    line: { color: '#888', width: 2, dash: 'dash' }
+                }],
+                annotations: [{
+                    x: allStores.length - 1,
+                    y: 1.08,
+                    text: 'Target (1.0x)',
+                    showarrow: false,
+                    font: { color: '#888', size: 10 }
+                }]
+            };
+
+            Plotly.newPlot('performance-chart', data, layout, {responsive: true});
+        }
+
+        // =================================================================
+        // COMPARISON CHART
+        // =================================================================
+        function updateComparisonChart(strategy) {
+            const transfers = strategies[strategy].transfers;
+
+            // Calculate before/after allocations
+            const beforeAlloc = {};
+            const afterAlloc = {};
+
+            allStores.forEach(s => {
+                beforeAlloc[s.id] = s.allocated;
+                afterAlloc[s.id] = s.allocated;
+            });
+
+            // Apply transfers
+            transfers.forEach(t => {
+                if (t.from !== 'DC' && afterAlloc[t.from] !== undefined) {
+                    afterAlloc[t.from] -= t.units;
+                }
+                if (afterAlloc[t.to] !== undefined) {
+                    afterAlloc[t.to] += t.units;
+                }
+            });
+
+            // Only show stores with changes + a few reference stores
+            const changedStores = new Set();
+            transfers.forEach(t => {
+                if (t.from !== 'DC') changedStores.add(t.from);
+                changedStores.add(t.to);
+            });
+
+            // Add some on-target stores for reference
+            ['S002', 'S004', 'S008'].forEach(s => changedStores.add(s));
+
+            const displayStores = allStores
+                .filter(s => changedStores.has(s.id))
+                .map(s => s.id);
+
+            const data = [
+                {
+                    type: 'bar',
+                    name: 'Before',
+                    x: displayStores,
+                    y: displayStores.map(s => beforeAlloc[s]),
+                    marker: { color: '#3498db', opacity: 0.7 }
+                },
+                {
+                    type: 'bar',
+                    name: 'After',
+                    x: displayStores,
+                    y: displayStores.map(s => afterAlloc[s]),
+                    marker: { color: '#2ecc71' }
+                }
+            ];
+
+            const layout = {
+                title: { text: 'Store Allocation: Before vs After', font: { color: '#fafafa', size: 14 } },
+                font: { color: '#888' },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                barmode: 'group',
+                xaxis: {
+                    title: 'Store',
+                    gridcolor: '#333',
+                    tickfont: { color: '#888' }
+                },
+                yaxis: {
+                    title: 'Units',
+                    gridcolor: '#333',
+                    tickfont: { color: '#888' }
+                },
+                height: 350,
+                margin: { t: 40, b: 50, l: 60, r: 20 },
+                legend: {
+                    x: 1,
+                    y: 1,
+                    xanchor: 'right',
+                    font: { color: '#888' }
+                }
+            };
+
+            Plotly.newPlot('comparison-chart', data, layout, {responsive: true});
+        }
+
+        // =================================================================
+        // AGENT EXPLANATION
+        // =================================================================
+        function updateExplanation(strategy) {
+            document.getElementById('agent-explanation').innerHTML = strategies[strategy].explanation;
+        }
+
+        // =================================================================
+        // EXPANDER TOGGLE
+        // =================================================================
+        function toggleExpander(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
+
+        // =================================================================
+        // INITIALIZE
+        // =================================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            renderPerformanceChart();
+            selectStrategy('dc_only');
+        });
+    </script>
+</body>
+</html>

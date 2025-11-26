@@ -12,6 +12,7 @@ from datetime import date
 from .forecast_schemas import ForecastResult
 from .allocation_schemas import AllocationResult
 from .pricing_schemas import MarkdownResult
+from .reallocation_schemas import ReallocationAnalysis
 
 
 class WorkflowParams(BaseModel):
@@ -114,7 +115,13 @@ class SeasonResult(BaseModel):
         description="Inventory allocation result",
     )
 
-    # Phase 3: Pricing (optional - only if markdown triggered)
+    # Phase 3: Strategic Replenishment (optional - only if triggered by variance)
+    reallocation: Optional[ReallocationAnalysis] = Field(
+        default=None,
+        description="Strategic replenishment analysis (None if not triggered)",
+    )
+
+    # Phase 4: Pricing (optional - only if markdown triggered)
     markdown: Optional[MarkdownResult] = Field(
         default=None,
         description="Markdown result (None if no markdown needed)",
@@ -138,13 +145,18 @@ class SeasonResult(BaseModel):
     )
     phases_completed: List[str] = Field(
         default_factory=list,
-        description="List of phases completed: ['forecast', 'allocation', 'pricing']",
+        description="List of phases completed: ['forecast', 'allocation', 'reallocation', 'pricing']",
     )
 
     @property
     def markdown_applied(self) -> bool:
         """Returns True if markdown was applied."""
         return self.markdown is not None and self.markdown.markdown_needed
+
+    @property
+    def reallocation_applied(self) -> bool:
+        """Returns True if strategic replenishment was recommended."""
+        return self.reallocation is not None and self.reallocation.should_reallocate
 
     @property
     def had_high_variance(self) -> bool:
