@@ -18,7 +18,7 @@ Usage:
 import logging
 from typing import Optional
 
-from agents import Runner
+from agents import Runner, RunHooks
 
 from my_agents.inventory_agent import inventory_agent
 from schemas.forecast_schemas import ForecastResult
@@ -33,6 +33,7 @@ async def run_allocation(
     forecast: ForecastResult,
     dc_holdback_pct: float = 0.45,
     replenishment_strategy: str = "weekly",
+    hooks: Optional[RunHooks] = None,
 ) -> AllocationResult:
     """
     Run inventory allocation with store clustering.
@@ -86,6 +87,7 @@ Steps:
         starting_agent=inventory_agent,
         input=input_prompt,
         context=context,
+        hooks=hooks,
     )
 
     allocation: AllocationResult = result.final_output

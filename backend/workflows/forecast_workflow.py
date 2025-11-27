@@ -16,7 +16,7 @@ Usage:
 import logging
 from typing import List, Tuple, Optional
 
-from agents import Runner
+from agents import Runner, RunHooks
 
 from my_agents.demand_agent import demand_agent
 from my_agents.variance_agent import variance_agent, VarianceAnalysis
@@ -30,6 +30,7 @@ async def run_forecast(
     context: ForecastingContext,
     category: str,
     forecast_horizon: int,
+    hooks: Optional[RunHooks] = None,
 ) -> ForecastResult:
     """
     Run demand forecast without variance checking.
@@ -41,6 +42,7 @@ async def run_forecast(
         context: ForecastingContext with data_loader
         category: Product category to forecast
         forecast_horizon: Number of weeks to forecast
+        hooks: Optional RunHooks for UI updates
 
     Returns:
         ForecastResult with typed forecast data
@@ -51,6 +53,7 @@ async def run_forecast(
         starting_agent=demand_agent,
         input=f"Forecast demand for {category} for {forecast_horizon} weeks",
         context=context,
+        hooks=hooks,
     )
 
     forecast: ForecastResult = result.final_output
@@ -68,6 +71,7 @@ async def run_forecast_with_variance_loop(
     forecast_horizon: int,
     variance_threshold: float = 0.20,  # Kept for API compatibility, agent uses its own logic
     max_reforecasts: int = 2,
+    hooks: Optional[RunHooks] = None,
 ) -> Tuple[ForecastResult, List[VarianceAnalysis]]:
     """
     Run demand forecast with AGENTIC variance analysis.
@@ -116,6 +120,7 @@ async def run_forecast_with_variance_loop(
             starting_agent=demand_agent,
             input=f"Forecast demand for {category} for {forecast_horizon} weeks",
             context=context,
+            hooks=hooks,
         )
 
         forecast = result.final_output
@@ -141,6 +146,7 @@ async def run_forecast_with_variance_loop(
                   f"We have {forecast_horizon - context.current_week} weeks remaining in the season. "
                   f"This is reforecast attempt {reforecast_count + 1} of {max_reforecasts + 1}.",
             context=context,
+            hooks=hooks,
         )
 
         analysis: VarianceAnalysis = variance_result.final_output
@@ -184,6 +190,7 @@ async def run_forecast_with_variance_loop(
 
 async def check_forecast_variance(
     context: ForecastingContext,
+    hooks: Optional[RunHooks] = None,
 ) -> Optional[VarianceAnalysis]:
     """
     Run standalone agentic variance analysis.
@@ -193,6 +200,7 @@ async def check_forecast_variance(
 
     Args:
         context: ForecastingContext with forecast_by_week and actual_sales
+        hooks: Optional RunHooks for UI updates
 
     Returns:
         VarianceAnalysis with agent's recommendations, or None if no actual sales
@@ -204,6 +212,7 @@ async def check_forecast_variance(
         starting_agent=variance_agent,
         input=f"Analyze variance for week {context.current_week}.",
         context=context,
+        hooks=hooks,
     )
 
     return result.final_output

@@ -22,7 +22,7 @@ SDK Pattern:
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from .data_loader import TrainingDataLoader
 
 
@@ -82,6 +82,10 @@ class ForecastingContext:
     dc_holdback: int = 0
     allocation_result: Optional[Any] = None  # AllocationResult - stored for reallocation agent
 
+    # Store-level sales tracking (for Strategic Replenishment)
+    # Maps store_id -> list of weekly sales [week1, week2, ...]
+    store_actual_sales: Dict[str, List[int]] = field(default_factory=dict)
+
     def __post_init__(self):
         """Validate context after initialization."""
         if self.data_loader is None:
@@ -138,3 +142,113 @@ class ForecastingContext:
     def advance_week(self) -> None:
         """Advance to the next week in the season."""
         self.current_week += 1
+
+    # =========================================================================
+    # Store-level sales methods (for Strategic Replenishment)
+    # =========================================================================
+
+    def add_store_weekly_sales(self, store_id: str, week: int, units_sold: int) -> None:
+        """
+        Add weekly sales data for a specific store.
+
+        Args:
+            store_id: Store identifier (e.g., "S001")
+            week: Week number (1-indexed)
+            units_sold: Units sold that week
+        """
+        if store_id not in self.store_actual_sales:
+            self.store_actual_sales[store_id] = []
+
+        # Extend list if needed to accommodate the week
+        while len(self.store_actual_sales[store_id]) < week:
+            self.store_actual_sales[store_id].append(0)
+
+        # Set the value (week is 1-indexed, list is 0-indexed)
+        self.store_actual_sales[store_id][week - 1] = units_sold
+
+    def set_store_sales_from_csv(self, week: int, store_sales: Dict[str, int]) -> None:
+        """
+        Set store sales for a specific week from parsed CSV data.
+
+        Args:
+            week: Week number (1-indexed)
+            store_sales: Dict mapping store_id -> units_sold for that week
+        """
+        for store_id, units_sold in store_sales.items():
+            self.add_store_weekly_sales(store_id, week, units_sold)
+
+    def get_store_cumulative_sales(self, store_id: str) -> int:
+        """Get total sales for a store across all recorded weeks."""
+        if store_id not in self.store_actual_sales:
+            return 0
+        return sum(self.store_actual_sales[store_id])
+
+    def get_store_sales_up_to_week(self, store_id: str, week: int) -> int:
+        """Get cumulative sales for a store up to (and including) a specific week."""
+        if store_id not in self.store_actual_sales:
+            return 0
+        sales_list = self.store_actual_sales[store_id]
+        return sum(sales_list[:week])
+
+    def calculate_store_velocity(
+        self,
+        store_id: str,
+        allocated_units: int,
+        current_week: int,
+        total_weeks: int = 12,
+    ) -> float:
+        """
+        Calculate sales velocity for a store.
+
+        Velocity = (actual_sold / allocated) / (weeks_elapsed / total_weeks)
+        - velocity > 1.0 means selling faster than expected
+        - velocity < 1.0 means selling slower than expected
+
+        Args:
+            store_id: Store identifier
+            allocated_units: Units initially allocated to this store
+            current_week: Current week number
+            total_weeks: Total season length
+
+        Returns:
+            Velocity index (1.0 = on target)
+        """
+        if allocated_units == 0 or current_week == 0:
+            return 1.0
+
+        cumulative_sold = self.get_store_sales_up_to_week(store_id, current_week)
+        expected_fraction = current_week / total_weeks
+        expected_sold = allocated_units * expected_fraction
+
+        if expected_sold == 0:
+            return 1.0
+
+        return cumulative_sold / expected_sold
+
+    def get_all_store_velocities(self, current_week: int, total_weeks: int = 12) -> Dict[str, float]:
+        """
+        Calculate velocities for all stores with allocation data.
+
+        Returns:
+            Dict mapping store_id -> velocity
+        """
+        velocities = {}
+
+        if self.allocation_result is None:
+            return velocities
+
+        for store_alloc in self.allocation_result.store_allocations:
+            velocity = self.calculate_store_velocity(
+                store_id=store_alloc.store_id,
+                allocated_units=store_alloc.allocation_units,
+                current_week=current_week,
+                total_weeks=total_weeks,
+            )
+            velocities[store_alloc.store_id] = velocity
+
+        return velocities
+
+    @property
+    def has_store_sales(self) -> bool:
+        """Check if per-store sales data is available."""
+        return len(self.store_actual_sales) > 0

@@ -23,7 +23,7 @@ Usage:
 import logging
 from typing import Optional
 
-from agents import Runner
+from agents import Runner, RunHooks
 
 from my_agents.reallocation_agent import reallocation_agent
 from schemas.reallocation_schemas import ReallocationAnalysis
@@ -39,6 +39,7 @@ async def run_strategic_replenishment(
     current_week: int,
     variance_pct: float = 0.0,
     force_run: bool = False,
+    hooks: Optional[RunHooks] = None,
 ) -> Optional[ReallocationAnalysis]:
     """
     Run Strategic Replenishment Agent to analyze and recommend reallocation.
@@ -118,6 +119,7 @@ async def run_strategic_replenishment(
             f"DC holdback is {allocation.dc_holdback} units."
         ),
         context=context,
+        hooks=hooks,
     )
 
     analysis: ReallocationAnalysis = result.final_output

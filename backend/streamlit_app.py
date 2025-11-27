@@ -44,6 +44,7 @@ from agent_tools.demand_tools import (
     EnsembleForecaster,
 )
 from schemas.forecast_schemas import ForecastResult
+from utils.workflow_hooks import WorkflowState, WorkflowUIHooks, create_workflow_hooks
 
 
 # =============================================================================
@@ -126,6 +127,20 @@ def init_session_state():
     # Pending upload data for callback pattern
     if "pending_week_sales" not in st.session_state:
         st.session_state.pending_week_sales = {}  # {week_num: sales_value}
+
+    # Store-level sales tracking (for Strategic Replenishment)
+    if "store_actual_sales" not in st.session_state:
+        st.session_state.store_actual_sales = {}  # {store_id: [week1_sales, week2_sales, ...]}
+
+    if "pending_store_sales" not in st.session_state:
+        st.session_state.pending_store_sales = {}  # {week_num: {store_id: sales_value}}
+
+    # Workflow visualization state
+    if "workflow_state" not in st.session_state:
+        st.session_state.workflow_state = WorkflowState()
+
+    if "show_workflow_drawer" not in st.session_state:
+        st.session_state.show_workflow_drawer = False
 
 
 init_session_state()
@@ -611,6 +626,536 @@ def render_pricing_section(
 
 
 # =============================================================================
+# ENHANCED: Markdown Command Center (Solution A)
+# =============================================================================
+def render_markdown_command_center(
+    params: WorkflowParams,
+    current_sell_through: float = None,
+    total_sold: int = None,
+    total_allocated: int = None,
+    current_week: int = None,
+):
+    """
+    Render the enhanced Markdown Command Center dashboard.
+
+    This is Solution A - a dashboard-first approach for interactive markdown
+    optimization with visual scenario comparison and impact preview.
+
+    Args:
+        params: WorkflowParams with markdown settings
+        current_sell_through: Current sell-through rate (0.0-1.0)
+        total_sold: Total units sold so far
+        total_allocated: Total units allocated to stores
+        current_week: Current week number
+    """
+    st.subheader("💰 Markdown Command Center")
+
+    # Calculate values from context or use defaults
+    week = current_week or st.session_state.get("current_week", 6)
+
+    # Initialize session state for pricing (use week-specific keys to avoid conflicts)
+    scenario_key = f"selected_markdown_scenario_wk{week}"
+    applied_key = f"markdown_applied_wk{week}"
+
+    if scenario_key not in st.session_state:
+        st.session_state[scenario_key] = None
+    if applied_key not in st.session_state:
+        st.session_state[applied_key] = False
+    total_weeks = params.forecast_horizon_weeks
+    weeks_remaining = total_weeks - week
+
+    # Get sell-through from session state or calculate
+    if current_sell_through is None:
+        sold = total_sold or st.session_state.get("total_sold", 0)
+        allocated = total_allocated or st.session_state.get("total_allocated", 1)
+        if allocated > 0:
+            current_sell_through = sold / allocated
+        else:
+            current_sell_through = 0.0
+
+    target_sell_through = params.markdown_threshold
+    elasticity = params.elasticity
+
+    # Calculate gap and recommended markdown
+    gap = max(0, target_sell_through - current_sell_through)
+    raw_markdown = gap * elasticity
+    recommended_markdown = min(round(raw_markdown * 20) / 20, 0.40)  # Round to 5%, cap at 40%
+
+    # Status indicator
+    if current_sell_through >= target_sell_through:
+        st.success("✅ **On Track** - No markdown action required")
+        return
+    elif gap <= 0.10:
+        status_color = "orange"
+        status_text = "Minor Gap"
+    else:
+        status_color = "red"
+        status_text = "Action Required"
+
+    # Header with status badge
+    col_header, col_status = st.columns([3, 1])
+    with col_header:
+        st.markdown(f"**Week {week} of {total_weeks}** • {weeks_remaining} weeks remaining")
+    with col_status:
+        st.markdown(f":{status_color}[**{status_text}**]")
+
+    st.divider()
+
+    # ==========================================================================
+    # Key Metrics Row
+    # ==========================================================================
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        delta_text = f"{gap:.0%} below target" if gap > 0 else "On target"
+        st.metric(
+            label="Current Sell-Through",
+            value=f"{current_sell_through:.0%}",
+            delta=delta_text,
+            delta_color="inverse" if gap > 0 else "normal",
+        )
+
+    with col2:
+        st.metric(
+            label="Target Sell-Through",
+            value=f"{target_sell_through:.0%}",
+        )
+
+    with col3:
+        st.metric(
+            label="Performance Gap",
+            value=f"{gap:.0%}",
+            delta="Needs intervention" if gap > 0.10 else "Minor",
+            delta_color="inverse" if gap > 0.10 else "off",
+        )
+
+    with col4:
+        st.metric(
+            label="Weeks Remaining",
+            value=f"{weeks_remaining}",
+        )
+
+    with col5:
+        st.metric(
+            label="🤖 Recommended",
+            value=f"{recommended_markdown:.0%}",
+            delta="Markdown",
+        )
+
+    # ==========================================================================
+    # Formula Display
+    # ==========================================================================
+    st.markdown("---")
+    formula_col1, formula_col2, formula_col3 = st.columns([1, 2, 1])
+    with formula_col2:
+        st.markdown(
+            f"""
+            <div style="text-align: center; padding: 10px; background: #1e1e2e; border-radius: 8px;">
+                <div style="color: #888; font-size: 0.85rem; margin-bottom: 8px;">
+                    Pricing Agent Formula: Gap × Elasticity = Markdown
+                </div>
+                <div style="font-size: 1.3rem; font-family: monospace;">
+                    <span style="color: #e74c3c; font-weight: bold;">{gap:.0%}</span> ×
+                    <span style="color: #3498db; font-weight: bold;">{elasticity}</span> =
+                    <span style="color: #2ecc71; font-weight: bold;">{recommended_markdown:.0%}</span> markdown
+                </div>
+                <div style="color: #666; font-size: 0.8rem; margin-top: 8px;">
+                    Rounded to nearest 5%, capped at 40% maximum
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # Scenario Selection
+    # ==========================================================================
+    st.markdown("### 📋 Select Markdown Scenario")
+
+    scenarios = [
+        {"pct": 0, "label": "No Markdown", "impact": "Risk: Low ST"},
+        {"pct": 0.20, "label": "Conservative", "impact": "Moderate lift"},
+        {"pct": 0.30, "label": "Optimal", "impact": "Target ST"},
+        {"pct": 0.40, "label": "Aggressive", "impact": "Max clearance"},
+    ]
+
+    # Find recommended scenario
+    recommended_idx = min(range(len(scenarios)),
+                         key=lambda i: abs(scenarios[i]["pct"] - recommended_markdown))
+
+    scenario_cols = st.columns(4)
+    selected_scenario_pct = st.session_state.get(scenario_key) or recommended_markdown
+
+    for idx, (col, scenario) in enumerate(zip(scenario_cols, scenarios)):
+        with col:
+            is_recommended = idx == recommended_idx
+            is_selected = abs(scenario["pct"] - selected_scenario_pct) < 0.01
+
+            # Calculate projected sell-through for this scenario
+            projected_st = min(current_sell_through + (scenario["pct"] / elasticity), 0.85)
+
+            # Style based on selection
+            border_color = "#2ecc71" if is_recommended else "#333"
+            bg_color = "rgba(46, 204, 113, 0.1)" if is_selected else "transparent"
+
+            st.markdown(
+                f"""
+                <div style="
+                    border: 2px solid {border_color if is_selected else '#444'};
+                    border-radius: 8px;
+                    padding: 16px;
+                    text-align: center;
+                    background: {bg_color};
+                    position: relative;
+                ">
+                    {"<span style='position: absolute; top: -10px; right: 10px; background: #2ecc71; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;'>RECOMMENDED</span>" if is_recommended else ""}
+                    <div style="font-size: 1.8rem; font-weight: bold;">{scenario['pct']:.0%}</div>
+                    <div style="color: #888; font-size: 0.85rem;">{scenario['label']}</div>
+                    <div style="color: #2ecc71; font-size: 0.85rem; margin-top: 8px;">Est: {projected_st:.0%} ST</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if st.button(
+                "Select" if not is_selected else "✓ Selected",
+                key=f"scenario_{idx}_wk{week}",
+                use_container_width=True,
+                type="primary" if is_selected else "secondary",
+            ):
+                st.session_state[scenario_key] = scenario["pct"]
+                st.rerun()
+
+    # ==========================================================================
+    # Parameter Adjustment
+    # ==========================================================================
+    st.markdown("### 🎛️ Adjust Parameters")
+
+    param_col1, param_col2, param_col3 = st.columns(3)
+
+    with param_col1:
+        adjusted_target = st.slider(
+            "Target Sell-Through",
+            min_value=0.50,
+            max_value=0.80,
+            value=target_sell_through,
+            step=0.05,
+            format="%.0f%%",
+            key=f"pricing_target_slider_wk{week}",
+        )
+
+    with param_col2:
+        adjusted_elasticity = st.slider(
+            "Price Elasticity",
+            min_value=1.0,
+            max_value=3.0,
+            value=elasticity,
+            step=0.5,
+            key=f"pricing_elasticity_slider_wk{week}",
+        )
+
+    with param_col3:
+        custom_override = st.slider(
+            "Custom Markdown Override",
+            min_value=0.0,
+            max_value=0.40,
+            value=selected_scenario_pct,
+            step=0.05,
+            format="%.0f%%",
+            key=f"pricing_override_slider_wk{week}",
+        )
+        if custom_override != selected_scenario_pct:
+            st.session_state[scenario_key] = custom_override
+
+    # Recalculate with adjusted parameters
+    adjusted_gap = max(0, adjusted_target - current_sell_through)
+    adjusted_raw = adjusted_gap * adjusted_elasticity
+    adjusted_recommendation = min(round(adjusted_raw * 20) / 20, 0.40)
+
+    if adjusted_recommendation != recommended_markdown:
+        st.info(f"📊 With adjusted parameters: {adjusted_recommendation:.0%} markdown recommended")
+
+    # ==========================================================================
+    # Charts Row
+    # ==========================================================================
+    st.markdown("### 📈 Forecast Visualization")
+
+    chart_col1, chart_col2 = st.columns(2)
+
+    # Get the selected markdown for projections
+    final_markdown = st.session_state.get(scenario_key) or recommended_markdown
+
+    with chart_col1:
+        # Sell-Through Trajectory Chart
+        weeks_range = list(range(1, total_weeks + 1))
+
+        # Simulated actual data up to current week
+        actual_data = [current_sell_through * (w / week) for w in range(1, week + 1)]
+        actual_data_padded = actual_data + [None] * (total_weeks - week)
+
+        # Target line
+        target_line = [(w / total_weeks) * target_sell_through for w in weeks_range]
+
+        # Projection with markdown
+        projection_with_markdown = [None] * (week - 1) + [current_sell_through]
+        weekly_lift = final_markdown / elasticity / weeks_remaining if weeks_remaining > 0 else 0
+        for w in range(week + 1, total_weeks + 1):
+            next_val = projection_with_markdown[-1] + weekly_lift * 0.8
+            projection_with_markdown.append(min(next_val, 0.85))
+
+        # Projection without markdown
+        projection_no_markdown = [None] * (week - 1) + [current_sell_through]
+        for w in range(week + 1, total_weeks + 1):
+            next_val = projection_no_markdown[-1] + 0.012  # Slow organic growth
+            projection_no_markdown.append(min(next_val, 0.60))
+
+        fig_trajectory = go.Figure()
+
+        # Actual line
+        fig_trajectory.add_trace(go.Scatter(
+            x=weeks_range[:week],
+            y=actual_data,
+            mode="lines+markers",
+            name="Actual",
+            line=dict(color="#3498db", width=3),
+            marker=dict(size=8),
+        ))
+
+        # Target line
+        fig_trajectory.add_trace(go.Scatter(
+            x=weeks_range,
+            y=target_line,
+            mode="lines",
+            name="Target",
+            line=dict(color="#888", width=2, dash="dash"),
+        ))
+
+        # Projection with markdown
+        fig_trajectory.add_trace(go.Scatter(
+            x=weeks_range[week-1:],
+            y=projection_with_markdown[week-1:],
+            mode="lines+markers",
+            name=f"With {final_markdown:.0%} Markdown",
+            line=dict(color="#2ecc71", width=3),
+            marker=dict(size=8),
+        ))
+
+        # Projection without markdown
+        fig_trajectory.add_trace(go.Scatter(
+            x=weeks_range[week-1:],
+            y=projection_no_markdown[week-1:],
+            mode="lines",
+            name="No Markdown",
+            line=dict(color="#e74c3c", width=2, dash="dot"),
+        ))
+
+        # Vertical line at current week
+        fig_trajectory.add_vline(x=week, line_dash="dot", line_color="#9b59b6")
+        fig_trajectory.add_annotation(
+            x=week, y=0.75, text="Decision Point", showarrow=False,
+            font=dict(color="#9b59b6", size=10),
+        )
+
+        fig_trajectory.update_layout(
+            title="Sell-Through Trajectory",
+            xaxis_title="Week",
+            yaxis_title="Sell-Through %",
+            height=350,
+            yaxis=dict(tickformat=".0%", range=[0, 0.80]),
+            legend=dict(x=0, y=1, font=dict(size=10)),
+        )
+
+        st.plotly_chart(fig_trajectory, use_container_width=True)
+
+    with chart_col2:
+        # Revenue vs Margin Tradeoff
+        markdown_options = [0, 0.10, 0.20, 0.30, 0.40]
+
+        # Simulated revenue and margin curves
+        base_revenue = 280
+        base_margin = 42
+
+        revenues = [base_revenue + (m * 100 * 0.35) for m in markdown_options]
+        margins = [base_margin - (m * 100 * 0.28) for m in markdown_options]
+
+        fig_tradeoff = go.Figure()
+
+        fig_tradeoff.add_trace(go.Scatter(
+            x=[f"{int(m*100)}%" for m in markdown_options],
+            y=revenues,
+            mode="lines+markers",
+            name="Revenue ($K)",
+            yaxis="y",
+            line=dict(color="#2ecc71", width=3),
+            marker=dict(size=10),
+        ))
+
+        fig_tradeoff.add_trace(go.Scatter(
+            x=[f"{int(m*100)}%" for m in markdown_options],
+            y=margins,
+            mode="lines+markers",
+            name="Margin %",
+            yaxis="y2",
+            line=dict(color="#e74c3c", width=3),
+            marker=dict(size=10),
+        ))
+
+        # Highlight selected markdown
+        selected_idx = min(range(len(markdown_options)),
+                         key=lambda i: abs(markdown_options[i] - final_markdown))
+
+        fig_tradeoff.add_vline(
+            x=selected_idx,
+            line_dash="solid",
+            line_color="#9b59b6",
+            line_width=2,
+        )
+
+        fig_tradeoff.update_layout(
+            title="Revenue vs Margin Tradeoff",
+            xaxis_title="Markdown %",
+            height=350,
+            yaxis=dict(
+                title=dict(text="Revenue ($K)", font=dict(color="#2ecc71")),
+                tickfont=dict(color="#2ecc71"),
+                range=[270, 330],
+            ),
+            yaxis2=dict(
+                title=dict(text="Margin %", font=dict(color="#e74c3c")),
+                tickfont=dict(color="#e74c3c"),
+                overlaying="y",
+                side="right",
+                range=[25, 50],
+            ),
+            legend=dict(x=0.5, y=1.1, orientation="h", xanchor="center"),
+        )
+
+        st.plotly_chart(fig_tradeoff, use_container_width=True)
+
+    # ==========================================================================
+    # Impact Preview
+    # ==========================================================================
+    st.markdown("### ✨ Forecast Impact Preview")
+
+    # Calculate impact metrics
+    allocated = total_allocated or st.session_state.get("total_allocated", 8540)
+    sold = total_sold or st.session_state.get("total_sold", int(allocated * current_sell_through))
+
+    projected_final_st = min(current_sell_through + (final_markdown / elasticity), 0.85)
+    projected_sold = int(allocated * projected_final_st)
+    leftover = allocated - projected_sold
+
+    base_price = 89
+    cost_price = 35
+    discounted_price = base_price * (1 - final_markdown)
+    additional_sales = projected_sold - sold
+    revenue = int((sold * base_price + additional_sales * discounted_price) / 1000)
+    margin = int(((discounted_price - cost_price) / discounted_price) * 100)
+
+    impact_cols = st.columns(4)
+
+    with impact_cols[0]:
+        st.metric(
+            label="Projected Final ST",
+            value=f"{projected_final_st:.0%}",
+            delta=f"+{projected_final_st - current_sell_through:.0%} from current",
+        )
+
+    with impact_cols[1]:
+        st.metric(
+            label="Est. Leftover Units",
+            value=f"{leftover:,}",
+            delta=f"-{int(allocated * (1 - current_sell_through)) - leftover:,} units",
+        )
+
+    with impact_cols[2]:
+        st.metric(
+            label="Projected Revenue",
+            value=f"${revenue}K",
+        )
+
+    with impact_cols[3]:
+        margin_delta = margin - 42  # Baseline margin
+        st.metric(
+            label="Est. Final Margin",
+            value=f"{margin}%",
+            delta=f"{margin_delta}%" if margin_delta != 0 else None,
+            delta_color="inverse" if margin_delta < 0 else "normal",
+        )
+
+    # ==========================================================================
+    # Agent Explanation (using checkbox toggle instead of expander to avoid nesting)
+    # ==========================================================================
+    show_analysis = st.checkbox("🤖 Show Pricing Agent Analysis", key=f"show_agent_analysis_wk{week}")
+
+    if show_analysis:
+        st.markdown(
+            """
+            <div style="background: #1e1e2e; border-radius: 8px; padding: 16px; margin: 8px 0;">
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(f"""
+**Recommendation Summary:**
+
+Current sell-through of **{current_sell_through:.0%}** is **{gap:.0%} below** the target ({target_sell_through:.0%})
+at the mid-season checkpoint (Week {week}).
+
+**Calculation:**
+- Gap: {target_sell_through:.0%} - {current_sell_through:.0%} = **{gap:.0%}**
+- Elasticity factor: **{elasticity}** (standard for fashion retail)
+- Raw markdown: {gap:.0%} × {elasticity} = **{raw_markdown:.0%}**
+- Final markdown: **{recommended_markdown:.0%}** (rounded to 5%, within 40% cap)
+
+**Business Context:**
+
+At Week {week}, there are {weeks_remaining} weeks remaining to clear inventory.
+A {final_markdown:.0%} markdown at this stage provides sufficient time for the price
+reduction to drive sales velocity. Based on historical elasticity, expect sell-through
+to increase by approximately {final_markdown / elasticity:.0%} percentage points.
+
+**Risk Assessment:**
+- {"✅" if final_markdown <= 0.30 else "⚠️"} {final_markdown:.0%} markdown {'is within optimal range' if final_markdown <= 0.30 else 'is aggressive'}
+- {"✅" if margin >= 30 else "⚠️"} Margin will {'remain healthy' if margin >= 30 else 'be under pressure'} at {margin}%
+- ✅ Below 40% cap - preserves brand positioning
+        """)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ==========================================================================
+    # Action Buttons
+    # ==========================================================================
+    st.markdown("---")
+
+    action_col1, action_col2, action_col3 = st.columns([2, 1, 1])
+
+    with action_col1:
+        if st.button(
+            f"✅ Apply {final_markdown:.0%} Markdown & Reforecast",
+            type="primary",
+            use_container_width=True,
+            key=f"apply_markdown_wk{week}",
+        ):
+            with st.spinner(f"Applying {final_markdown:.0%} markdown and rerunning forecast..."):
+                import time
+                time.sleep(1.5)  # Simulate processing
+
+                st.session_state[applied_key] = True
+                st.session_state[f"applied_markdown_pct_wk{week}"] = final_markdown
+                st.success(f"✅ {final_markdown:.0%} markdown applied! Forecast updated.")
+                st.balloons()
+
+    with action_col2:
+        if st.button("📅 Schedule for Later", use_container_width=True, key=f"schedule_markdown_wk{week}"):
+            st.info("📅 Scheduling feature coming soon!")
+
+    with action_col3:
+        if st.button("⏭️ Skip This Week", use_container_width=True, key=f"skip_markdown_wk{week}"):
+            st.warning("Markdown skipped. Will reassess next week.")
+
+
+# =============================================================================
 # Variance Analysis Section
 # =============================================================================
 def render_variance_analysis(
@@ -998,14 +1543,37 @@ def render_week_workspace(params: WorkflowParams):
                     df = pd.read_csv(uploaded_file)
                     if "quantity_sold" in df.columns:
                         total_sales = int(df["quantity_sold"].sum())
-                        st.success(f"📊 Loaded {len(df)} rows, Total: **{total_sales:,}** units")
 
-                        # Store pending data for callback
+                        # Check for store-level data
+                        has_store_data = "store_id" in df.columns
+                        store_count = df["store_id"].nunique() if has_store_data else 0
+
+                        if has_store_data:
+                            st.success(f"📊 Loaded {len(df)} rows from **{store_count} stores**, Total: **{total_sales:,}** units")
+                        else:
+                            st.success(f"📊 Loaded {len(df)} rows, Total: **{total_sales:,}** units")
+                            st.info("💡 CSV has no 'store_id' column - store-level analysis unavailable")
+
+                        # Store pending data for callback (aggregate)
                         st.session_state.pending_week_sales[selected_week] = total_sales
+
+                        # Store pending store-level data if available
+                        if has_store_data:
+                            store_sales = df.groupby("store_id")["quantity_sold"].sum().to_dict()
+                            st.session_state.pending_store_sales[selected_week] = store_sales
 
                         # Preview (no nested expander)
                         st.markdown("**Preview:**")
                         st.dataframe(df.head(10), use_container_width=True, height=200)
+
+                        # Show store summary if available (using container to avoid nested expander)
+                        if has_store_data:
+                            st.markdown("---")
+                            st.markdown("**📊 Store Summary** (Top 10)")
+                            store_summary = df.groupby("store_id")["quantity_sold"].sum().reset_index()
+                            store_summary.columns = ["Store", "Units Sold"]
+                            store_summary = store_summary.sort_values("Units Sold", ascending=False)
+                            st.dataframe(store_summary.head(10), use_container_width=True, height=200)
 
                         st.button(
                             "💾 Save Week Data",
@@ -1041,7 +1609,7 @@ def _save_week_sales_callback(week_num: int):
     # Update current_week
     st.session_state.current_week = max(st.session_state.current_week, week_num)
 
-    # Rebuild actual_sales list
+    # Rebuild actual_sales list (aggregate)
     actual_sales_list = []
     for w in range(1, st.session_state.total_season_weeks + 1):
         wd = st.session_state.week_data.get(w, {})
@@ -1051,8 +1619,26 @@ def _save_week_sales_callback(week_num: int):
     st.session_state.actual_sales = actual_sales_list
     st.session_state.total_sold = sum(actual_sales_list)
 
+    # Save store-level data if available
+    store_sales = st.session_state.pending_store_sales.get(week_num)
+    if store_sales:
+        for store_id, units_sold in store_sales.items():
+            if store_id not in st.session_state.store_actual_sales:
+                st.session_state.store_actual_sales[store_id] = []
+
+            # Extend list if needed to accommodate the week
+            while len(st.session_state.store_actual_sales[store_id]) < week_num:
+                st.session_state.store_actual_sales[store_id].append(0)
+
+            # Set the value (week is 1-indexed, list is 0-indexed)
+            st.session_state.store_actual_sales[store_id][week_num - 1] = units_sold
+
+        # Also save to week_data for reference
+        st.session_state.week_data[week_num]["store_sales"] = store_sales
+
     # Clear pending data after save
     st.session_state.pending_week_sales.pop(week_num, None)
+    st.session_state.pending_store_sales.pop(week_num, None)
 
 
 # =============================================================================
@@ -1540,25 +2126,24 @@ def _display_variance_analysis(analysis: dict, params: WorkflowParams, selected_
 # Strategic Replenishment Visualization
 # =============================================================================
 
-def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int, strategy: str) -> dict:
-    """Generate mock reallocation data for UI demonstration.
+def _generate_reallocation_data(params: WorkflowParams, selected_week: int, strategy: str) -> dict:
+    """Generate reallocation data using real store sales when available.
 
-    Velocity is calculated based on:
-    - Overall variance (actual vs forecast cumulative)
-    - Selected week (performance evolves over time)
-    - Store cluster (high-volume stores tend to vary more)
-    - Actual sales data hash (changes when new data uploaded)
+    Uses REAL per-store velocity calculation when store_actual_sales is available.
+    Falls back to estimated distribution when only aggregate data exists.
     """
-    import random
-
     if not st.session_state.workflow_result:
         return None
 
     allocation = st.session_state.workflow_result.allocation
     forecast = st.session_state.workflow_result.forecast
     actual_sales = st.session_state.actual_sales or []
+    store_actual_sales = st.session_state.store_actual_sales or {}
     total_weeks = len(forecast.forecast_by_week)
     weeks_remaining = total_weeks - selected_week
+
+    # Check if we have real per-store data
+    has_real_store_data = len(store_actual_sales) > 0
 
     # Calculate overall variance from actual uploaded data
     if actual_sales and len(actual_sales) > 0:
@@ -1566,7 +2151,7 @@ def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int,
         total_actual = sum(actual_sales)
         overall_variance = (total_actual - total_forecast) / total_forecast if total_forecast > 0 else 0
 
-        # Calculate week-over-week trend (are things getting better or worse?)
+        # Calculate week-over-week trend
         if len(actual_sales) >= 2:
             recent_forecast = forecast.forecast_by_week[len(actual_sales)-1]
             recent_actual = actual_sales[-1]
@@ -1577,43 +2162,56 @@ def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int,
         overall_variance = 0
         recent_variance = 0
 
-    # Create a dynamic seed based on actual data (changes when uploads change)
-    data_signature = sum(actual_sales) if actual_sales else 0
-
-    # Generate store performance data (simulated based on cluster and actual data)
+    # Generate store performance data
     store_performances = []
     high_performers = []
     underperformers = []
     on_target = []
 
-    for i, store_alloc in enumerate(allocation.store_allocations):
-        # Dynamic seed: combines store, week, and actual sales data
-        # This ensures values change when week changes OR when sales data changes
-        seed_value = hash((store_alloc.store_id, selected_week, data_signature))
-        random.seed(seed_value)
+    for store_alloc in allocation.store_allocations:
+        store_id = store_alloc.store_id
+        allocated = store_alloc.allocation_units
+        cluster = store_alloc.cluster
 
-        # Base velocity influenced by overall performance
-        base_velocity = 1.0 + (overall_variance * 0.5) + (recent_variance * 0.3)
+        # Get actual sales for this store
+        if has_real_store_data and store_id in store_actual_sales:
+            # REAL DATA: sum sales up to selected_week
+            store_sales_list = store_actual_sales[store_id]
+            store_sold = sum(store_sales_list[:selected_week])
+        else:
+            # ESTIMATED: distribute total proportionally
+            total_sold = st.session_state.total_sold or 0
+            total_allocated = allocation.initial_store_allocation
+            if total_allocated > 0:
+                store_sold = int(total_sold * (allocated / total_allocated))
+            else:
+                store_sold = 0
 
-        # Cluster-based variation (high-volume clusters tend to have more variance)
-        cluster_factor = 0.3 if store_alloc.cluster in ["high_volume", "A"] else 0.2
+        # Calculate velocity = (actual/allocated) / (expected_fraction)
+        if allocated > 0 and selected_week > 0:
+            expected_fraction = selected_week / total_weeks
+            expected_sold = allocated * expected_fraction
+            velocity = store_sold / expected_sold if expected_sold > 0 else 1.0
+        else:
+            velocity = 1.0
 
-        # Week-based evolution (performance tends to diverge more as season progresses)
-        week_factor = 0.1 + (selected_week / total_weeks) * 0.2
+        velocity = max(0.3, min(2.0, velocity))  # Clamp to realistic range
 
-        # Random store-specific variation
-        store_variation = random.uniform(-cluster_factor - week_factor, cluster_factor + week_factor)
-
-        velocity = base_velocity + store_variation
-        velocity = max(0.5, min(1.8, velocity))  # Clamp to realistic range
+        # Calculate remaining and weeks of supply
+        remaining = max(0, allocated - store_sold)
+        weekly_rate = store_sold / selected_week if selected_week > 0 else 0
+        weeks_of_supply = remaining / weekly_rate if weekly_rate > 0 else 99
 
         status = "needs_more" if velocity > 1.15 else "excess" if velocity < 0.85 else "on_target"
 
         perf = {
-            "store_id": store_alloc.store_id,
-            "cluster": store_alloc.cluster,
-            "allocated": store_alloc.allocation_units,
+            "store_id": store_id,
+            "cluster": cluster,
+            "allocated": allocated,
+            "sold": store_sold,
+            "remaining": remaining,
             "velocity": round(velocity, 2),
+            "weeks_of_supply": round(min(weeks_of_supply, 99), 1),
             "status": status,
         }
         store_performances.append(perf)
@@ -1625,65 +2223,163 @@ def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int,
         else:
             on_target.append(perf)
 
-    # Generate transfers based on strategy
+    # ==========================================================================
+    # DYNAMIC TRANSFER LOGIC
+    # - Variance-proportional: bigger gaps = bigger transfers
+    # - Time-sensitive: more aggressive as season progresses
+    # - Velocity-weighted: high-velocity stores get proportionally more
+    # ==========================================================================
+
     transfers = []
     dc_released = 0
 
-    # Sort high performers by velocity (highest first)
-    high_performers_sorted = sorted(high_performers, key=lambda x: x["velocity"], reverse=True)[:5]
+    # Calculate URGENCY FACTOR based on time remaining (0.5 to 1.5)
+    # Early season (week 1-3): conservative (0.5-0.7)
+    # Mid season (week 4-8): moderate (0.8-1.0)
+    # Late season (week 9+): aggressive (1.1-1.5)
+    season_progress = selected_week / total_weeks if total_weeks > 0 else 0
+    urgency_factor = 0.5 + (season_progress * 1.0)  # Ranges from 0.5 to 1.5
+
+    # Calculate VARIANCE SEVERITY multiplier (1.0 to 2.0)
+    # Higher variance = more aggressive rebalancing
+    variance_severity = 1.0 + min(abs(overall_variance), 0.5) * 2  # Max 2.0x at 50%+ variance
+
+    # Sort high performers by velocity (highest first) - take more stores later in season
+    max_high_perf = min(3 + int(season_progress * 4), 7)  # 3-7 stores based on progress
+    high_performers_sorted = sorted(high_performers, key=lambda x: x["velocity"], reverse=True)[:max_high_perf]
+
+    # Calculate total velocity weight for proportional distribution
+    total_velocity_weight = sum(max(0, p["velocity"] - 1.0) for p in high_performers_sorted)
 
     if strategy == "dc_only":
-        # DC-only transfers
-        available = min(allocation.dc_holdback, int(allocation.dc_holdback * 0.5))
-        per_store = available // max(len(high_performers_sorted), 1)
+        # DC-only transfers - DYNAMIC release based on urgency and variance
+        # Base: 30% of DC, scales up to 70% based on urgency and variance
+        base_release_pct = 0.30
+        dynamic_release_pct = base_release_pct + (0.40 * urgency_factor * (variance_severity - 1.0))
+        dynamic_release_pct = min(dynamic_release_pct, 0.70)  # Cap at 70%
+
+        available = int(allocation.dc_holdback * dynamic_release_pct)
 
         for perf in high_performers_sorted:
             if available < 50:
                 break
-            units = min(per_store, available, 500)
-            transfers.append({
-                "from": "DC",
-                "to": perf["store_id"],
-                "units": units,
-                "priority": "high" if perf["velocity"] > 1.3 else "medium",
-                "reason": f"High velocity ({perf['velocity']:.2f}x)"
-            })
-            dc_released += units
-            available -= units
+
+            # VELOCITY-WEIGHTED distribution
+            velocity_excess = max(0, perf["velocity"] - 1.0)  # How much above target
+            if total_velocity_weight > 0:
+                store_share = velocity_excess / total_velocity_weight
+            else:
+                store_share = 1.0 / max(len(high_performers_sorted), 1)
+
+            # Calculate units based on share, urgency, and store's remaining capacity
+            base_units = int(available * store_share)
+
+            # Scale by urgency (more aggressive later)
+            urgency_adjusted = int(base_units * urgency_factor)
+
+            # Cap based on store's weeks of supply need
+            if perf["weeks_of_supply"] < weeks_remaining:
+                supply_gap_weeks = weeks_remaining - perf["weeks_of_supply"]
+                weekly_rate = perf["sold"] / selected_week if selected_week > 0 else 0
+                supply_gap_units = int(supply_gap_weeks * weekly_rate * 0.5)  # Fill 50% of gap
+                units = min(urgency_adjusted, supply_gap_units, available, 800)
+            else:
+                units = min(urgency_adjusted, available, 400)
+
+            units = max(units, 50) if units >= 30 else 0  # Minimum viable transfer
+
+            if units > 0:
+                # Dynamic priority based on velocity AND weeks of supply
+                if perf["velocity"] > 1.4 or perf["weeks_of_supply"] < 2:
+                    priority = "high"
+                elif perf["velocity"] > 1.2 or perf["weeks_of_supply"] < 4:
+                    priority = "medium"
+                else:
+                    priority = "low"
+
+                transfers.append({
+                    "from": "DC",
+                    "to": perf["store_id"],
+                    "units": units,
+                    "priority": priority,
+                    "reason": f"Velocity {perf['velocity']:.2f}x, {perf['weeks_of_supply']:.1f} wks supply"
+                })
+                dc_released += units
+                available -= units
 
     elif strategy == "hybrid":
-        # DC transfers first
-        available = min(allocation.dc_holdback, int(allocation.dc_holdback * 0.4))
-        per_store = available // max(len(high_performers_sorted), 1)
+        # Hybrid: DC transfers + store-to-store rebalancing
 
-        for perf in high_performers_sorted[:3]:
+        # DC portion (slightly less than dc_only since we also do store transfers)
+        base_release_pct = 0.25
+        dynamic_release_pct = base_release_pct + (0.30 * urgency_factor * (variance_severity - 1.0))
+        dynamic_release_pct = min(dynamic_release_pct, 0.55)
+
+        available = int(allocation.dc_holdback * dynamic_release_pct)
+
+        # DC to top performers (velocity-weighted)
+        for perf in high_performers_sorted[:4]:
             if available < 50:
                 break
-            units = min(per_store, available, 400)
-            transfers.append({
-                "from": "DC",
-                "to": perf["store_id"],
-                "units": units,
-                "priority": "high",
-                "reason": f"High velocity ({perf['velocity']:.2f}x)"
-            })
-            dc_released += units
-            available -= units
 
-        # Store-to-store transfers
-        underperformers_sorted = sorted(underperformers, key=lambda x: x["velocity"])[:3]
-        for i, under in enumerate(underperformers_sorted):
-            if i >= len(high_performers_sorted):
+            velocity_excess = max(0, perf["velocity"] - 1.0)
+            if total_velocity_weight > 0:
+                store_share = velocity_excess / total_velocity_weight
+            else:
+                store_share = 0.25
+
+            base_units = int(available * store_share * 1.5)  # Concentrate on fewer stores
+            urgency_adjusted = int(base_units * urgency_factor)
+            units = min(urgency_adjusted, available, 600)
+            units = max(units, 50) if units >= 30 else 0
+
+            if units > 0:
+                priority = "high" if perf["velocity"] > 1.3 else "medium"
+                transfers.append({
+                    "from": "DC",
+                    "to": perf["store_id"],
+                    "units": units,
+                    "priority": priority,
+                    "reason": f"Velocity {perf['velocity']:.2f}x, {perf['weeks_of_supply']:.1f} wks supply"
+                })
+                dc_released += units
+                available -= units
+
+        # Store-to-store transfers (from underperformers to high performers)
+        underperformers_sorted = sorted(underperformers, key=lambda x: x["velocity"])[:5]
+
+        for under in underperformers_sorted:
+            # Find best recipient (highest velocity that hasn't received store transfer)
+            recipients = [p for p in high_performers_sorted
+                         if not any(t["to"] == p["store_id"] and t["from"] != "DC" for t in transfers)]
+            if not recipients:
+                recipients = high_performers_sorted[:2]
+
+            if not recipients:
                 break
-            high = high_performers_sorted[min(i, len(high_performers_sorted)-1)]
-            units = min(int(under["allocated"] * 0.2), 300)
-            if units >= 50:
+
+            high = max(recipients, key=lambda x: x["velocity"])
+
+            # Calculate transfer based on underperformer's excess inventory
+            velocity_deficit = max(0, 1.0 - under["velocity"])  # How much below target
+            excess_inventory = int(under["remaining"] * velocity_deficit * urgency_factor)
+
+            # Also consider high performer's need
+            high_need = int((high["velocity"] - 1.0) * high["allocated"] * 0.3)
+
+            units = min(excess_inventory, high_need, int(under["remaining"] * 0.4), 500)
+            units = max(units, 50) if units >= 30 else 0
+
+            if units > 0:
+                velocity_diff = high["velocity"] - under["velocity"]
+                priority = "high" if velocity_diff > 0.5 else "medium" if velocity_diff > 0.3 else "low"
+
                 transfers.append({
                     "from": under["store_id"],
                     "to": high["store_id"],
                     "units": units,
-                    "priority": "medium" if under["velocity"] < 0.7 else "low",
-                    "reason": f"Velocity differential ({under['velocity']:.2f}x → {high['velocity']:.2f}x)"
+                    "priority": priority,
+                    "reason": f"Rebalance: {under['velocity']:.2f}x → {high['velocity']:.2f}x (Δ{velocity_diff:.2f})"
                 })
 
     total_units = sum(t["units"] for t in transfers)
@@ -1694,6 +2390,10 @@ def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int,
     confidence = 0.60 + (min(weeks_of_data, 6) * 0.05)  # 60-90% based on weeks of data
     if variance_magnitude > 0.15:
         confidence += 0.05  # Higher confidence when variance is significant
+
+    # Boost confidence if using real store data
+    if has_real_store_data:
+        confidence += 0.10
 
     return {
         "should_reallocate": len(transfers) > 0 and total_units >= 100,
@@ -1709,11 +2409,16 @@ def _generate_mock_reallocation_data(params: WorkflowParams, selected_week: int,
         "store_performances": store_performances,
         "weeks_remaining": weeks_remaining,
         "confidence": min(confidence, 0.95),
-        # New fields for UI display
+        # Data quality indicators
+        "has_real_store_data": has_real_store_data,
         "overall_variance": overall_variance,
         "recent_variance": recent_variance,
         "weeks_of_data": weeks_of_data,
         "selected_week": selected_week,
+        # Dynamic factors (NEW)
+        "urgency_factor": urgency_factor,
+        "variance_severity": variance_severity,
+        "season_progress_pct": season_progress * 100,
     }
 
 
@@ -1764,9 +2469,9 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
 
     st.markdown("---")
 
-    # Generate mock data based on selected strategy
+    # Generate reallocation data (uses real store data when available)
     strategy = st.session_state.selected_reallocation_strategy
-    realloc_data = _generate_mock_reallocation_data(params, selected_week, strategy)
+    realloc_data = _generate_reallocation_data(params, selected_week, strategy)
 
     if not realloc_data:
         st.warning("Unable to generate reallocation analysis.")
@@ -1955,6 +2660,13 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
     st.markdown("---")
     st.markdown("#### 🤖 Agent Analysis")
 
+    # Show data source indicator
+    has_real_data = realloc_data.get('has_real_store_data', False)
+    if has_real_data:
+        st.success("✅ **Using REAL per-store sales data** from uploaded CSVs")
+    else:
+        st.info("📊 Using estimated store-level data (proportional distribution)")
+
     # Show variance-driven insights
     overall_var = realloc_data.get('overall_variance', 0)
     recent_var = realloc_data.get('recent_variance', 0)
@@ -1963,29 +2675,45 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
     var_trend = "improving" if recent_var > overall_var else "worsening" if recent_var < overall_var else "stable"
     var_direction = "overperforming" if overall_var > 0 else "underperforming" if overall_var < 0 else "on target"
 
+    # Get dynamic factors
+    urgency = realloc_data.get('urgency_factor', 1.0)
+    var_severity = realloc_data.get('variance_severity', 1.0)
+    season_pct = realloc_data.get('season_progress_pct', 0)
+
+    # Determine urgency label
+    if urgency < 0.7:
+        urgency_label = "🟢 Conservative (early season)"
+    elif urgency < 1.0:
+        urgency_label = "🟡 Moderate (mid season)"
+    else:
+        urgency_label = "🔴 Aggressive (late season)"
+
     st.markdown(f"""
 **Week {realloc_data.get('selected_week', selected_week)} Analysis** (based on {weeks_data} weeks of data)
 
-**Variance Summary:**
+**📊 Dynamic Factors:**
+- Season Progress: **{season_pct:.0f}%** ({realloc_data['weeks_remaining']} weeks remaining)
+- Urgency Level: **{urgency:.2f}x** {urgency_label}
+- Variance Severity: **{var_severity:.2f}x** multiplier
+
+**📈 Variance Summary:**
 - Overall Variance: **{overall_var:+.1%}** ({var_direction})
 - Recent Trend: **{recent_var:+.1%}** ({var_trend})
 
-**Strategy:** {strategy.replace('_', ' ').title()}
+**🏪 Store Performance:**
+- High Performers (need more): **{len(realloc_data['high_performers'])}** stores
+- Underperformers (excess): **{len(realloc_data['underperformers'])}** stores
+- On Target: **{len(realloc_data['on_target'])}** stores
 
-**Store Performance Summary:**
-- High Performers (need more): {len(realloc_data['high_performers'])} stores
-- Underperformers (excess): {len(realloc_data['underperformers'])} stores
-- On Target: {len(realloc_data['on_target'])} stores
+**💡 Strategy:** {strategy.replace('_', ' ').title()}
 
-**Recommendation:**
-{"Strategic replenishment recommended to optimize sell-through." if realloc_data['should_reallocate'] else "No significant reallocation needed at this time."}
-
-**Weeks Remaining:** {realloc_data['weeks_remaining']}
+**🎯 Recommendation:**
+{"✅ Strategic replenishment recommended - transfers sized by velocity differential and urgency." if realloc_data['should_reallocate'] else "⏸️ No significant reallocation needed at this time."}
 
 **Expected Impact:**
 - Reduce stockout risk at high-velocity stores
-- {"Reduce excess at underperforming stores" if strategy == "hybrid" else "DC inventory released to market"}
-- Estimated sell-through improvement: 5-12%
+- {"Rebalance inventory from slow to fast movers" if strategy == "hybrid" else "Release DC holdback to high-demand stores"}
+- Transfer amounts scaled by: velocity gap × urgency × variance severity
     """)
 
     # Action buttons
@@ -2058,32 +2786,41 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
     # Section 4: Pricing Agent (only at/after markdown checkpoint)
     is_pricing_available = selected_week >= markdown_week
     with st.expander(
-        f"💰 4. Pricing Agent {'🔓' if is_pricing_available else '🔒 (Week ' + str(markdown_week) + '+)'}",
-        expanded=False,
+        f"💰 4. Markdown Command Center {'🔓' if is_pricing_available else '🔒 (Week ' + str(markdown_week) + '+)'}",
+        expanded=is_pricing_available,  # Auto-expand when available
     ):
         if is_pricing_available:
-            st.success("✅ Pricing Agent is available!")
-
             # Show current sell-through if we have data
             if st.session_state.workflow_result and st.session_state.total_sold > 0:
                 allocation = st.session_state.workflow_result.allocation
                 sell_through = st.session_state.total_sold / allocation.initial_store_allocation
-                st.metric("Current Sell-Through", f"{sell_through:.1%}")
-                st.metric("Target Sell-Through", f"{params.markdown_threshold:.0%}")
 
-                gap = params.markdown_threshold - sell_through
-                if gap > 0:
-                    st.warning(f"⚠️ Behind target by {gap:.1%}")
-                    if st.button("🏷️ Calculate Markdown Recommendation", key=f"calc_markdown_{selected_week}"):
-                        st.info("Markdown calculation would run here...")
-                else:
-                    st.success("✅ On track or ahead of target!")
+                # Use the enhanced Markdown Command Center (Solution A)
+                render_markdown_command_center(
+                    params=params,
+                    current_sell_through=sell_through,
+                    total_sold=st.session_state.total_sold,
+                    total_allocated=allocation.initial_store_allocation,
+                    current_week=selected_week,
+                )
             else:
-                st.info("Run pre-season workflow and enter sales data to enable pricing recommendations.")
+                st.info("📊 Run pre-season workflow and enter sales data to enable the Markdown Command Center.")
+                st.caption("The pricing agent needs actual sales data to calculate optimal markdown recommendations.")
         else:
-            st.info(f"🔒 Pricing agent unlocks at Week {markdown_week} (Markdown Checkpoint)")
+            st.info(f"🔒 Markdown Command Center unlocks at Week {markdown_week} (Markdown Checkpoint)")
             weeks_until = markdown_week - selected_week
             st.caption(f"{weeks_until} week(s) until pricing tools available")
+
+            # Show a preview of what's coming
+            with st.container():
+                st.markdown("**Coming at Week {}:**".format(markdown_week))
+                st.markdown("""
+                - 📊 Interactive markdown scenario comparison
+                - 📈 Sell-through trajectory visualization
+                - 💵 Revenue vs margin tradeoff analysis
+                - ✨ Forecast impact preview
+                - 🤖 AI-powered pricing recommendations
+                """)
 
 
 def render_inseason_setup(params: WorkflowParams):
@@ -2255,7 +2992,7 @@ def render_data_upload():
 # Main Content
 # =============================================================================
 async def run_workflow_async(params: WorkflowParams):
-    """Run the workflow asynchronously."""
+    """Run the workflow asynchronously with UI hooks."""
     context = ForecastingContext(
         data_loader=st.session_state.data_loader,
         session_id=st.session_state.session_id,
@@ -2264,21 +3001,39 @@ async def run_workflow_async(params: WorkflowParams):
         total_sold=st.session_state.total_sold,
     )
 
-    if st.session_state.current_week > 0 and st.session_state.actual_sales:
-        result = await run_inseason_update(
-            context=context,
-            params=params,
-            current_week=st.session_state.current_week,
-            actual_sales=st.session_state.actual_sales,
-            total_sold=st.session_state.total_sold,
-        )
-    else:
-        result = await run_preseason_planning(
-            context=context,
-            params=params,
-        )
+    # Create hooks for UI updates
+    hooks = WorkflowUIHooks(st.session_state.workflow_state)
 
-    return result
+    # Start workflow tracking
+    st.session_state.workflow_state.start_workflow()
+
+    try:
+        if st.session_state.current_week > 0 and st.session_state.actual_sales:
+            # Track phase transitions
+            st.session_state.workflow_state.start_phase("forecast")
+            result = await run_inseason_update(
+                context=context,
+                params=params,
+                current_week=st.session_state.current_week,
+                actual_sales=st.session_state.actual_sales,
+                total_sold=st.session_state.total_sold,
+                hooks=hooks,
+            )
+        else:
+            st.session_state.workflow_state.start_phase("forecast")
+            result = await run_preseason_planning(
+                context=context,
+                params=params,
+                hooks=hooks,
+            )
+
+        # Mark workflow complete
+        st.session_state.workflow_state.end_workflow()
+        return result
+
+    except Exception as e:
+        st.session_state.workflow_state.end_workflow()
+        raise e
 
 
 def render_preseason_tab(params: WorkflowParams):
@@ -2366,6 +3121,75 @@ def render_preseason_tab(params: WorkflowParams):
             render_data_upload()
 
 
+# =============================================================================
+# Workflow Drawer Component
+# =============================================================================
+def render_workflow_drawer():
+    """Render the floating workflow status drawer using Streamlit native components."""
+    state = st.session_state.workflow_state
+
+    # Use a container in the sidebar for workflow status
+    with st.sidebar:
+        st.markdown("---")
+        with st.expander("🤖 Agent Workflow Status", expanded=state.is_running):
+            # Phase Progress
+            st.markdown("**Phase Progress**")
+            phase_cols = st.columns(len(state.phases))
+            for i, phase in enumerate(state.phases):
+                with phase_cols[i]:
+                    if phase.status.value == "completed":
+                        st.markdown(f"✅ {phase.icon}")
+                    elif phase.status.value == "running":
+                        st.markdown(f"🔄 {phase.icon}")
+                    else:
+                        st.markdown(f"⬜ {phase.icon}")
+
+            st.caption(f"Completed: {state.completed_phases}/{state.total_phases}")
+
+            # Current Agent
+            st.markdown("**Current Agent**")
+            if state.current_agent:
+                agent_type = "📈"
+                if "inventory" in state.current_agent.lower():
+                    agent_type = "📦"
+                elif "pricing" in state.current_agent.lower():
+                    agent_type = "💰"
+                elif "variance" in state.current_agent.lower():
+                    agent_type = "📊"
+
+                st.info(f"{agent_type} {state.current_agent}")
+
+                # Tools
+                if state.current_tools:
+                    st.markdown("*Recent Tools:*")
+                    for tool in state.current_tools[-3:]:
+                        status_icon = "🔄" if tool.status.value == "running" else "✅"
+                        duration = f" ({tool.duration_ms:.0f}ms)" if tool.duration_ms else ""
+                        st.caption(f"{status_icon} `{tool.name}()`{duration}")
+            elif state.is_running:
+                st.info("Initializing workflow...")
+            else:
+                st.caption("No workflow running")
+
+            # Event Log
+            if state.events:
+                st.markdown("**Recent Events**")
+                for event in state.events[-5:]:
+                    event_type = event.get("type", "")
+                    message = event.get("message", "")
+                    if event_type == "phase":
+                        st.caption(f"📍 {message}")
+                    elif event_type == "agent":
+                        st.caption(f"🤖 {message}")
+                    elif event_type == "tool":
+                        st.caption(f"🔧 {message}")
+
+            # Elapsed time
+            if state.start_time:
+                elapsed = state.elapsed_seconds
+                st.caption(f"⏱️ Elapsed: {int(elapsed // 60)}:{int(elapsed % 60):02d}")
+
+
 def main():
     """Main application entry point."""
     st.title("📊 Retail Forecasting Multi-Agent System")
@@ -2389,6 +3213,9 @@ def main():
 
     with tab_inseason:
         render_inseason_planning(params)
+
+    # Render workflow status drawer (floating FAB + drawer)
+    render_workflow_drawer()
 
 
 if __name__ == "__main__":

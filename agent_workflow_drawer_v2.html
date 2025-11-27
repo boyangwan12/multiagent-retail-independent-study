@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Workflow Drawer - Deterministic Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0e1117;
+            color: #fafafa;
+            min-height: 100vh;
+            padding: 20px 32px;
+        }
+
+        /* Main page content placeholder */
+        .main-header h1 { font-size: 24px; margin-bottom: 6px; }
+        .main-header p { color: #888; font-size: 13px; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #3d3d4d; padding-bottom: 10px; }
+        .tab { padding: 8px 16px; background: transparent; border: none; color: #888; font-size: 13px; cursor: pointer; border-radius: 6px; }
+        .tab.active { background: #667eea; color: white; }
+        .content-card { background: #262730; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+        .content-card h3 { font-size: 16px; margin-bottom: 14px; }
+        .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .metric { background: #1e1e2e; border-radius: 8px; padding: 14px; }
+        .metric-label { font-size: 11px; color: #888; margin-bottom: 6px; }
+        .metric-value { font-size: 22px; font-weight: 600; }
+        .chart-placeholder { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 8px; height: 180px; display: flex; align-items: center; justify-content: center; color: #666; }
+
+        /* ============================================
+           FLOATING ACTION BUTTON
+           ============================================ */
+        .fab-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: white;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .fab:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .fab.active {
+            background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+        }
+
+        .fab-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #00d26a;
+            border-radius: 50%;
+            border: 2px solid #0e1117;
+            animation: fabPulse 2s infinite;
+        }
+
+        .fab-indicator.idle { background: #888; animation: none; }
+        .fab-indicator.error { background: #f5576c; }
+
+        @keyframes fabPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+        }
+
+        /* FAB hover preview */
+        .fab-preview {
+            position: absolute;
+            bottom: 65px;
+            right: 0;
+            background: #262730;
+            border: 1px solid #3d3d4d;
+            border-radius: 10px;
+            padding: 10px 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+            pointer-events: none;
+            min-width: 180px;
+        }
+
+        .fab:hover .fab-preview { opacity: 1; transform: translateY(0); }
+
+        .fab-preview-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .fab-preview-row strong { color: #fafafa; }
+        .fab-preview-row span { color: #888; }
+
+        /* ============================================
+           SLIDE-OUT DRAWER
+           ============================================ */
+        .drawer-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+
+        .drawer-overlay.open { opacity: 1; visibility: visible; }
+
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 400px;
+            height: 100vh;
+            background: #1a1a2e;
+            border-left: 1px solid #3d3d4d;
+            transition: right 0.3s ease;
+            z-index: 1002;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .drawer.open { right: 0; }
+
+        /* Drawer Header */
+        .drawer-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+            border-bottom: 1px solid #3d3d4d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .drawer-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .drawer-title h2 { font-size: 15px; font-weight: 600; }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(0, 210, 106, 0.15);
+            color: #00d26a;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .live-badge .dot {
+            width: 6px; height: 6px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .drawer-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 22px;
+            cursor: pointer;
+        }
+
+        .drawer-close:hover { color: #fafafa; }
+
+        /* Drawer Content */
+        .drawer-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        /* Phase Progress Bar */
+        .phase-progress {
+            background: #0e1117;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .phase-progress-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .phase-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .phase-segment {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #3d3d4d;
+            transition: all 0.3s ease;
+        }
+
+        .phase-segment.completed { background: #00d26a; }
+        .phase-segment.active { background: #667eea; animation: phaseGlow 1.5s infinite; }
+        .phase-segment.skipped { background: #555; opacity: 0.5; }
+
+        @keyframes phaseGlow {
+            0%, 100% { box-shadow: 0 0 4px rgba(102, 126, 234, 0.5); }
+            50% { box-shadow: 0 0 8px rgba(102, 126, 234, 0.8); }
+        }
+
+        .phase-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #666;
+        }
+
+        .phase-labels span.active { color: #667eea; font-weight: 600; }
+        .phase-labels span.completed { color: #00d26a; }
+
+        /* Current Agent Card */
+        .current-agent-card {
+            background: linear-gradient(135deg, #1e2a4a 0%, #1a1a2e 100%);
+            border: 1px solid #0f3460;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .current-agent-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .current-agent-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .agent-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .agent-avatar.demand { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .agent-avatar.inventory { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .agent-avatar.pricing { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .agent-avatar.variance { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .agent-avatar.reallocation { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+        .agent-info h3 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+        .agent-info p { font-size: 11px; color: #888; }
+
+        .agent-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .agent-status.running { background: rgba(102, 126, 234, 0.2); color: #667eea; }
+        .agent-status.completed { background: rgba(0, 210, 106, 0.15); color: #00d26a; }
+        .agent-status.waiting { background: rgba(136, 136, 136, 0.2); color: #888; }
+
+        .agent-status .dot {
+            width: 5px; height: 5px;
+            background: currentColor;
+            border-radius: 50%;
+        }
+
+        .agent-status.running .dot { animation: pulse 1s infinite; }
+
+        /* Section title */
+        .section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin: 14px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #2d2d3d;
+        }
+
+        /* Tools List */
+        .tools-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tool-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #0e1117;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        .tool-icon { font-size: 14px; }
+
+        .tool-name {
+            flex: 1;
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #ccc;
+        }
+
+        .tool-status {
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 500;
+        }
+
+        .tool-status.running { background: rgba(102, 126, 234, 0.2); color: #667eea; }
+        .tool-status.done { background: rgba(0, 210, 106, 0.15); color: #00d26a; }
+        .tool-status.pending { background: rgba(136, 136, 136, 0.2); color: #888; }
+
+        /* Guardrails */
+        .guardrails-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .guardrail-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .guardrail-badge.pass { background: rgba(0, 210, 106, 0.15); color: #00d26a; }
+        .guardrail-badge.fail { background: rgba(245, 87, 108, 0.2); color: #f5576c; }
+        .guardrail-badge.warn { background: rgba(254, 214, 64, 0.2); color: #fed640; }
+        .guardrail-badge.pending { background: rgba(136, 136, 136, 0.2); color: #888; }
+
+        /* Output Summary */
+        .output-summary {
+            background: #0e1117;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .output-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 11px;
+            border-bottom: 1px solid #1e1e2e;
+        }
+
+        .output-row:last-child { border-bottom: none; }
+        .output-row .label { color: #888; }
+        .output-row .value { color: #fafafa; font-weight: 500; }
+
+        /* Variance Loop Indicator */
+        .variance-loop {
+            background: linear-gradient(135deg, #2a1f3d 0%, #1a1a2e 100%);
+            border: 1px solid #3d2d5d;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 10px;
+        }
+
+        .variance-loop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .variance-loop-header h5 {
+            font-size: 11px;
+            color: #f093fb;
+        }
+
+        .loop-count {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .variance-reason {
+            font-size: 10px;
+            color: #ccc;
+            line-height: 1.4;
+        }
+
+        /* SDK Info */
+        .sdk-info {
+            background: #0e1117;
+            border: 1px solid #2d2d3d;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .sdk-info h5 {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #f093fb;
+            margin-bottom: 8px;
+        }
+
+        .sdk-info code {
+            display: block;
+            font-size: 10px;
+            color: #00d26a;
+            font-family: 'Monaco', 'Menlo', monospace;
+            line-height: 1.5;
+        }
+
+        /* Drawer Footer */
+        .drawer-footer {
+            padding: 10px 16px;
+            background: #16213e;
+            border-top: 1px solid #3d3d4d;
+            font-size: 10px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Info callout */
+        .info-callout {
+            background: linear-gradient(135deg, #1a2a3e 0%, #1a1a2e 100%);
+            border: 1px solid #3d3d4d;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+
+        .info-callout h4 { font-size: 13px; margin-bottom: 8px; color: #667eea; }
+        .info-callout p { font-size: 12px; color: #ccc; line-height: 1.5; }
+        .info-callout ul { margin: 8px 0 0 20px; font-size: 12px; color: #888; }
+        .info-callout li { margin-bottom: 4px; }
+        .info-callout code { background: #0e1117; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #00d26a; }
+    </style>
+</head>
+<body>
+    <!-- Main Page Content -->
+    <div class="main-header">
+        <h1>📊 Retail Forecasting Multi-Agent System</h1>
+        <p>This system uses 3 specialized AI agents to forecast demand, allocate inventory, and optimize pricing.</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active">🌱 Pre-Season</button>
+        <button class="tab">📅 In-Season</button>
+    </div>
+
+    <div class="content-card">
+        <h3>🔮 Demand Forecast</h3>
+        <div class="metrics-row">
+            <div class="metric"><div class="metric-label">Total Demand</div><div class="metric-value">8,540</div></div>
+            <div class="metric"><div class="metric-label">Weekly Average</div><div class="metric-value">712</div></div>
+            <div class="metric"><div class="metric-label">Confidence</div><div class="metric-value">85%</div></div>
+            <div class="metric"><div class="metric-label">Safety Stock</div><div class="metric-value">20%</div></div>
+        </div>
+        <div class="chart-placeholder">📈 Forecast Chart</div>
+    </div>
+
+    <div class="content-card">
+        <h3>📦 Inventory Allocation</h3>
+        <div class="metrics-row">
+            <div class="metric"><div class="metric-label">Manufacturing</div><div class="metric-value">10,248</div></div>
+            <div class="metric"><div class="metric-label">DC Holdback</div><div class="metric-value">4,612</div></div>
+            <div class="metric"><div class="metric-label">Store Alloc</div><div class="metric-value">5,636</div></div>
+            <div class="metric"><div class="metric-label">Stores</div><div class="metric-value">45</div></div>
+        </div>
+        <div class="chart-placeholder">🥧 Allocation Chart</div>
+    </div>
+
+    <!-- Info about this solution -->
+    <div class="info-callout">
+        <h4>💡 Deterministic Workflow + RunHooks</h4>
+        <p>Your architecture uses <strong>deterministic orchestration</strong> (Python controls WHEN agents run). The correct SDK tech is <code>RunHooks</code>:</p>
+        <ul>
+            <li><code>on_agent_start()</code> - When agent begins</li>
+            <li><code>on_agent_end()</code> - When agent completes</li>
+            <li><code>on_tool_start()</code> - When tool is called</li>
+            <li><code>on_tool_end()</code> - When tool returns</li>
+        </ul>
+        <p style="margin-top: 8px;">This drawer visualizes: <strong>Phases → Agent → Tools → Guardrails → Output</strong></p>
+    </div>
+
+    <!-- FLOATING ACTION BUTTON -->
+    <div class="fab-container">
+        <button class="fab" id="fabButton" onclick="toggleDrawer()">
+            🤖
+            <span class="fab-indicator" id="fabIndicator"></span>
+            <div class="fab-preview">
+                <div class="fab-preview-row">
+                    <span>📦</span>
+                    <strong>Inventory Agent</strong>
+                </div>
+                <div class="fab-preview-row" style="margin-top: 4px;">
+                    <span style="color: #667eea;">Phase 2/4</span>
+                    <span>• allocate_inventory()</span>
+                </div>
+            </div>
+        </button>
+    </div>
+
+    <!-- DRAWER OVERLAY -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+
+    <!-- DRAWER -->
+    <div class="drawer" id="drawer">
+        <div class="drawer-header">
+            <div class="drawer-title">
+                <h2>Workflow Status</h2>
+                <span class="live-badge"><span class="dot"></span>Running</span>
+            </div>
+            <button class="drawer-close" onclick="toggleDrawer()">&times;</button>
+        </div>
+
+        <div class="drawer-content">
+            <!-- Phase Progress -->
+            <div class="phase-progress">
+                <div class="phase-progress-label">Workflow Progress</div>
+                <div class="phase-bar">
+                    <div class="phase-segment completed"></div>
+                    <div class="phase-segment active"></div>
+                    <div class="phase-segment"></div>
+                    <div class="phase-segment"></div>
+                </div>
+                <div class="phase-labels">
+                    <span class="completed">Forecast</span>
+                    <span class="active">Allocation</span>
+                    <span>Realloc</span>
+                    <span>Pricing</span>
+                </div>
+            </div>
+
+            <!-- Current Agent -->
+            <div class="current-agent-card">
+                <div class="current-agent-label">on_agent_start fired</div>
+                <div class="current-agent-row">
+                    <div class="agent-avatar inventory">📦</div>
+                    <div class="agent-info">
+                        <h3>Inventory Agent</h3>
+                        <p>Allocating to 45 stores...</p>
+                        <div class="agent-status running">
+                            <span class="dot"></span>
+                            Running
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tools -->
+            <div class="section-title">Tools (on_tool_start/end)</div>
+            <div class="tools-list">
+                <div class="tool-item">
+                    <span class="tool-icon">🎯</span>
+                    <span class="tool-name">cluster_stores()</span>
+                    <span class="tool-status done">Done</span>
+                </div>
+                <div class="tool-item">
+                    <span class="tool-icon">📦</span>
+                    <span class="tool-name">allocate_inventory()</span>
+                    <span class="tool-status running">Running</span>
+                </div>
+            </div>
+
+            <!-- Guardrails -->
+            <div class="section-title">Output Guardrails</div>
+            <div class="guardrails-list">
+                <div class="guardrail-badge pass">✓ validate_allocation_output</div>
+                <div class="guardrail-badge pending">○ validate_allocation_distribution</div>
+            </div>
+
+            <!-- Output Summary -->
+            <div class="section-title">Agent Output (final_output)</div>
+            <div class="output-summary">
+                <div class="output-row">
+                    <span class="label">manufacturing_qty</span>
+                    <span class="value">10,248 units</span>
+                </div>
+                <div class="output-row">
+                    <span class="label">dc_holdback</span>
+                    <span class="value">4,612 (45%)</span>
+                </div>
+                <div class="output-row">
+                    <span class="label">initial_store_allocation</span>
+                    <span class="value">5,636 units</span>
+                </div>
+                <div class="output-row">
+                    <span class="label">clusters</span>
+                    <span class="value">3 (silhouette: 0.68)</span>
+                </div>
+            </div>
+
+            <!-- Variance Loop (if applicable) -->
+            <div class="variance-loop">
+                <div class="variance-loop-header">
+                    <h5>🔄 Variance Analysis Loop</h5>
+                    <span class="loop-count">Iteration 1/2</span>
+                </div>
+                <div class="variance-reason">
+                    Variance Agent detected 18% under-performance. Recommended action: <strong>Reforecast</strong> with adjusted seasonality.
+                </div>
+            </div>
+
+            <!-- SDK Reference -->
+            <div class="sdk-info">
+                <h5>Implementation: RunHooks</h5>
+                <code>
+result = await Runner.run(<br>
+&nbsp;&nbsp;demand_agent,<br>
+&nbsp;&nbsp;input="...",<br>
+&nbsp;&nbsp;context=context,<br>
+&nbsp;&nbsp;hooks=WorkflowUIHooks()&nbsp;# Captures events<br>
+)<br><br>
+class WorkflowUIHooks(RunHooks):<br>
+&nbsp;&nbsp;async def on_agent_start(...):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;update_ui("agent_started")<br>
+&nbsp;&nbsp;async def on_tool_start(...):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;update_ui("tool_running")
+                </code>
+            </div>
+        </div>
+
+        <div class="drawer-footer">
+            <span>Elapsed: 4.2s</span>
+            <span>Phase 2/4</span>
+            <span>Tools: 2/2</span>
+        </div>
+    </div>
+
+    <script>
+        function toggleDrawer() {
+            document.getElementById('drawer').classList.toggle('open');
+            document.getElementById('drawerOverlay').classList.toggle('open');
+            document.getElementById('fabButton').classList.toggle('active');
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

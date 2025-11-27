@@ -20,7 +20,7 @@ Usage:
 import logging
 from typing import Optional
 
-from agents import Runner
+from agents import Runner, RunHooks
 
 from my_agents.pricing_agent import pricing_agent
 from schemas.pricing_schemas import MarkdownResult
@@ -34,6 +34,7 @@ async def run_markdown_check(
     current_sell_through: float,
     target_sell_through: float = 0.60,
     week_number: Optional[int] = None,
+    hooks: Optional[RunHooks] = None,
 ) -> MarkdownResult:
     """
     Run markdown calculation based on sell-through performance.
@@ -82,6 +83,7 @@ Consider the remaining season time when explaining your recommendation."""
         starting_agent=pricing_agent,
         input=input_prompt,
         context=context,
+        hooks=hooks,
     )
 
     markdown: MarkdownResult = result.final_output
@@ -151,6 +153,7 @@ async def run_markdown_if_needed(
     context: ForecastingContext,
     markdown_week: int = 6,
     markdown_threshold: float = 0.60,
+    hooks: Optional[RunHooks] = None,
 ) -> Optional[MarkdownResult]:
     """
     Convenience function that checks if markdown is needed and runs if so.
@@ -162,6 +165,7 @@ async def run_markdown_if_needed(
         context: ForecastingContext with sales tracking
         markdown_week: Week to start checking (default: 6)
         markdown_threshold: Sell-through threshold (default: 0.60)
+        hooks: Optional RunHooks for UI updates
 
     Returns:
         MarkdownResult if markdown was calculated, None otherwise
@@ -182,6 +186,7 @@ async def run_markdown_if_needed(
         context=context,
         current_sell_through=sell_through,
         target_sell_through=markdown_threshold,
+        hooks=hooks,
     )
 
     return markdown

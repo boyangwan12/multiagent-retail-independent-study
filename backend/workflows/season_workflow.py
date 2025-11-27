@@ -23,6 +23,8 @@ import logging
 import time
 from typing import Optional
 
+from agents import RunHooks
+
 from workflows.forecast_workflow import run_forecast_with_variance_loop
 from workflows.allocation_workflow import run_allocation
 from workflows.reallocation_workflow import run_strategic_replenishment
@@ -41,6 +43,7 @@ logger = logging.getLogger("season_workflow")
 async def run_full_season(
     context: ForecastingContext,
     params: WorkflowParams,
+    hooks: Optional[RunHooks] = None,
 ) -> SeasonResult:
     """
     Full season workflow with all 3 agents.
@@ -86,6 +89,7 @@ async def run_full_season(
         forecast_horizon=params.forecast_horizon_weeks,
         variance_threshold=params.variance_threshold,
         max_reforecasts=params.max_reforecasts,
+        hooks=hooks,
     )
 
     phases_completed.append("forecast")
@@ -106,6 +110,7 @@ async def run_full_season(
         forecast=forecast,
         dc_holdback_pct=params.dc_holdback_pct,
         replenishment_strategy=params.replenishment_strategy,
+        hooks=hooks,
     )
 
     phases_completed.append("allocation")
@@ -136,6 +141,7 @@ async def run_full_season(
             context=context,
             current_week=context.current_week,
             variance_pct=variance_pct,
+            hooks=hooks,
         )
 
         if reallocation is not None and reallocation.should_reallocate:
@@ -164,6 +170,7 @@ async def run_full_season(
             context=context,
             markdown_week=params.markdown_week,
             markdown_threshold=params.markdown_threshold,
+            hooks=hooks,
         )
 
         if markdown is not None:
@@ -209,6 +216,7 @@ async def run_full_season(
 async def run_preseason_planning(
     context: ForecastingContext,
     params: WorkflowParams,
+    hooks: Optional[RunHooks] = None,
 ) -> SeasonResult:
     """
     Pre-season planning workflow (forecast + allocation only).
@@ -219,6 +227,7 @@ async def run_preseason_planning(
     Args:
         context: ForecastingContext with data_loader
         params: WorkflowParams with configuration
+        hooks: Optional RunHooks for UI updates
 
     Returns:
         SeasonResult with forecast and allocation (no markdown)
@@ -229,7 +238,7 @@ async def run_preseason_planning(
     context.actual_sales = None
     context.current_week = 0
 
-    return await run_full_season(context, params)
+    return await run_full_season(context, params, hooks=hooks)
 
 
 async def run_inseason_update(
@@ -238,6 +247,7 @@ async def run_inseason_update(
     current_week: int,
     actual_sales: list,
     total_sold: int,
+    hooks: Optional[RunHooks] = None,
 ) -> SeasonResult:
     """
     In-season update workflow with actual sales data.
@@ -251,6 +261,7 @@ async def run_inseason_update(
         current_week: Current week number (1-12)
         actual_sales: List of actual weekly sales
         total_sold: Total units sold so far
+        hooks: Optional RunHooks for UI updates
 
     Returns:
         SeasonResult with updated forecast and potential markdown
@@ -262,4 +273,4 @@ async def run_inseason_update(
     context.actual_sales = actual_sales
     context.total_sold = total_sold
 
-    return await run_full_season(context, params)
+    return await run_full_season(context, params, hooks=hooks)

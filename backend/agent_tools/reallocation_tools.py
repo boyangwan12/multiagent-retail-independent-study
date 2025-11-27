@@ -295,20 +295,27 @@ def analyze_store_performance(
     underperformers = []
     on_target = []
 
+    # Check if we have real per-store sales data
+    has_store_data = context.has_store_sales
+
     for store_alloc in allocation.store_allocations:
         store_id = store_alloc.store_id
         allocated = store_alloc.allocation_units
         cluster = store_alloc.cluster
 
-        # Get actual sales for this store (if available)
-        # For now, estimate from total sales proportionally
-        total_sold = context.total_sold or 0
-        total_allocated = allocation.initial_store_allocation
-
-        if total_allocated > 0:
-            store_sold = int(total_sold * (allocated / total_allocated))
+        # Get actual sales for this store
+        if has_store_data:
+            # Use real per-store sales data from uploaded CSVs
+            store_sold = context.get_store_sales_up_to_week(store_id, current_week)
         else:
-            store_sold = 0
+            # Fallback: estimate from total sales proportionally
+            total_sold = context.total_sold or 0
+            total_allocated = allocation.initial_store_allocation
+
+            if total_allocated > 0:
+                store_sold = int(total_sold * (allocated / total_allocated))
+            else:
+                store_sold = 0
 
         remaining = max(0, allocated - store_sold)
 
@@ -354,6 +361,7 @@ def analyze_store_performance(
 
     return {
         "has_data": True,
+        "has_real_store_data": has_store_data,
         "current_week": current_week,
         "total_weeks": total_weeks,
         "weeks_remaining": total_weeks - current_week,
