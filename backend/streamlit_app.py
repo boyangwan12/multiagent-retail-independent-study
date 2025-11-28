@@ -519,7 +519,7 @@ def render_forecast_section(
     st.subheader("🔮 Demand Forecast")
 
     # Key metrics in columns
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.metric(
@@ -547,14 +547,7 @@ def render_forecast_section(
             label="Confidence",
             value=f"{forecast.confidence:.0%}",
             delta=confidence_label,
-            help="Forecast confidence based on prediction interval width. Narrower intervals = higher confidence. Calculated as 1 - (avg interval width / avg prediction).",
-        )
-
-    with col4:
-        st.metric(
-            label="Data Quality",
-            value=forecast.data_quality.capitalize() if forecast.data_quality else "N/A",
-            help="Based on historical data availability and consistency",
+            help="Forecast confidence based on prediction interval width. Narrower intervals = higher confidence.",
         )
 
     # Forecast chart with optional actual sales
@@ -616,8 +609,12 @@ def render_forecast_section(
     # Agent explanation
     with st.expander("Agent Explanation", expanded=False):
         st.markdown(f"**Model Used:** {forecast.model_used}")
-        st.markdown(f"**Data Quality:** {forecast.data_quality}")
         st.info(forecast.explanation)
+
+    # Seasonality insights (if available) - just the agent's natural language analysis
+    if forecast.seasonality and forecast.seasonality.insight:
+        with st.expander("🌡️ Seasonality Insights", expanded=True):
+            st.success(forecast.seasonality.insight)
 
 
 # =============================================================================
@@ -640,7 +637,6 @@ def render_allocation_section(allocation: AllocationResult):
         st.metric(
             label="DC Holdback",
             value=f"{allocation.dc_holdback:,} units",
-            delta=f"{allocation.dc_holdback_percentage:.0%}",
         )
 
     with col3:

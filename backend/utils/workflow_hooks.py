@@ -70,6 +70,7 @@ class ToolEvent:
     start_time: float
     end_time: Optional[float] = None
     duration_ms: Optional[float] = None
+    description: Optional[str] = None  # Tool's purpose/description
     result_preview: Optional[str] = None
 
 
@@ -94,8 +95,11 @@ class PhaseInfo:
     icon: str
     status: PhaseStatus = PhaseStatus.PENDING
     agent_name: Optional[str] = None
+    agent_instructions: Optional[str] = None  # WHY the agent was called
+    agent_icon: str = "🤖"
     start_time: Optional[float] = None
     end_time: Optional[float] = None
+    tools_used: List[ToolEvent] = field(default_factory=list)  # Tools run in this phase
 
 
 @dataclass
@@ -123,6 +127,8 @@ class WorkflowState:
     current_agent: Optional[str] = None
     current_agent_status: str = "idle"
     current_agent_message: str = ""
+    current_agent_instructions: Optional[str] = None  # WHY the agent is called (purpose)
+    current_agent_icon: str = "🤖"  # Agent-specific icon
 
     # Tool tracking
     current_tools: List[ToolEvent] = field(default_factory=list)
@@ -150,6 +156,8 @@ class WorkflowState:
         self.current_agent = None
         self.current_agent_status = "idle"
         self.current_agent_message = ""
+        self.current_agent_instructions = None
+        self.current_agent_icon = "🤖"
         self.current_tools = []
         self.events = []
         self.guardrails = []
@@ -197,11 +205,13 @@ class WorkflowState:
                 self._add_event("phase", f"Phase '{phase.display_name}' {'skipped' if skipped else 'completed'}")
                 break
 
-    def set_agent(self, agent_name: str, message: str = ""):
+    def set_agent(self, agent_name: str, message: str = "", instructions: str = None, icon: str = "🤖"):
         """Set the current active agent."""
         self.current_agent = agent_name
         self.current_agent_status = "running"
         self.current_agent_message = message
+        self.current_agent_instructions = instructions
+        self.current_agent_icon = icon
         self.current_tools = []
         self._add_event("agent", f"{agent_name} started")
 
@@ -210,12 +220,13 @@ class WorkflowState:
         self.current_agent_status = "completed"
         self._add_event("agent", f"{agent_name} completed")
 
-    def start_tool(self, tool_name: str):
+    def start_tool(self, tool_name: str, description: str = None):
         """Record tool start."""
         tool_event = ToolEvent(
             name=tool_name,
             status=ToolStatus.RUNNING,
-            start_time=time.time()
+            start_time=time.time(),
+            description=description
         )
         self.current_tools.append(tool_event)
         self._add_event("tool", f"{tool_name}() started")
@@ -325,14 +336,51 @@ class WorkflowUIHooks(RunHooks):
     ) -> None:
         """Called when an agent starts."""
         agent_name = getattr(agent, 'name', str(agent))
-        self.state.set_agent(agent_name, "Processing...")
+
+        # Get agent instructions (the WHY)
+        instructions = getattr(agent, 'instructions', None)
+        if instructions:
+            # Truncate long instructions for display
+            if len(instructions) > 150:
+                instructions = instructions[:147] + "..."
+
+        # Get agent-specific icon
+        icon = self._get_icon_for_agent(agent_name)
+
+        self.state.set_agent(agent_name, "Processing...", instructions=instructions, icon=icon)
 
         # Auto-map agent to phase and start it
         phase_name = self._get_phase_for_agent(agent_name)
         if phase_name:
             self.state.start_phase(phase_name)
+            # Store agent info in the phase for persistence after completion
+            for phase in self.state.phases:
+                if phase.name == phase_name:
+                    phase.agent_name = agent_name
+                    phase.agent_instructions = instructions
+                    phase.agent_icon = icon
+                    break
 
         self._notify()
+
+    def _get_icon_for_agent(self, agent_name: str) -> str:
+        """Get an icon for the agent based on its name."""
+        agent_lower = agent_name.lower()
+
+        if 'demand' in agent_lower or 'forecast' in agent_lower:
+            return "📈"
+        elif 'inventory' in agent_lower or 'allocation' in agent_lower:
+            return "📦"
+        elif 'realloc' in agent_lower:
+            return "🔄"
+        elif 'pricing' in agent_lower or 'markdown' in agent_lower:
+            return "💰"
+        elif 'variance' in agent_lower:
+            return "📊"
+        elif 'coordinator' in agent_lower:
+            return "🎯"
+
+        return "🤖"
 
     def _get_phase_for_agent(self, agent_name: str) -> Optional[str]:
         """Map agent name to workflow phase name."""
@@ -374,7 +422,29 @@ class WorkflowUIHooks(RunHooks):
     ) -> None:
         """Called when a tool starts."""
         tool_name = getattr(tool, 'name', str(tool))
-        self.state.start_tool(tool_name)
+
+        # Get tool description (try multiple attribute names)
+        description = None
+        for attr in ['description', '__doc__', 'docstring']:
+            desc = getattr(tool, attr, None)
+            if desc and isinstance(desc, str) and len(desc.strip()) > 0:
+                description = desc.strip()
+                break
+
+        # Also try getting from the function if it's a function tool
+        if not description:
+            func = getattr(tool, 'fn', None) or getattr(tool, 'func', None)
+            if func and hasattr(func, '__doc__') and func.__doc__:
+                description = func.__doc__.strip()
+
+        if description:
+            # Get first line/sentence for brevity
+            first_line = description.split('\n')[0].strip()
+            if len(first_line) > 100:
+                first_line = first_line[:97] + "..."
+            description = first_line
+
+        self.state.start_tool(tool_name, description=description)
         self._notify()
 
     async def on_tool_end(
@@ -389,6 +459,17 @@ class WorkflowUIHooks(RunHooks):
         # Create a preview of the result (truncated)
         preview = str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
         self.state.end_tool(tool_name, preview)
+
+        # Also store completed tool in the current phase for persistence
+        current_phase = self.state.current_phase
+        if current_phase:
+            # Find the tool event we just completed and add to phase
+            for tool_event in self.state.current_tools:
+                if tool_event.name == tool_name and tool_event.status == ToolStatus.COMPLETED:
+                    # Make a copy for the phase
+                    current_phase.tools_used.append(tool_event)
+                    break
+
         self._notify()
 
     async def on_handoff(
@@ -430,157 +511,108 @@ def render_phased_progress_sidebar(workflow_state: WorkflowState, show_header: b
     """
     Render the Phased Progress Tracker in the Streamlit sidebar.
 
-    Shows:
-    - Overall progress bar with percentage
-    - Phase list with status indicators
-    - Current tool execution under active phase
-    - Active agent status
-    - Elapsed time and metrics
-
     Args:
         workflow_state: WorkflowState instance containing current state
-        show_header: Whether to show the section header (default False for use in expanders)
-
-    Usage:
-        import streamlit as st
-        from utils.workflow_hooks import WorkflowState, render_phased_progress_sidebar
-
-        if "workflow_state" not in st.session_state:
-            st.session_state.workflow_state = WorkflowState()
-
-        with st.sidebar:
-            render_phased_progress_sidebar(st.session_state.workflow_state)
+        show_header: Whether to show the section header
     """
-    # Import streamlit here to avoid import at module level
     import streamlit as st
 
+    # ==================== HEADER ====================
     if show_header:
-        st.markdown("### 🔬 Workflow Progress")
+        st.markdown("#### Agent Workflow")
 
-    # ==================== OVERALL PROGRESS ====================
-
-    # Calculate progress
-    completed = workflow_state.completed_phases
-    total = workflow_state.total_phases
-
-    # Check if any phase is running
-    running_phase = next(
-        (p for p in workflow_state.phases if p.status == PhaseStatus.RUNNING),
-        None
-    )
-
-    # Calculate percentage - include partial progress for running phase
-    if running_phase:
-        # Add 0.5 for the running phase to show partial progress
-        progress_value = (completed + 0.5) / total
-    else:
-        progress_value = completed / total if total > 0 else 0
-
-    progress_value = min(max(progress_value, 0), 1.0)  # Clamp between 0 and 1
-
-    # Show minimum progress if workflow is running
-    if workflow_state.is_running and progress_value < 0.05:
-        progress_value = 0.05
-
-    st.progress(progress_value, text=f"{int(progress_value * 100)}% Complete")
-
-    st.divider()
+    # ==================== IDLE STATE ====================
+    if not workflow_state.is_running and workflow_state.completed_phases == 0:
+        st.info("Ready to run workflow")
+        for phase in workflow_state.phases:
+            st.markdown(f"○ {phase.display_name}")
+        return
 
     # ==================== PHASE LIST ====================
-
     for phase in workflow_state.phases:
         if phase.status == PhaseStatus.COMPLETED:
-            # Completed phase - green success with duration
-            duration_str = ""
-            if phase.start_time and phase.end_time:
-                duration_ms = (phase.end_time - phase.start_time) * 1000
-                if duration_ms > 1000:
-                    duration_str = f" [{duration_ms/1000:.1f}s]"
-                else:
-                    duration_str = f" [{duration_ms:.0f}ms]"
-            st.success(f"✅ {phase.display_name}{duration_str}")
-
+            _render_completed_phase(phase)
         elif phase.status == PhaseStatus.RUNNING:
-            # Running phase - expandable status container
-            with st.status(f"🔄 {phase.display_name}", expanded=True, state="running") as status:
-                # Show current tools
-                running_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.RUNNING]
-                if running_tools:
-                    for tool in running_tools:
-                        st.write(f"🔧 `{tool.name}()`")
-
-                # Show agent message if any
-                if workflow_state.current_agent_message:
-                    st.caption(workflow_state.current_agent_message)
-
+            _render_running_phase(phase, workflow_state)
         elif phase.status == PhaseStatus.SKIPPED:
-            # Skipped phase - dimmed
-            st.caption(f"⏭️ ~~{phase.display_name}~~ (skipped)")
-
+            st.markdown(f"⏭ ~~{phase.display_name}~~ *(skipped)*")
         elif phase.status == PhaseStatus.ERROR:
-            # Error phase - red error
-            st.error(f"❌ {phase.display_name}")
-
+            st.error(f"Error: {phase.display_name}")
         else:
-            # Pending phase - waiting
-            st.caption(f"⏳ {phase.display_name}")
+            st.markdown(f"○ {phase.display_name}")
 
-    st.divider()
+    # ==================== STATS ====================
+    _render_stats(workflow_state)
 
-    # ==================== ACTIVE AGENT STATUS ====================
-
-    st.markdown("#### 🤖 Agent Status")
-
-    if workflow_state.current_agent and workflow_state.current_agent_status == "running":
-        st.info(f"🟢 {workflow_state.current_agent}")
-    elif workflow_state.current_agent:
-        st.caption(f"✅ {workflow_state.current_agent} (done)")
-    else:
-        st.caption("⏸️ Idle")
-
-    st.divider()
-
-    # ==================== RECENT TOOLS ====================
-
-    st.markdown("#### 🔧 Recent Tools")
-
-    completed_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
-
-    if completed_tools:
-        # Show last 4 completed tools
-        for tool in completed_tools[-4:]:
-            duration_str = ""
-            if tool.duration_ms:
-                if tool.duration_ms > 1000:
-                    duration_str = f" ({tool.duration_ms/1000:.1f}s)"
-                else:
-                    duration_str = f" ({tool.duration_ms:.0f}ms)"
-            st.caption(f"✓ `{tool.name}`{duration_str}")
-    else:
-        st.caption("*No tools executed yet*")
-
-    st.divider()
-
-    # ==================== METRICS ROW ====================
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        elapsed = workflow_state.elapsed_seconds
-        st.metric("⏱️ Time", f"{elapsed:.1f}s")
-
-    with col2:
-        tool_count = len(completed_tools)
-        st.metric("🔧 Tools", tool_count)
-
-    # ==================== VARIANCE INFO (if applicable) ====================
-
+    # ==================== VARIANCE INFO ====================
     if workflow_state.variance_iterations > 0:
-        st.divider()
-        st.markdown("#### 🔄 Variance Loop")
-        st.caption(f"Iteration {workflow_state.variance_iterations} of {workflow_state.variance_max}")
+        st.markdown("---")
+        st.caption(f"🔄 Variance Loop: {workflow_state.variance_iterations}/{workflow_state.variance_max}")
         if workflow_state.variance_reason:
-            st.caption(f"Reason: {workflow_state.variance_reason}")
+            st.caption(workflow_state.variance_reason)
+
+
+def _render_completed_phase(phase: PhaseInfo):
+    """Render a completed phase card."""
+    import streamlit as st
+
+    duration_str = ""
+    if phase.start_time and phase.end_time:
+        duration_ms = (phase.end_time - phase.start_time) * 1000
+        duration_str = f" ({duration_ms/1000:.1f}s)" if duration_ms > 1000 else f" ({duration_ms:.0f}ms)"
+
+    with st.expander(f"✅ {phase.display_name}{duration_str}", expanded=False):
+        if phase.agent_name:
+            icon = phase.agent_icon or "🤖"
+            st.write(f"**{icon} {phase.agent_name}**")
+
+        if phase.tools_used:
+            st.write("**Tools executed:**")
+            for tool in phase.tools_used[-5:]:
+                dur = ""
+                if tool.duration_ms:
+                    dur = f" - {tool.duration_ms/1000:.1f}s" if tool.duration_ms > 1000 else f" - {tool.duration_ms:.0f}ms"
+                st.write(f"• `{tool.name}`{dur}")
+
+
+def _render_running_phase(phase: PhaseInfo, workflow_state: WorkflowState):
+    """Render the currently running phase."""
+    import streamlit as st
+
+    with st.status(f"{phase.icon} {phase.display_name}", expanded=True, state="running"):
+        # Agent info
+        if workflow_state.current_agent:
+            icon = workflow_state.current_agent_icon or "🤖"
+            st.write(f"**{icon} {workflow_state.current_agent}**")
+
+        # Tools
+        running_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.RUNNING]
+        completed_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
+
+        if running_tools:
+            for tool in running_tools:
+                st.write(f"▸ **{tool.name}()** running...")
+
+        if completed_tools:
+            for tool in completed_tools[-3:]:
+                dur = ""
+                if tool.duration_ms:
+                    dur = f" ({tool.duration_ms/1000:.1f}s)" if tool.duration_ms > 1000 else f" ({tool.duration_ms:.0f}ms)"
+                st.write(f"✓ {tool.name}{dur}")
+
+
+def _render_stats(workflow_state: WorkflowState):
+    """Render stats row."""
+    import streamlit as st
+
+    all_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
+    agent_count = len([e for e in workflow_state.events if e.get("type") == "agent"]) // 2
+
+    st.divider()
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Time", f"{workflow_state.elapsed_seconds:.1f}s")
+    col2.metric("Tools", len(all_tools))
+    col3.metric("Agents", agent_count)
 
 
 def get_phase_for_agent(agent_name: str) -> Optional[str]:

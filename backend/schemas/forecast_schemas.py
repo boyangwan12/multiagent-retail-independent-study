@@ -18,6 +18,35 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
+class SeasonalityExplanation(BaseModel):
+    """Seasonality data and explanation for forecast transparency."""
+
+    months_covered: List[str] = Field(
+        default_factory=list,
+        description="Month names in forecast period (e.g., ['August', 'September', 'October'])",
+    )
+    peak_week: int = Field(
+        default=0,
+        description="Week number with highest seasonal demand (1-indexed)",
+    )
+    trough_week: int = Field(
+        default=0,
+        description="Week number with lowest seasonal demand (1-indexed)",
+    )
+    seasonal_range_pct: float = Field(
+        default=0.0,
+        description="Seasonal variation as percentage (e.g., 15.5 means ±15.5% swing)",
+    )
+    yearly_effects: List[float] = Field(
+        default_factory=list,
+        description="Yearly seasonality multipliers per week",
+    )
+    insight: str = Field(
+        default="",
+        description="Agent-generated natural language explanation of seasonal patterns",
+    )
+
+
 class WeeklyForecast(BaseModel):
     """Forecast data for a single week."""
 
@@ -86,6 +115,10 @@ class ForecastResult(BaseModel):
     data_quality: str = Field(
         default="good",
         description="Data quality assessment: 'excellent', 'good', or 'poor'",
+    )
+    seasonality: Optional[SeasonalityExplanation] = Field(
+        default=None,
+        description="Seasonality analysis with data-driven metrics and agent explanation",
     )
     explanation: str = Field(
         ...,

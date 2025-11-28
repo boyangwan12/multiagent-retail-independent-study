@@ -123,6 +123,17 @@ class ClusterAllocationDetail(BaseModel):
     )
 
 
+class FlatStoreAllocation(BaseModel):
+    """Flat store allocation for easy agent consumption."""
+    model_config = ConfigDict(extra='forbid')
+
+    store_id: str = Field(..., description="Store identifier")
+    allocation_units: int = Field(..., description="Units allocated", ge=0)
+    cluster: str = Field(..., description="Cluster name")
+    cluster_id: int = Field(..., description="Cluster ID", ge=0)
+    allocation_factor: float = Field(..., description="Allocation factor", ge=0)
+
+
 class AllocationToolResult(BaseModel):
     """
     Output from allocate_inventory tool.
@@ -150,6 +161,13 @@ class AllocationToolResult(BaseModel):
     )
     clusters: List[ClusterAllocationDetail] = Field(
         ..., description="Cluster-level allocations with store details"
+    )
+    all_stores: List[FlatStoreAllocation] = Field(
+        default_factory=list,
+        description="FLAT list of ALL store allocations (use this for store_allocations output)"
+    )
+    total_store_count: int = Field(
+        default=0, description="Total number of stores allocated"
     )
     replenishment_enabled: bool = Field(
         ..., description="Whether replenishment strategy is enabled"
@@ -859,7 +877,7 @@ def _allocate_to_stores(
 def cluster_stores(
     ctx: RunContextWrapper[ForecastingContext],
     n_clusters: Annotated[int, "Number of clusters (default: 3)"] = 3,
-    adaptive_k: Annotated[bool, "Enable adaptive K selection (default: True)"] = True,
+    adaptive_k: Annotated[bool, "Enable adaptive K selection (default: False for consistent 3 clusters)"] = False,
 ) -> ClusteringToolResult:
     """
     Segment stores into performance tiers using K-means clustering.
@@ -882,7 +900,7 @@ def cluster_stores(
     Args:
         ctx: Run context with data_loader for fetching store data
         n_clusters: Number of clusters (default: 3)
-        adaptive_k: Enable adaptive K selection (default: True)
+        adaptive_k: Enable adaptive K selection (default: False - use fixed 3 clusters)
 
     Returns:
         ClusteringToolResult with cluster labels, statistics, and quality metrics
@@ -1169,6 +1187,7 @@ def allocate_inventory(
             )
 
             # Find allocation percentage from cluster_stats (using BaseModel attributes)
+            # cluster_stats returns 0-100 scale, but schema expects 0.0-1.0 scale
             alloc_pct = next(
                 (s.allocation_percentage for s in cluster_stats if s.cluster_id == cluster_id),
                 0.0
@@ -1178,7 +1197,7 @@ def allocate_inventory(
                 ClusterAllocationDetail(
                     cluster_id=cluster_id,
                     cluster_label=cluster_label,
-                    allocation_percentage=alloc_pct,
+                    allocation_percentage=alloc_pct / 100.0,  # Convert to 0.0-1.0 scale
                     total_units=cluster_units,
                     stores=[StoreAllocationDetail(**s) for s in store_allocations],
                 )
@@ -1212,6 +1231,18 @@ def allocate_inventory(
 
         replenishment_enabled = replenishment_strategy != "none"
 
+        # Build flat store list for easy agent consumption
+        all_stores = []
+        for cluster in cluster_allocations:
+            for store in cluster.stores:
+                all_stores.append(FlatStoreAllocation(
+                    store_id=store.store_id,
+                    allocation_units=store.initial_allocation,
+                    cluster=store.cluster,
+                    cluster_id=cluster.cluster_id,
+                    allocation_factor=store.allocation_factor,
+                ))
+
         result = AllocationToolResult(
             manufacturing_qty=manufacturing_qty,
             safety_stock_pct=safety_stock_pct,
@@ -1219,12 +1250,14 @@ def allocate_inventory(
             dc_holdback_percentage=dc_holdback_percentage,
             initial_allocation_total=initial_allocation_total,
             clusters=cluster_allocations,
+            all_stores=all_stores,
+            total_store_count=len(all_stores),
             replenishment_enabled=replenishment_enabled,
             unit_conservation_valid=unit_conservation_valid,
         )
 
         logger.info(
-            f"Allocation complete: {initial_allocation_total} to stores, "
+            f"Allocation complete: {initial_allocation_total} to {len(all_stores)} stores, "
             f"{dc_holdback_total} to DC"
         )
 

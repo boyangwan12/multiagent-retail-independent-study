@@ -47,6 +47,40 @@ logger = logging.getLogger("demand_tools")
 # SECTION 2: Tool Output Schema
 # ============================================================================
 
+class SeasonalityInsight(BaseModel):
+    """Seasonality data extracted from Prophet for explainability."""
+    model_config = ConfigDict(extra='forbid')
+
+    yearly_effect: List[float] = Field(
+        default_factory=list,
+        description="Yearly seasonality multipliers per forecast week",
+    )
+    weekly_effect: List[float] = Field(
+        default_factory=list,
+        description="Weekly seasonality effects (day-of-week patterns)",
+    )
+    trend: List[float] = Field(
+        default_factory=list,
+        description="Trend component values per week",
+    )
+    peak_week: int = Field(
+        default=0,
+        description="Week number with highest seasonal demand (1-indexed)",
+    )
+    trough_week: int = Field(
+        default=0,
+        description="Week number with lowest seasonal demand (1-indexed)",
+    )
+    seasonal_range_pct: float = Field(
+        default=0.0,
+        description="Seasonal variation as percentage of mean (e.g., 15.5 means ±15.5%)",
+    )
+    months_covered: List[str] = Field(
+        default_factory=list,
+        description="Month names covered by forecast period (e.g., ['August', 'September'])",
+    )
+
+
 class ForecastToolResult(BaseModel):
     """
     Output from run_demand_forecast tool.
@@ -87,6 +121,10 @@ class ForecastToolResult(BaseModel):
     data_quality: str = Field(
         default="good",
         description="Data quality: 'excellent', 'good', or 'poor'",
+    )
+    seasonality: Optional[SeasonalityInsight] = Field(
+        default=None,
+        description="Seasonality components extracted from Prophet for explainability",
     )
     error: Optional[str] = Field(
         default=None,
@@ -199,12 +237,73 @@ class ProphetWrapper:
         forecast_future = forecast_df.tail(periods)
         self.forecast_df = forecast_future
 
+        # Extract seasonality components for explainability
+        seasonality_data = self._extract_seasonality(forecast_future)
+
         return {
             "predictions": [max(0, int(round(val))) for val in forecast_future["yhat"].tolist()],
             "lower_bound": [max(0, int(round(val))) for val in forecast_future["yhat_lower"].tolist()],
             "upper_bound": [max(0, int(round(val))) for val in forecast_future["yhat_upper"].tolist()],
             "dates": forecast_future["ds"].dt.strftime("%Y-%m-%d").tolist(),
+            "seasonality": seasonality_data,
         }
+
+    def _extract_seasonality(self, forecast_df: pd.DataFrame) -> Dict:
+        """
+        Extract seasonality components from Prophet forecast for explainability.
+
+        Returns dict with:
+        - yearly_effect: List of yearly seasonality multipliers per week
+        - weekly_effect: List of weekly seasonality effects (if enabled)
+        - trend: Trend component values
+        - peak_week: Week index with highest seasonal effect
+        - trough_week: Week index with lowest seasonal effect
+        - seasonal_range_pct: Percentage range of seasonal variation
+        """
+        result = {
+            "yearly_effect": [],
+            "weekly_effect": [],
+            "trend": [],
+            "peak_week": 0,
+            "trough_week": 0,
+            "seasonal_range_pct": 0.0,
+            "months_covered": [],
+        }
+
+        try:
+            # Extract yearly seasonality if present
+            if "yearly" in forecast_df.columns:
+                yearly = forecast_df["yearly"].tolist()
+                result["yearly_effect"] = [round(v, 2) for v in yearly]
+
+                # Find peak and trough
+                if yearly:
+                    result["peak_week"] = int(np.argmax(yearly)) + 1
+                    result["trough_week"] = int(np.argmin(yearly)) + 1
+
+                    # Calculate seasonal range as percentage of mean prediction
+                    mean_pred = forecast_df["yhat"].mean()
+                    if mean_pred > 0:
+                        seasonal_range = max(yearly) - min(yearly)
+                        result["seasonal_range_pct"] = round((seasonal_range / mean_pred) * 100, 1)
+
+            # Extract weekly seasonality if present
+            if "weekly" in forecast_df.columns:
+                result["weekly_effect"] = [round(v, 2) for v in forecast_df["weekly"].tolist()]
+
+            # Extract trend
+            if "trend" in forecast_df.columns:
+                result["trend"] = [round(v, 2) for v in forecast_df["trend"].tolist()]
+
+            # Get months covered in the forecast period
+            if "ds" in forecast_df.columns:
+                months = forecast_df["ds"].dt.strftime("%B").unique().tolist()
+                result["months_covered"] = months
+
+        except Exception as e:
+            logger.warning(f"Error extracting seasonality: {e}")
+
+        return result
 
     def get_confidence(self, forecast_df: pd.DataFrame) -> float:
         """Calculate confidence from prediction intervals."""
@@ -613,6 +712,7 @@ class EnsembleForecaster:
         lower_bounds = np.zeros(periods)
         upper_bounds = np.zeros(periods)
         confidences = []
+        seasonality_data = None  # Capture from Prophet for explainability
 
         for name, model in self.models.items():
             weight = self.weights.get(name, 0)
@@ -628,6 +728,10 @@ class EnsembleForecaster:
                     predictions += weight * np.array(forecast['predictions'])
                     lower_bounds += weight * np.array(forecast['lower_bound'])
                     upper_bounds += weight * np.array(forecast['upper_bound'])
+
+                    # Capture seasonality data from Prophet for explainability
+                    if name == 'prophet' and 'seasonality' in forecast:
+                        seasonality_data = forecast['seasonality']
 
                     # Get confidence if available
                     if name == 'prophet' and model.forecast_df is not None:
@@ -651,13 +755,19 @@ class EnsembleForecaster:
         # Weighted average confidence
         confidence = sum(confidences) if confidences else 0.5
 
-        return {
+        result = {
             "predictions": predictions.tolist(),
             "confidence": confidence,
             "model_used": self.model_used,
             "lower_bound": lower_bounds.tolist(),
             "upper_bound": upper_bounds.tolist(),
         }
+
+        # Include seasonality data if available (for agent explanation)
+        if seasonality_data:
+            result["seasonality"] = seasonality_data
+
+        return result
 
 
 # ============================================================================
@@ -822,6 +932,20 @@ def run_demand_forecast(
         # Assess data quality
         data_quality = "excellent" if confidence >= 0.7 else "good" if confidence >= 0.5 else "poor"
 
+        # Extract seasonality insight if available
+        seasonality_insight = None
+        if "seasonality" in forecast_result:
+            raw_seasonality = forecast_result["seasonality"]
+            seasonality_insight = SeasonalityInsight(
+                yearly_effect=raw_seasonality.get("yearly_effect", []),
+                weekly_effect=raw_seasonality.get("weekly_effect", []),
+                trend=raw_seasonality.get("trend", []),
+                peak_week=raw_seasonality.get("peak_week", 0),
+                trough_week=raw_seasonality.get("trough_week", 0),
+                seasonal_range_pct=raw_seasonality.get("seasonal_range_pct", 0.0),
+                months_covered=raw_seasonality.get("months_covered", []),
+            )
+
         result = ForecastToolResult(
             total_demand=total_demand,
             forecast_by_week=forecast_result["predictions"],
@@ -832,11 +956,18 @@ def run_demand_forecast(
             upper_bound=forecast_result.get("upper_bound", []),
             weekly_average=weekly_average,
             data_quality=data_quality,
+            seasonality=seasonality_insight,
         )
 
         logger.info(
             f"Forecast complete: total={total_demand}, confidence={confidence:.2f}"
         )
+        if seasonality_insight:
+            logger.info(
+                f"Seasonality: months={seasonality_insight.months_covered}, "
+                f"range={seasonality_insight.seasonal_range_pct}%, "
+                f"peak=week {seasonality_insight.peak_week}"
+            )
 
         return result
 

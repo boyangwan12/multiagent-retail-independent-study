@@ -77,6 +77,9 @@ Layer 3 - Store Allocation:
   - 30% store attributes (size, income, tier)
 - Enforce 2-week minimum inventory per store
 
+IMPORTANT: The tool returns `all_stores` - a FLAT list of ALL store allocations.
+Use this directly for `store_allocations` in your output. Also note `total_store_count` for verification.
+
 ## WORKFLOW
 1. First, call cluster_stores() to get cluster statistics
 2. Extract cluster_stats from the result (convert to list of dicts)
@@ -90,10 +93,13 @@ Your output MUST include these fields:
 - dc_holdback: int - Units held at distribution center
 - dc_holdback_percentage: float - DC holdback as percentage (0.0-1.0)
 - initial_store_allocation: int - Units allocated to stores
-- cluster_allocations: List[ClusterAllocation] - Per-cluster breakdown
-- store_allocations: List[StoreAllocation] - Per-store breakdown
+- cluster_allocations: List[ClusterAllocation] - Per-cluster breakdown (use clusters from tool)
+- store_allocations: List[StoreAllocation] - Per-store breakdown (use ALL_STORES from tool - all 50 stores!)
 - replenishment_strategy: str - "none", "weekly", or "bi-weekly"
 - explanation: str - YOUR reasoning about the allocation (REQUIRED)
+
+CRITICAL: For store_allocations, use the `all_stores` field from allocate_inventory result.
+This contains ALL stores (should be 50). Do NOT manually construct this list.
 
 ## EXPLANATION GUIDELINES
 Your explanation should:
