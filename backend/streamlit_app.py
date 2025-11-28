@@ -260,13 +260,13 @@ def render_active_section_header(title: str, icon: str):
 # =============================================================================
 # Pre-Season Parameters (rendered in Pre-Season tab)
 # =============================================================================
-def render_forecast_settings() -> tuple[str, int]:
-    """Render forecast settings (Category, Horizon). Returns (category, forecast_horizon)."""
+def render_forecast_settings() -> tuple[str, int, date]:
+    """Render forecast settings (Category, Horizon, Start Date). Returns (category, forecast_horizon, season_start_date)."""
     categories = st.session_state.data_loader.get_categories()
 
     with st.container(border=True):
         st.subheader("⚙️ Forecast Settings")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
 
         with col1:
             category = st.selectbox(
@@ -283,11 +283,19 @@ def render_forecast_settings() -> tuple[str, int]:
                 min_value=4,
                 max_value=52,
                 value=12,
-                help="Number of weeks to forecast",
+                help="Number of weeks to forecast (also sets season length)",
                 key="preseason_forecast_horizon",
             )
 
-    return category, forecast_horizon
+        with col3:
+            season_start_date = st.date_input(
+                "Season Start Date",
+                value=date.today(),
+                help="When does your season start? Forecast will align to this date's seasonality patterns.",
+                key="preseason_season_start_date",
+            )
+
+    return category, forecast_horizon, season_start_date
 
 
 def render_inventory_settings() -> tuple[float, float]:
@@ -3133,56 +3141,8 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
                 """)
 
 
-def render_inseason_setup(params: WorkflowParams):
-    """Render the in-season setup flow for first-time configuration."""
-    st.markdown("### 🚀 In-Season Setup")
-    st.info("Configure your season before starting in-season planning.")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        total_weeks = st.number_input(
-            "Total Season Weeks",
-            min_value=4,
-            max_value=52,
-            value=st.session_state.total_season_weeks,
-            help="How many weeks is this season?",
-        )
-
-    with col2:
-        start_date = st.date_input(
-            "Season Start Date",
-            value=st.session_state.season_start_date or date.today(),
-            help="When does/did the season start?",
-        )
-
-    st.divider()
-
-    # Show preview of timeline
-    st.markdown("**Timeline Preview:**")
-    preview_text = " → ".join([f"Wk{i}" for i in range(1, min(total_weeks + 1, 13))])
-    if total_weeks > 12:
-        preview_text += f" → ... → Wk{total_weeks}"
-    st.code(preview_text)
-
-    st.caption(f"Markdown checkpoint: Week {params.markdown_week}")
-
-    if st.button("✅ Start In-Season Planning", type="primary", use_container_width=True):
-        st.session_state.total_season_weeks = total_weeks
-        st.session_state.season_start_date = start_date
-        st.session_state.inseason_setup_complete = True
-        st.session_state.selected_week = 1
-        st.success("✅ In-season planning initialized!")
-        st.rerun()
-
-
 def render_inseason_planning(params: WorkflowParams):
     """Render the complete in-season planning interface with timeline."""
-
-    # Check if setup is complete
-    if not st.session_state.inseason_setup_complete:
-        render_inseason_setup(params)
-        return
 
     # Check if we have a pre-season forecast
     if st.session_state.workflow_result is None:
@@ -3193,6 +3153,16 @@ def render_inseason_planning(params: WorkflowParams):
             st.session_state.planning_mode = "pre-season"
             st.rerun()
         return
+
+    # Auto-initialize in-season from pre-season params (no setup page needed)
+    if not st.session_state.inseason_setup_complete:
+        # Inherit total_season_weeks from forecast_horizon
+        st.session_state.total_season_weeks = params.forecast_horizon_weeks
+        # Inherit season_start_date from pre-season params
+        st.session_state.season_start_date = params.season_start_date
+        st.session_state.inseason_setup_complete = True
+        st.session_state.selected_week = 1
+        st.rerun()
 
     # Season header with key metrics
     st.markdown(f"## 📅 In-Season: {params.category}")
@@ -3373,6 +3343,7 @@ async def run_workflow_async(params: WorkflowParams):
     context = ForecastingContext(
         data_loader=st.session_state.data_loader,
         session_id=st.session_state.session_id,
+        season_start_date=params.season_start_date,  # Pass for calendar-aligned forecasting
         current_week=st.session_state.current_week,
         actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
         total_sold=st.session_state.total_sold,
@@ -3435,13 +3406,13 @@ def render_preseason_tab():
     # ===========================================================================
     # FORECAST SETTINGS - These require re-running the workflow
     # ===========================================================================
-    category, forecast_horizon = render_forecast_settings()
+    category, forecast_horizon, season_start_date = render_forecast_settings()
 
     # Build params for forecast (inventory settings will be applied dynamically later)
     params = WorkflowParams(
         category=category,
         forecast_horizon_weeks=forecast_horizon,
-        season_start_date=date.today(),
+        season_start_date=season_start_date,
         dc_holdback_pct=0.45,  # Default, will be overridden dynamically
         safety_stock_pct=0.20,  # Default, will be overridden dynamically
         replenishment_strategy="weekly",
@@ -3452,12 +3423,13 @@ def render_preseason_tab():
         max_reforecasts=2,
     )
 
-    # Check if forecast settings changed (category or horizon)
+    # Check if forecast settings changed (category, horizon, or start date)
     last_params = st.session_state.flow_state.get("last_run_params")
     forecast_settings_changed = False
     if last_params and st.session_state.workflow_result:
         if (last_params.category != category or
-            last_params.forecast_horizon_weeks != forecast_horizon):
+            last_params.forecast_horizon_weeks != forecast_horizon or
+            last_params.season_start_date != season_start_date):
             forecast_settings_changed = True
             st.warning("⚠️ **Forecast settings have changed.** Click 'Re-run' to update forecast.")
 

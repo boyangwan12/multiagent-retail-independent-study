@@ -22,6 +22,7 @@ SDK Pattern:
 """
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import List, Optional, Any, Dict
 from .data_loader import TrainingDataLoader
 
@@ -62,6 +63,9 @@ class ForecastingContext:
     # Required fields
     data_loader: TrainingDataLoader
     session_id: str
+
+    # Season configuration
+    season_start_date: Optional[date] = None  # For aligning forecast to calendar seasonality
 
     # Workflow state
     current_week: int = 0

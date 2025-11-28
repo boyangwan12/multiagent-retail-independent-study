@@ -22,6 +22,7 @@ SDK Pattern:
 # SECTION 1: Imports & Exceptions
 # ============================================================================
 
+from datetime import date
 from typing import Annotated, Dict, List, Optional, Tuple
 import logging
 import warnings
@@ -171,12 +172,29 @@ class ProphetWrapper:
         except Exception as e:
             raise ModelTrainingError(f"Prophet training failed: {str(e)}")
 
-    def forecast(self, periods: int) -> Dict:
-        """Generate forecast for specified number of periods."""
+    def forecast(self, periods: int, start_date: Optional[date] = None) -> Dict:
+        """
+        Generate forecast for specified number of periods.
+
+        Args:
+            periods: Number of weeks to forecast
+            start_date: Optional start date to align forecast with calendar seasonality.
+                       If provided, forecast dates will start from this date.
+                       This ensures Prophet's yearly seasonality patterns align with
+                       the actual calendar period (e.g., July forecasts capture summer patterns).
+        """
         if self.model is None:
             raise RuntimeError("Model not trained. Call train() first.")
 
-        future = self.model.make_future_dataframe(periods=periods, freq="W")
+        if start_date:
+            # Create future dataframe starting from the specified date
+            # This aligns the forecast with calendar seasonality patterns
+            future_dates = pd.date_range(start=start_date, periods=periods, freq="W")
+            future = pd.DataFrame({"ds": future_dates})
+        else:
+            # Default: continue from last historical date
+            future = self.model.make_future_dataframe(periods=periods, freq="W")
+
         forecast_df = self.model.predict(future)
         forecast_future = forecast_df.tail(periods)
         self.forecast_df = forecast_future
@@ -583,8 +601,14 @@ class EnsembleForecaster:
         active_models = [k for k, v in self.weights.items() if v > 0.01]
         self.model_used = f"validation_ensemble({'+'.join(active_models)})"
 
-    def forecast(self, periods: int) -> Dict:
-        """Generate weighted ensemble forecast."""
+    def forecast(self, periods: int, start_date: Optional[date] = None) -> Dict:
+        """
+        Generate weighted ensemble forecast.
+
+        Args:
+            periods: Number of weeks to forecast
+            start_date: Optional start date for calendar-aligned forecasting (passed to Prophet)
+        """
         predictions = np.zeros(periods)
         lower_bounds = np.zeros(periods)
         upper_bounds = np.zeros(periods)
@@ -595,7 +619,11 @@ class EnsembleForecaster:
 
             if weight > 0:
                 try:
-                    forecast = model.forecast(periods)
+                    # Pass start_date to Prophet for calendar-aligned seasonality
+                    if name == 'prophet' and start_date:
+                        forecast = model.forecast(periods, start_date=start_date)
+                    else:
+                        forecast = model.forecast(periods)
 
                     predictions += weight * np.array(forecast['predictions'])
                     lower_bounds += weight * np.array(forecast['lower_bound'])
@@ -774,8 +802,11 @@ def run_demand_forecast(
         ensemble = EnsembleForecaster()
         ensemble.train(df)
 
-        # Generate forecast
-        forecast_result = ensemble.forecast(forecast_horizon_weeks)
+        # Get season_start_date from context for calendar-aligned forecasting
+        season_start_date = ctx.context.season_start_date
+
+        # Generate forecast (with calendar-aligned seasonality if start_date provided)
+        forecast_result = ensemble.forecast(forecast_horizon_weeks, start_date=season_start_date)
 
         # Calculate totals
         total_demand = sum(forecast_result["predictions"])
