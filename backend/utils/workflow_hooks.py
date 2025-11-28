@@ -326,7 +326,28 @@ class WorkflowUIHooks(RunHooks):
         """Called when an agent starts."""
         agent_name = getattr(agent, 'name', str(agent))
         self.state.set_agent(agent_name, "Processing...")
+
+        # Auto-map agent to phase and start it
+        phase_name = self._get_phase_for_agent(agent_name)
+        if phase_name:
+            self.state.start_phase(phase_name)
+
         self._notify()
+
+    def _get_phase_for_agent(self, agent_name: str) -> Optional[str]:
+        """Map agent name to workflow phase name."""
+        agent_lower = agent_name.lower()
+
+        if 'demand' in agent_lower or 'forecast' in agent_lower:
+            return 'forecast'
+        elif 'inventory' in agent_lower or 'allocation' in agent_lower:
+            return 'allocation'
+        elif 'realloc' in agent_lower:
+            return 'reallocation'
+        elif 'pricing' in agent_lower or 'markdown' in agent_lower:
+            return 'pricing'
+
+        return None
 
     async def on_agent_end(
         self,
@@ -337,6 +358,12 @@ class WorkflowUIHooks(RunHooks):
         """Called when an agent completes."""
         agent_name = getattr(agent, 'name', str(agent))
         self.state.agent_completed(agent_name)
+
+        # Auto-map agent to phase and complete it
+        phase_name = self._get_phase_for_agent(agent_name)
+        if phase_name:
+            self.state.end_phase(phase_name)
+
         self._notify()
 
     async def on_tool_start(
@@ -393,3 +420,190 @@ def create_workflow_hooks(session_state) -> WorkflowUIHooks:
         session_state.workflow_state = WorkflowState()
 
     return WorkflowUIHooks(session_state.workflow_state)
+
+
+# ============================================================================
+# STREAMLIT SIDEBAR RENDERER - Phased Progress Tracker
+# ============================================================================
+
+def render_phased_progress_sidebar(workflow_state: WorkflowState, show_header: bool = False):
+    """
+    Render the Phased Progress Tracker in the Streamlit sidebar.
+
+    Shows:
+    - Overall progress bar with percentage
+    - Phase list with status indicators
+    - Current tool execution under active phase
+    - Active agent status
+    - Elapsed time and metrics
+
+    Args:
+        workflow_state: WorkflowState instance containing current state
+        show_header: Whether to show the section header (default False for use in expanders)
+
+    Usage:
+        import streamlit as st
+        from utils.workflow_hooks import WorkflowState, render_phased_progress_sidebar
+
+        if "workflow_state" not in st.session_state:
+            st.session_state.workflow_state = WorkflowState()
+
+        with st.sidebar:
+            render_phased_progress_sidebar(st.session_state.workflow_state)
+    """
+    # Import streamlit here to avoid import at module level
+    import streamlit as st
+
+    if show_header:
+        st.markdown("### 🔬 Workflow Progress")
+
+    # ==================== OVERALL PROGRESS ====================
+
+    # Calculate progress
+    completed = workflow_state.completed_phases
+    total = workflow_state.total_phases
+
+    # Check if any phase is running
+    running_phase = next(
+        (p for p in workflow_state.phases if p.status == PhaseStatus.RUNNING),
+        None
+    )
+
+    # Calculate percentage - include partial progress for running phase
+    if running_phase:
+        # Add 0.5 for the running phase to show partial progress
+        progress_value = (completed + 0.5) / total
+    else:
+        progress_value = completed / total if total > 0 else 0
+
+    progress_value = min(max(progress_value, 0), 1.0)  # Clamp between 0 and 1
+
+    # Show minimum progress if workflow is running
+    if workflow_state.is_running and progress_value < 0.05:
+        progress_value = 0.05
+
+    st.progress(progress_value, text=f"{int(progress_value * 100)}% Complete")
+
+    st.divider()
+
+    # ==================== PHASE LIST ====================
+
+    for phase in workflow_state.phases:
+        if phase.status == PhaseStatus.COMPLETED:
+            # Completed phase - green success with duration
+            duration_str = ""
+            if phase.start_time and phase.end_time:
+                duration_ms = (phase.end_time - phase.start_time) * 1000
+                if duration_ms > 1000:
+                    duration_str = f" [{duration_ms/1000:.1f}s]"
+                else:
+                    duration_str = f" [{duration_ms:.0f}ms]"
+            st.success(f"✅ {phase.display_name}{duration_str}")
+
+        elif phase.status == PhaseStatus.RUNNING:
+            # Running phase - expandable status container
+            with st.status(f"🔄 {phase.display_name}", expanded=True, state="running") as status:
+                # Show current tools
+                running_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.RUNNING]
+                if running_tools:
+                    for tool in running_tools:
+                        st.write(f"🔧 `{tool.name}()`")
+
+                # Show agent message if any
+                if workflow_state.current_agent_message:
+                    st.caption(workflow_state.current_agent_message)
+
+        elif phase.status == PhaseStatus.SKIPPED:
+            # Skipped phase - dimmed
+            st.caption(f"⏭️ ~~{phase.display_name}~~ (skipped)")
+
+        elif phase.status == PhaseStatus.ERROR:
+            # Error phase - red error
+            st.error(f"❌ {phase.display_name}")
+
+        else:
+            # Pending phase - waiting
+            st.caption(f"⏳ {phase.display_name}")
+
+    st.divider()
+
+    # ==================== ACTIVE AGENT STATUS ====================
+
+    st.markdown("#### 🤖 Agent Status")
+
+    if workflow_state.current_agent and workflow_state.current_agent_status == "running":
+        st.info(f"🟢 {workflow_state.current_agent}")
+    elif workflow_state.current_agent:
+        st.caption(f"✅ {workflow_state.current_agent} (done)")
+    else:
+        st.caption("⏸️ Idle")
+
+    st.divider()
+
+    # ==================== RECENT TOOLS ====================
+
+    st.markdown("#### 🔧 Recent Tools")
+
+    completed_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
+
+    if completed_tools:
+        # Show last 4 completed tools
+        for tool in completed_tools[-4:]:
+            duration_str = ""
+            if tool.duration_ms:
+                if tool.duration_ms > 1000:
+                    duration_str = f" ({tool.duration_ms/1000:.1f}s)"
+                else:
+                    duration_str = f" ({tool.duration_ms:.0f}ms)"
+            st.caption(f"✓ `{tool.name}`{duration_str}")
+    else:
+        st.caption("*No tools executed yet*")
+
+    st.divider()
+
+    # ==================== METRICS ROW ====================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        elapsed = workflow_state.elapsed_seconds
+        st.metric("⏱️ Time", f"{elapsed:.1f}s")
+
+    with col2:
+        tool_count = len(completed_tools)
+        st.metric("🔧 Tools", tool_count)
+
+    # ==================== VARIANCE INFO (if applicable) ====================
+
+    if workflow_state.variance_iterations > 0:
+        st.divider()
+        st.markdown("#### 🔄 Variance Loop")
+        st.caption(f"Iteration {workflow_state.variance_iterations} of {workflow_state.variance_max}")
+        if workflow_state.variance_reason:
+            st.caption(f"Reason: {workflow_state.variance_reason}")
+
+
+def get_phase_for_agent(agent_name: str) -> Optional[str]:
+    """
+    Map agent name to workflow phase name.
+
+    Args:
+        agent_name: Name of the agent
+
+    Returns:
+        Phase name string or None if no mapping
+    """
+    agent_lower = agent_name.lower()
+
+    if 'demand' in agent_lower or 'forecast' in agent_lower:
+        return 'forecast'
+    elif 'inventory' in agent_lower or 'allocation' in agent_lower:
+        return 'allocation'
+    elif 'realloc' in agent_lower:
+        return 'reallocation'
+    elif 'pricing' in agent_lower or 'markdown' in agent_lower:
+        return 'pricing'
+    elif 'variance' in agent_lower:
+        return 'forecast'  # Variance triggers reforecast in forecast phase
+
+    return None

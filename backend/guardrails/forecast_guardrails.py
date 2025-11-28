@@ -214,14 +214,8 @@ async def validate_forecast_reasonableness(
                     f"High weekly variance: min ({min_weekly}) is {min_deviation:.0%} below average"
                 )
 
-    # Check 3: Confidence vs safety stock alignment
-    expected_safety = 1.0 - output.confidence
-    expected_safety = max(0.10, min(0.50, expected_safety))
-    if abs(output.safety_stock_pct - expected_safety) > 0.10:
-        warnings.append(
-            f"Safety stock ({output.safety_stock_pct:.0%}) doesn't match "
-            f"confidence-based expectation ({expected_safety:.0%})"
-        )
+    # Note: Safety stock is now user-controlled via WorkflowParams
+    # No longer validated against confidence score
 
     if warnings:
         logger.warning(f"Forecast reasonableness warnings: {warnings}")

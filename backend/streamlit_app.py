@@ -44,7 +44,12 @@ from agent_tools.demand_tools import (
     EnsembleForecaster,
 )
 from schemas.forecast_schemas import ForecastResult
-from utils.workflow_hooks import WorkflowState, WorkflowUIHooks, create_workflow_hooks
+from utils.workflow_hooks import (
+    WorkflowState,
+    WorkflowUIHooks,
+    create_workflow_hooks,
+    render_phased_progress_sidebar,
+)
 
 
 # =============================================================================
@@ -142,127 +147,258 @@ def init_session_state():
     if "show_workflow_drawer" not in st.session_state:
         st.session_state.show_workflow_drawer = False
 
+    # ==========================================================================
+    # FLOW STATE TRACKING - Controls locked/active states of UI sections
+    # ==========================================================================
+    if "flow_state" not in st.session_state:
+        st.session_state.flow_state = {
+            # Gate: Pre-season must complete before in-season
+            "preseason_complete": False,
+            # Track which weeks have sales data uploaded
+            "weeks_with_sales": [],
+            # Track which weeks have been variance-analyzed
+            "weeks_analyzed": [],
+            # Markdown state
+            "markdown_unlocked": False,
+            "markdown_calculated": False,
+            # Parameter change tracking for stale results warning
+            "last_run_params": None,
+        }
+
 
 init_session_state()
 
 
 # =============================================================================
-# Sidebar - Parameters
+# Flow State Helper Functions
 # =============================================================================
-def render_sidebar():
-    """Render the sidebar with workflow parameters."""
-    st.sidebar.title("📊 Workflow Parameters")
+def is_inseason_unlocked() -> bool:
+    """Check if in-season tab should be unlocked (pre-season complete)."""
+    return st.session_state.flow_state.get("preseason_complete", False)
 
-    # Category selection
+
+def is_variance_unlocked(week: int) -> bool:
+    """Check if variance section should be unlocked for a given week."""
+    return week in st.session_state.flow_state.get("weeks_with_sales", [])
+
+
+def is_markdown_unlocked(current_week: int, markdown_week: int) -> bool:
+    """Check if markdown section should be unlocked."""
+    return current_week >= markdown_week
+
+
+def mark_preseason_complete():
+    """Mark pre-season as complete, unlocking in-season."""
+    st.session_state.flow_state["preseason_complete"] = True
+
+
+def mark_week_sales_uploaded(week: int):
+    """Mark a week as having sales data uploaded."""
+    weeks = st.session_state.flow_state.get("weeks_with_sales", [])
+    if week not in weeks:
+        weeks.append(week)
+        st.session_state.flow_state["weeks_with_sales"] = sorted(weeks)
+
+
+def mark_week_analyzed(week: int):
+    """Mark a week as variance-analyzed."""
+    weeks = st.session_state.flow_state.get("weeks_analyzed", [])
+    if week not in weeks:
+        weeks.append(week)
+        st.session_state.flow_state["weeks_analyzed"] = sorted(weeks)
+
+
+def check_params_changed(current_params) -> bool:
+    """Check if parameters changed since last workflow run."""
+    last_params = st.session_state.flow_state.get("last_run_params")
+    if last_params is None:
+        return False
+    return current_params != last_params
+
+
+def save_run_params(params):
+    """Save the parameters used for a workflow run."""
+    st.session_state.flow_state["last_run_params"] = params
+
+
+# =============================================================================
+# Sidebar - Phased Progress Tracker
+# =============================================================================
+def render_sidebar_agent_status():
+    """Render the sidebar with the Phased Progress Tracker."""
+    state = st.session_state.workflow_state
+
+    # Render phased progress directly in sidebar (not collapsed)
+    with st.sidebar:
+        render_phased_progress_sidebar(state, show_header=True)
+
+
+# =============================================================================
+# Locked/Active Section Rendering Helpers
+# =============================================================================
+def render_locked_section(title: str, icon: str, unlock_message: str):
+    """Render a locked/disabled section with clear messaging."""
+    with st.container(border=True):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader(f"{icon} {title}")
+        with col2:
+            st.caption("🔒 LOCKED")
+
+        st.info(f"⏳ {unlock_message}")
+
+
+def render_active_section_header(title: str, icon: str):
+    """Render header for an active section."""
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader(f"{icon} {title}")
+    with col2:
+        st.caption("✅ ACTIVE")
+
+
+# =============================================================================
+# Pre-Season Parameters (rendered in Pre-Season tab)
+# =============================================================================
+def render_forecast_settings() -> tuple[str, int]:
+    """Render forecast settings (Category, Horizon). Returns (category, forecast_horizon)."""
     categories = st.session_state.data_loader.get_categories()
-    category = st.sidebar.selectbox(
-        "Product Category",
-        options=categories,
-        index=0 if categories else None,
-        help="Select the product category to forecast",
+
+    with st.container(border=True):
+        st.subheader("⚙️ Forecast Settings")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            category = st.selectbox(
+                "Product Category",
+                options=categories,
+                index=0 if categories else None,
+                help="Select the product category to forecast",
+                key="preseason_category",
+            )
+
+        with col2:
+            forecast_horizon = st.slider(
+                "Forecast Horizon (weeks)",
+                min_value=4,
+                max_value=52,
+                value=12,
+                help="Number of weeks to forecast",
+                key="preseason_forecast_horizon",
+            )
+
+    return category, forecast_horizon
+
+
+def render_inventory_settings() -> tuple[float, float]:
+    """Render inventory settings (DC Holdback, Safety Stock). Returns (dc_holdback, safety_stock)."""
+    with st.container(border=True):
+        st.subheader("📦 Inventory Settings")
+        st.caption("Adjust these to dynamically recalculate allocation")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            dc_holdback = st.slider(
+                "DC Holdback %",
+                min_value=20,
+                max_value=60,
+                value=45,
+                step=5,
+                format="%d%%",
+                help="Percentage to hold at Distribution Center",
+                key="preseason_dc_holdback",
+            ) / 100
+
+        with col2:
+            safety_stock = st.slider(
+                "Safety Stock %",
+                min_value=10,
+                max_value=50,
+                value=20,
+                step=5,
+                format="%d%%",
+                help="Safety stock buffer percentage",
+                key="preseason_safety_stock",
+            ) / 100
+
+    return dc_holdback, safety_stock
+
+
+def recalculate_allocation_dynamic(forecast, dc_holdback_pct: float, safety_stock_pct: float):
+    """Recalculate allocation dynamically based on forecast and inventory settings."""
+    from schemas.allocation_schemas import AllocationResult, ClusterAllocation, StoreAllocation
+
+    # Get the original allocation to preserve cluster/store structure
+    original_allocation = st.session_state.workflow_result.allocation
+
+    # Recalculate manufacturing quantity
+    total_demand = forecast.total_demand
+    manufacturing_qty = int(total_demand * (1 + safety_stock_pct))
+
+    # Recalculate DC holdback and store allocation
+    dc_holdback = int(manufacturing_qty * dc_holdback_pct)
+    initial_store_allocation = manufacturing_qty - dc_holdback
+
+    # Scale cluster allocations proportionally
+    original_store_total = original_allocation.initial_store_allocation
+    scale_factor = initial_store_allocation / original_store_total if original_store_total > 0 else 1
+
+    new_cluster_allocations = []
+    for c in original_allocation.cluster_allocations:
+        new_units = int(c.allocation_units * scale_factor)
+        new_cluster_allocations.append(ClusterAllocation(
+            cluster_id=c.cluster_id,
+            cluster_name=c.cluster_name,
+            store_count=c.store_count,
+            allocation_percentage=c.allocation_percentage,
+            allocation_units=new_units,
+        ))
+
+    # Scale store allocations proportionally
+    new_store_allocations = []
+    for s in original_allocation.store_allocations:
+        new_units = int(s.allocation_units * scale_factor)
+        new_store_allocations.append(StoreAllocation(
+            store_id=s.store_id,
+            cluster=s.cluster,
+            cluster_id=s.cluster_id,
+            allocation_units=new_units,
+            allocation_factor=s.allocation_factor,
+        ))
+
+    return AllocationResult(
+        manufacturing_qty=manufacturing_qty,
+        safety_stock_pct=safety_stock_pct,
+        dc_holdback=dc_holdback,
+        dc_holdback_percentage=dc_holdback_pct,
+        initial_store_allocation=initial_store_allocation,
+        cluster_allocations=new_cluster_allocations,
+        store_allocations=new_store_allocations,
+        replenishment_strategy=original_allocation.replenishment_strategy,
+        explanation=f"Dynamically recalculated: {manufacturing_qty:,} units manufactured "
+                   f"({dc_holdback_pct:.0%} DC holdback, {safety_stock_pct:.0%} safety stock)",
     )
 
-    st.sidebar.divider()
 
-    # Forecast parameters
-    st.sidebar.subheader("🔮 Forecast Settings")
-    forecast_horizon = st.sidebar.slider(
-        "Forecast Horizon (weeks)",
-        min_value=4,
-        max_value=52,
-        value=12,
-        help="Number of weeks to forecast",
-    )
+def render_preseason_parameters() -> WorkflowParams:
+    """Render pre-season parameters within the Pre-Season tab and return WorkflowParams.
+    Note: This is now only used for building WorkflowParams for the forecast workflow.
+    """
+    categories = st.session_state.data_loader.get_categories()
 
-    season_start = st.sidebar.date_input(
-        "Season Start Date",
-        value=date.today(),
-        help="Start date for the season",
-    )
+    # Get values from session state (set by individual render functions)
+    category = st.session_state.get("preseason_category", categories[0] if categories else "")
+    forecast_horizon = st.session_state.get("preseason_forecast_horizon", 12)
+    dc_holdback = st.session_state.get("preseason_dc_holdback", 45) / 100
+    safety_stock = st.session_state.get("preseason_safety_stock", 20) / 100
 
-    st.sidebar.divider()
-
-    # Inventory parameters
-    st.sidebar.subheader("📦 Inventory Settings")
-    dc_holdback = st.sidebar.slider(
-        "DC Holdback %",
-        min_value=0.20,
-        max_value=0.60,
-        value=0.45,
-        step=0.05,
-        format="%.0f%%",
-        help="Percentage to hold at Distribution Center",
-    )
-
-    safety_stock = st.sidebar.slider(
-        "Safety Stock %",
-        min_value=0.10,
-        max_value=0.50,
-        value=0.20,
-        step=0.05,
-        format="%.0f%%",
-        help="Safety stock buffer percentage",
-    )
-
-    replenishment = st.sidebar.selectbox(
-        "Replenishment Strategy",
-        options=["weekly", "bi-weekly", "none"],
-        index=0,
-        help="How often to replenish stores from DC",
-    )
-
-    st.sidebar.divider()
-
-    # Pricing parameters
-    st.sidebar.subheader("💰 Pricing Settings")
-    markdown_week = st.sidebar.slider(
-        "Markdown Checkpoint Week",
-        min_value=4,
-        max_value=12,
-        value=6,
-        help="Week to check if markdown is needed",
-    )
-
-    markdown_threshold = st.sidebar.slider(
-        "Sell-Through Target",
-        min_value=0.40,
-        max_value=0.80,
-        value=0.60,
-        step=0.05,
-        format="%.0f%%",
-        help="Target sell-through rate",
-    )
-
-    elasticity = st.sidebar.number_input(
-        "Price Elasticity",
-        min_value=1.0,
-        max_value=4.0,
-        value=2.0,
-        step=0.5,
-        help="Price elasticity factor for markdown calculation",
-    )
-
-    st.sidebar.divider()
-
-    # Variance parameters
-    st.sidebar.subheader("📉 Variance Settings")
-    variance_threshold = st.sidebar.slider(
-        "Variance Threshold",
-        min_value=0.10,
-        max_value=0.40,
-        value=0.20,
-        step=0.05,
-        format="%.0f%%",
-        help="Variance threshold to trigger re-forecast",
-    )
-
-    max_reforecasts = st.sidebar.slider(
-        "Max Re-forecasts",
-        min_value=0,
-        max_value=5,
-        value=2,
-        help="Maximum number of re-forecasts allowed",
-    )
+    season_start = date.today()
+    replenishment = "weekly"
+    markdown_week = min(6, forecast_horizon)
+    markdown_threshold = 0.60
+    elasticity = 2.0
+    variance_threshold = 0.20
+    max_reforecasts = 2
 
     return WorkflowParams(
         category=category,
@@ -277,6 +413,90 @@ def render_sidebar():
         variance_threshold=variance_threshold,
         max_reforecasts=max_reforecasts,
     )
+
+
+# =============================================================================
+# In-Season Parameters (rendered conditionally in In-Season tab)
+# =============================================================================
+def render_operational_parameters(forecast_horizon: int) -> tuple[str, int]:
+    """Render operational parameters (always shown in In-Season). Returns (replenishment, markdown_week)."""
+    with st.container(border=True):
+        render_active_section_header("Operational Settings", "⚙️")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            replenishment = st.selectbox(
+                "Replenishment Strategy",
+                options=["weekly", "bi-weekly", "none"],
+                index=0,
+                help="How often to replenish stores from DC",
+                key="inseason_replenishment",
+            )
+
+        with col2:
+            markdown_week = st.slider(
+                "Markdown Checkpoint Week",
+                min_value=4,
+                max_value=min(forecast_horizon, 12),
+                value=min(6, forecast_horizon),
+                help="Week when markdown decision becomes available",
+                key="inseason_markdown_week",
+            )
+
+    return replenishment, markdown_week
+
+
+def render_variance_parameters() -> float:
+    """Render variance parameters (shown after sales upload). Returns threshold."""
+    with st.container(border=True):
+        render_active_section_header("Variance Settings", "📉")
+
+        variance_threshold = st.slider(
+            "Variance Threshold",
+            min_value=10,
+            max_value=40,
+            value=20,
+            step=5,
+            format="%d%%",
+            help="Variance above this % triggers re-forecast recommendation",
+            key="inseason_variance_threshold",
+        ) / 100
+
+    return variance_threshold
+
+
+def render_markdown_parameters() -> tuple[float, float]:
+    """Render markdown parameters (shown at checkpoint week). Returns (sell_through_target, elasticity)."""
+    with st.container(border=True):
+        render_active_section_header("Markdown Settings", "💰")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            markdown_threshold = st.slider(
+                "Sell-Through Target",
+                min_value=40,
+                max_value=80,
+                value=60,
+                step=5,
+                format="%d%%",
+                help="Target sell-through rate",
+                key="inseason_markdown_threshold",
+            ) / 100
+
+        with col2:
+            elasticity = st.number_input(
+                "Price Elasticity",
+                min_value=1.0,
+                max_value=4.0,
+                value=2.0,
+                step=0.5,
+                help="Price elasticity factor for markdown calculation",
+                key="inseason_elasticity",
+            )
+
+    return markdown_threshold, elasticity
 
 
 # =============================================================================
@@ -319,12 +539,14 @@ def render_forecast_section(
             label="Confidence",
             value=f"{forecast.confidence:.0%}",
             delta=confidence_label,
+            help="Forecast confidence based on prediction interval width. Narrower intervals = higher confidence. Calculated as 1 - (avg interval width / avg prediction).",
         )
 
     with col4:
         st.metric(
-            label="Safety Stock",
-            value=f"{forecast.safety_stock_pct:.0%}",
+            label="Data Quality",
+            value=forecast.data_quality.capitalize() if forecast.data_quality else "N/A",
+            help="Based on historical data availability and consistency",
         )
 
     # Forecast chart with optional actual sales
@@ -504,6 +726,29 @@ def render_allocation_section(allocation: AllocationResult):
     )
     fig_stores.update_layout(height=350)
     st.plotly_chart(fig_stores, use_container_width=True)
+
+    # Full store details table (collapsed by default)
+    with st.expander(f"📋 All Store Allocations ({len(allocation.store_allocations)} stores)", expanded=False):
+        st.dataframe(
+            store_data,
+            column_config={
+                "Store": st.column_config.TextColumn("Store ID"),
+                "Units": st.column_config.NumberColumn("Allocated Units", format="%d"),
+                "Cluster": st.column_config.TextColumn("Cluster"),
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=400,
+        )
+
+        # Download button for store allocations
+        csv = store_data.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Store Allocations CSV",
+            data=csv,
+            file_name="store_allocations.csv",
+            mime="text/csv",
+        )
 
     # Agent explanation
     with st.expander("Agent Explanation", expanded=False):
@@ -748,24 +993,22 @@ def render_markdown_command_center(
     st.markdown("---")
     formula_col1, formula_col2, formula_col3 = st.columns([1, 2, 1])
     with formula_col2:
-        st.markdown(
-            f"""
-            <div style="text-align: center; padding: 10px; background: #1e1e2e; border-radius: 8px;">
-                <div style="color: #888; font-size: 0.85rem; margin-bottom: 8px;">
-                    Pricing Agent Formula: Gap × Elasticity = Markdown
-                </div>
-                <div style="font-size: 1.3rem; font-family: monospace;">
-                    <span style="color: #e74c3c; font-weight: bold;">{gap:.0%}</span> ×
-                    <span style="color: #3498db; font-weight: bold;">{elasticity}</span> =
-                    <span style="color: #2ecc71; font-weight: bold;">{recommended_markdown:.0%}</span> markdown
-                </div>
-                <div style="color: #666; font-size: 0.8rem; margin-top: 8px;">
-                    Rounded to nearest 5%, capped at 40% maximum
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Format values for formula display
+        gap_display = f"{gap:.0%}"
+        elasticity_display = f"{elasticity}"
+        markdown_display = f"{recommended_markdown:.0%}"
+
+        formula_html = f'''<div style="text-align: center; padding: 10px; background: #1e1e2e; border-radius: 8px;">
+<div style="color: #888; font-size: 0.85rem; margin-bottom: 8px;">Pricing Agent Formula: Gap × Elasticity = Markdown</div>
+<div style="font-size: 1.3rem; font-family: monospace;">
+<span style="color: #e74c3c; font-weight: bold;">{gap_display}</span> ×
+<span style="color: #3498db; font-weight: bold;">{elasticity_display}</span> =
+<span style="color: #2ecc71; font-weight: bold;">{markdown_display}</span> markdown
+</div>
+<div style="color: #666; font-size: 0.8rem; margin-top: 8px;">Rounded to nearest 5%, capped at 40% maximum</div>
+</div>'''
+
+        st.markdown(formula_html, unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -797,27 +1040,27 @@ def render_markdown_command_center(
             projected_st = min(current_sell_through + (scenario["pct"] / elasticity), 0.85)
 
             # Style based on selection
-            border_color = "#2ecc71" if is_recommended else "#333"
+            border_color = "#2ecc71" if is_selected else "#444"
             bg_color = "rgba(46, 204, 113, 0.1)" if is_selected else "transparent"
 
-            st.markdown(
-                f"""
-                <div style="
-                    border: 2px solid {border_color if is_selected else '#444'};
-                    border-radius: 8px;
-                    padding: 16px;
-                    text-align: center;
-                    background: {bg_color};
-                    position: relative;
-                ">
-                    {"<span style='position: absolute; top: -10px; right: 10px; background: #2ecc71; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;'>RECOMMENDED</span>" if is_recommended else ""}
-                    <div style="font-size: 1.8rem; font-weight: bold;">{scenario['pct']:.0%}</div>
-                    <div style="color: #888; font-size: 0.85rem;">{scenario['label']}</div>
-                    <div style="color: #2ecc71; font-size: 0.85rem; margin-top: 8px;">Est: {projected_st:.0%} ST</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            # Build recommended badge separately
+            recommended_badge = ""
+            if is_recommended:
+                recommended_badge = '<span style="position: absolute; top: -10px; right: 10px; background: #2ecc71; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: bold;">RECOMMENDED</span>'
+
+            # Format values
+            pct_display = f"{scenario['pct']:.0%}"
+            label_display = scenario['label']
+            projected_display = f"{projected_st:.0%}"
+
+            html_content = f'''<div style="border: 2px solid {border_color}; border-radius: 8px; padding: 16px; text-align: center; background: {bg_color}; position: relative;">
+{recommended_badge}
+<div style="font-size: 1.8rem; font-weight: bold;">{pct_display}</div>
+<div style="color: #888; font-size: 0.85rem;">{label_display}</div>
+<div style="color: #2ecc71; font-size: 0.85rem; margin-top: 8px;">Est: {projected_display} ST</div>
+</div>'''
+
+            st.markdown(html_content, unsafe_allow_html=True)
 
             if st.button(
                 "Select" if not is_selected else "✓ Selected",
@@ -1608,6 +1851,9 @@ def _save_week_sales_callback(week_num: int):
 
     # Update current_week
     st.session_state.current_week = max(st.session_state.current_week, week_num)
+
+    # Mark week as having sales uploaded in flow state (unlocks variance section)
+    mark_week_sales_uploaded(week_num)
 
     # Rebuild actual_sales list (aggregate)
     actual_sales_list = []
@@ -2744,6 +2990,36 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
     """Render the variance, reallocation, and pricing sections for a week."""
     markdown_week = params.markdown_week
 
+    # ==========================================================================
+    # VARIANCE PARAMETERS - Show ONLY after sales uploaded for this week
+    # ==========================================================================
+    if is_variance_unlocked(selected_week):
+        # Show variance parameters (user can adjust threshold)
+        variance_threshold = render_variance_parameters()
+        # Update params with user-selected values
+        params = WorkflowParams(
+            category=params.category,
+            forecast_horizon_weeks=params.forecast_horizon_weeks,
+            season_start_date=params.season_start_date,
+            dc_holdback_pct=params.dc_holdback_pct,
+            safety_stock_pct=params.safety_stock_pct,
+            replenishment_strategy=params.replenishment_strategy,
+            markdown_week=params.markdown_week,
+            markdown_threshold=params.markdown_threshold,
+            elasticity=params.elasticity,
+            variance_threshold=variance_threshold,
+            max_reforecasts=2,  # Default value
+        )
+    else:
+        # Show locked variance section
+        render_locked_section(
+            "Variance Settings",
+            "📉",
+            f"Upload Week {selected_week} sales data to unlock variance analysis"
+        )
+
+    st.markdown("")  # Spacer
+
     # Section 2: Variance Analysis (Always Agentic)
     with st.expander("📉 2. Variance Analysis", expanded=True):
         if week_info["actual_sales"] is not None and st.session_state.workflow_result:
@@ -2783,8 +3059,42 @@ def render_week_sections(params: WorkflowParams, selected_week: int, week_info: 
     with st.expander("🔄 3. Strategic Replenishment", expanded=False):
         render_strategic_replenishment_section(params, selected_week)
 
+    # ==========================================================================
+    # MARKDOWN PARAMETERS - Show ONLY at/after markdown checkpoint week
+    # ==========================================================================
+    is_pricing_available = is_markdown_unlocked(selected_week, markdown_week)
+
+    st.markdown("")  # Spacer
+
+    if is_pricing_available:
+        # Show markdown parameters (user can adjust sell-through target/elasticity)
+        markdown_threshold, elasticity = render_markdown_parameters()
+        # Update params with user-selected values
+        params = WorkflowParams(
+            category=params.category,
+            forecast_horizon_weeks=params.forecast_horizon_weeks,
+            season_start_date=params.season_start_date,
+            dc_holdback_pct=params.dc_holdback_pct,
+            safety_stock_pct=params.safety_stock_pct,
+            replenishment_strategy=params.replenishment_strategy,
+            markdown_week=params.markdown_week,
+            markdown_threshold=markdown_threshold,
+            elasticity=elasticity,
+            variance_threshold=params.variance_threshold,
+            max_reforecasts=params.max_reforecasts,
+        )
+    else:
+        # Show locked markdown section
+        weeks_until = markdown_week - selected_week
+        render_locked_section(
+            "Markdown Settings",
+            "💰",
+            f"Available at Week {markdown_week} ({weeks_until} week(s) until markdown checkpoint)"
+        )
+
+    st.markdown("")  # Spacer
+
     # Section 4: Pricing Agent (only at/after markdown checkpoint)
-    is_pricing_available = selected_week >= markdown_week
     with st.expander(
         f"💰 4. Markdown Command Center {'🔓' if is_pricing_available else '🔒 (Week ' + str(markdown_week) + '+)'}",
         expanded=is_pricing_available,  # Auto-expand when available
@@ -2904,6 +3214,28 @@ def render_inseason_planning(params: WorkflowParams):
 
     st.divider()
 
+    # ==========================================================================
+    # OPERATIONAL PARAMETERS - Always visible in In-Season (moved from Pre-Season)
+    # ==========================================================================
+    replenishment, markdown_week = render_operational_parameters(params.forecast_horizon_weeks)
+
+    # Update params with user-selected operational values
+    params = WorkflowParams(
+        category=params.category,
+        forecast_horizon_weeks=params.forecast_horizon_weeks,
+        season_start_date=params.season_start_date,
+        dc_holdback_pct=params.dc_holdback_pct,
+        safety_stock_pct=params.safety_stock_pct,
+        replenishment_strategy=replenishment,
+        markdown_week=markdown_week,
+        markdown_threshold=params.markdown_threshold,
+        elasticity=params.elasticity,
+        variance_threshold=params.variance_threshold,
+        max_reforecasts=params.max_reforecasts,
+    )
+
+    st.divider()
+
     # Render the timeline
     render_timeline(params)
 
@@ -2917,6 +3249,9 @@ def render_inseason_planning(params: WorkflowParams):
 def render_data_upload():
     """Render the data upload section."""
     st.subheader("📁 Data Management")
+
+    # Get the data directory path
+    data_dir = st.session_state.data_loader.data_dir
 
     col1, col2 = st.columns(2)
 
@@ -2941,12 +3276,33 @@ def render_data_upload():
             help="CSV with columns: date, store_id, category, quantity_sold",
         )
         if sales_file is not None:
-            st.success(f"Uploaded: {sales_file.name}")
             try:
+                # Read and validate the file
                 preview_df = pd.read_csv(sales_file)
-                st.dataframe(preview_df.head(10), use_container_width=True)
+                required_cols = ["date", "store_id", "category", "quantity_sold"]
+                missing_cols = [c for c in required_cols if c not in preview_df.columns]
+
+                if missing_cols:
+                    st.error(f"Missing required columns: {missing_cols}")
+                else:
+                    st.success(f"✅ Valid file: {sales_file.name} ({len(preview_df):,} rows)")
+                    st.dataframe(preview_df.head(10), use_container_width=True)
+
+                    # Save button
+                    if st.button("💾 Apply Sales Data", key="apply_sales_btn"):
+                        # Save to data directory
+                        save_path = data_dir / "historical_sales_2022_2024.csv"
+                        sales_file.seek(0)  # Reset file pointer
+                        preview_df.to_csv(save_path, index=False)
+
+                        # Update data loader and clear old results
+                        st.session_state.data_loader.clear_cache()
+                        st.session_state.workflow_result = None
+                        st.session_state.flow_state["preseason_complete"] = False
+                        st.success(f"✅ Sales data saved and loaded!")
+                        st.rerun()
             except Exception as e:
-                st.error(f"Error previewing file: {e}")
+                st.error(f"Error reading file: {e}")
 
     with col2:
         st.markdown("### Store Attributes Data")
@@ -2973,17 +3329,38 @@ def render_data_upload():
             help="CSV with store attribute columns",
         )
         if stores_file is not None:
-            st.success(f"Uploaded: {stores_file.name}")
             try:
+                # Read and validate the file
                 preview_df = pd.read_csv(stores_file)
-                st.dataframe(preview_df.head(10), use_container_width=True)
+                required_cols = ["store_id", "avg_weekly_sales_12mo", "store_size_sqft"]
+                missing_cols = [c for c in required_cols if c not in preview_df.columns]
+
+                if missing_cols:
+                    st.error(f"Missing required columns: {missing_cols}")
+                else:
+                    st.success(f"✅ Valid file: {stores_file.name} ({len(preview_df):,} rows)")
+                    st.dataframe(preview_df.head(10), use_container_width=True)
+
+                    # Save button
+                    if st.button("💾 Apply Store Data", key="apply_stores_btn"):
+                        # Save to data directory
+                        save_path = data_dir / "store_attributes.csv"
+                        stores_file.seek(0)  # Reset file pointer
+                        preview_df.to_csv(save_path, index=False)
+
+                        # Update data loader and clear old results
+                        st.session_state.data_loader.clear_cache()
+                        st.session_state.workflow_result = None
+                        st.session_state.flow_state["preseason_complete"] = False
+                        st.success(f"✅ Store data saved and loaded!")
+                        st.rerun()
             except Exception as e:
-                st.error(f"Error previewing file: {e}")
+                st.error(f"Error reading file: {e}")
 
     st.divider()
 
     # Show available data summary
-    st.markdown("### Available Training Data")
+    st.markdown("### Current Training Data")
     summary = st.session_state.data_loader.get_context_summary()
     st.markdown(summary)
 
@@ -3036,8 +3413,8 @@ async def run_workflow_async(params: WorkflowParams):
         raise e
 
 
-def render_preseason_tab(params: WorkflowParams):
-    """Render the Pre-Season planning tab."""
+def render_preseason_tab():
+    """Render the Pre-Season planning tab with restructured layout."""
     st.markdown("## 🌱 Pre-Season Planning")
     st.markdown(
         "Generate demand forecasts and initial inventory allocations before the season begins."
@@ -3047,60 +3424,107 @@ def render_preseason_tab(params: WorkflowParams):
     if st.session_state.workflow_result:
         st.success("✅ Pre-season planning complete! View results below or proceed to In-Season tab.")
 
+    # ===========================================================================
+    # DATA MANAGEMENT SECTION - At the top for users to upload training data first
+    # ===========================================================================
+    with st.expander("📁 Data Management - Upload Training Data", expanded=False):
+        render_data_upload()
+
     st.divider()
 
-    # Workflow configuration display
-    col_info, col_action = st.columns([2, 1])
+    # ===========================================================================
+    # FORECAST SETTINGS - These require re-running the workflow
+    # ===========================================================================
+    category, forecast_horizon = render_forecast_settings()
 
-    with col_info:
-        st.markdown("### Workflow Configuration")
-        st.markdown(
-            f"""
-            - **Category:** {params.category}
-            - **Forecast Horizon:** {params.forecast_horizon_weeks} weeks
-            - **DC Holdback:** {params.dc_holdback_pct:.0%}
-            - **Safety Stock:** {params.safety_stock_pct:.0%}
-            - **Replenishment:** {params.replenishment_strategy}
-            """
-        )
+    # Build params for forecast (inventory settings will be applied dynamically later)
+    params = WorkflowParams(
+        category=category,
+        forecast_horizon_weeks=forecast_horizon,
+        season_start_date=date.today(),
+        dc_holdback_pct=0.45,  # Default, will be overridden dynamically
+        safety_stock_pct=0.20,  # Default, will be overridden dynamically
+        replenishment_strategy="weekly",
+        markdown_week=min(6, forecast_horizon),
+        markdown_threshold=0.60,
+        elasticity=2.0,
+        variance_threshold=0.20,
+        max_reforecasts=2,
+    )
+
+    # Check if forecast settings changed (category or horizon)
+    last_params = st.session_state.flow_state.get("last_run_params")
+    forecast_settings_changed = False
+    if last_params and st.session_state.workflow_result:
+        if (last_params.category != category or
+            last_params.forecast_horizon_weeks != forecast_horizon):
+            forecast_settings_changed = True
+            st.warning("⚠️ **Forecast settings have changed.** Click 'Re-run' to update forecast.")
+
+    # ===========================================================================
+    # RUN WORKFLOW BUTTON
+    # ===========================================================================
+    col_action, col_spacer = st.columns([1, 2])
 
     with col_action:
+        button_label = "🔄 Re-run Forecast" if st.session_state.workflow_result else "▶️ Run Forecast"
         run_button = st.button(
-            "▶️ Run Pre-Season Workflow",
+            button_label,
             type="primary",
             use_container_width=True,
             disabled=st.session_state.running,
+            key="run_preseason_workflow_btn",
         )
+        if st.session_state.running:
+            st.caption("⏳ Workflow running...")
 
     if run_button:
+        st.toast("🚀 Starting forecast...")
         st.session_state.running = True
 
-        with st.status("Running pre-season workflow...", expanded=True) as status:
-            st.write("🔮 Phase 1: Running Demand Agent...")
+        with st.status("Running demand forecast...", expanded=True) as status:
+            st.write(f"**Forecasting:** {params.category}, {params.forecast_horizon_weeks} weeks")
+            st.write("🔮 Running Demand Agent...")
 
             try:
                 result = asyncio.run(run_workflow_async(params))
                 st.session_state.workflow_result = result
-                st.write("📦 Phase 2: Running Inventory Agent...")
-                st.write("✅ Pre-season planning complete!")
+
+                # Mark pre-season as complete and save params
+                mark_preseason_complete()
+                save_run_params(params)
+
+                st.write("📦 Running Inventory Agent...")
+                st.write("✅ Forecast complete!")
                 status.update(
-                    label="✅ Pre-season workflow complete!",
+                    label="✅ Forecast complete!",
                     state="complete",
                     expanded=False,
                 )
+                st.toast("✅ Forecast complete!")
             except Exception as e:
                 status.update(label=f"❌ Error: {e}", state="error")
                 st.error(f"Workflow failed: {e}")
+                import traceback
+                st.code(traceback.format_exc())
             finally:
                 st.session_state.running = False
                 st.rerun()
 
-    # Show results if available
+    # ===========================================================================
+    # RESULTS SECTION (only shown after forecast is complete)
+    # ===========================================================================
     if st.session_state.workflow_result:
         result = st.session_state.workflow_result
+        last_params = st.session_state.flow_state.get("last_run_params")
 
         st.divider()
-        st.markdown("### 📊 Pre-Season Results")
+        st.markdown("### 📊 Forecast Results")
+
+        # Show forecast params
+        if last_params:
+            st.caption(f"Forecast for: {last_params.category} | "
+                      f"Horizon: {last_params.forecast_horizon_weeks} weeks")
 
         # Forecast section
         render_forecast_section(
@@ -3111,83 +3535,32 @@ def render_preseason_tab(params: WorkflowParams):
 
         st.divider()
 
-        # Allocation section
-        render_allocation_section(result.allocation)
+        # ===========================================================================
+        # INVENTORY SETTINGS - Dynamic allocation recalculation
+        # ===========================================================================
+        dc_holdback, safety_stock = render_inventory_settings()
+
+        # Dynamically recalculate allocation based on current slider values
+        dynamic_allocation = recalculate_allocation_dynamic(
+            result.forecast,
+            dc_holdback,
+            safety_stock
+        )
+
+        # Update params for downstream use
+        params.dc_holdback_pct = dc_holdback
+        params.safety_stock_pct = safety_stock
 
         st.divider()
 
-        # Data upload section
-        with st.expander("📁 Data Management", expanded=False):
-            render_data_upload()
+        # Allocation section with dynamically recalculated values
+        st.markdown("### 📦 Allocation Results")
+        st.caption(f"Manufacturing: {dynamic_allocation.manufacturing_qty:,} units | "
+                  f"DC Holdback: {dc_holdback:.0%} | Safety Stock: {safety_stock:.0%}")
 
+        render_allocation_section(dynamic_allocation)
 
-# =============================================================================
-# Workflow Drawer Component
-# =============================================================================
-def render_workflow_drawer():
-    """Render the floating workflow status drawer using Streamlit native components."""
-    state = st.session_state.workflow_state
-
-    # Use a container in the sidebar for workflow status
-    with st.sidebar:
-        st.markdown("---")
-        with st.expander("🤖 Agent Workflow Status", expanded=state.is_running):
-            # Phase Progress
-            st.markdown("**Phase Progress**")
-            phase_cols = st.columns(len(state.phases))
-            for i, phase in enumerate(state.phases):
-                with phase_cols[i]:
-                    if phase.status.value == "completed":
-                        st.markdown(f"✅ {phase.icon}")
-                    elif phase.status.value == "running":
-                        st.markdown(f"🔄 {phase.icon}")
-                    else:
-                        st.markdown(f"⬜ {phase.icon}")
-
-            st.caption(f"Completed: {state.completed_phases}/{state.total_phases}")
-
-            # Current Agent
-            st.markdown("**Current Agent**")
-            if state.current_agent:
-                agent_type = "📈"
-                if "inventory" in state.current_agent.lower():
-                    agent_type = "📦"
-                elif "pricing" in state.current_agent.lower():
-                    agent_type = "💰"
-                elif "variance" in state.current_agent.lower():
-                    agent_type = "📊"
-
-                st.info(f"{agent_type} {state.current_agent}")
-
-                # Tools
-                if state.current_tools:
-                    st.markdown("*Recent Tools:*")
-                    for tool in state.current_tools[-3:]:
-                        status_icon = "🔄" if tool.status.value == "running" else "✅"
-                        duration = f" ({tool.duration_ms:.0f}ms)" if tool.duration_ms else ""
-                        st.caption(f"{status_icon} `{tool.name}()`{duration}")
-            elif state.is_running:
-                st.info("Initializing workflow...")
-            else:
-                st.caption("No workflow running")
-
-            # Event Log
-            if state.events:
-                st.markdown("**Recent Events**")
-                for event in state.events[-5:]:
-                    event_type = event.get("type", "")
-                    message = event.get("message", "")
-                    if event_type == "phase":
-                        st.caption(f"📍 {message}")
-                    elif event_type == "agent":
-                        st.caption(f"🤖 {message}")
-                    elif event_type == "tool":
-                        st.caption(f"🔧 {message}")
-
-            # Elapsed time
-            if state.start_time:
-                elapsed = state.elapsed_seconds
-                st.caption(f"⏱️ Elapsed: {int(elapsed // 60)}:{int(elapsed % 60):02d}")
+    return params  # Return params for use in main
 
 
 def main():
@@ -3200,22 +3573,53 @@ def main():
         """
     )
 
-    # Render sidebar and get parameters
-    params = render_sidebar()
+    # Render sidebar with ONLY agent status (no parameters)
+    render_sidebar_agent_status()
 
-    # NEW: Two primary tabs - Preseason and In-Season
+    # Two primary tabs - Preseason and In-Season
     tab_preseason, tab_inseason = st.tabs(
         ["🌱 Pre-Season", "📅 In-Season"]
     )
 
     with tab_preseason:
-        render_preseason_tab(params)
+        # Pre-season tab renders its own parameters and returns them
+        params = render_preseason_tab()
 
     with tab_inseason:
-        render_inseason_planning(params)
-
-    # Render workflow status drawer (floating FAB + drawer)
-    render_workflow_drawer()
+        # Check if In-Season should be locked
+        if not is_inseason_unlocked():
+            render_locked_section(
+                "In-Season Updates",
+                "📅",
+                "Complete Pre-Season planning first to unlock In-Season updates."
+            )
+            st.caption("Run the Pre-Season workflow to generate forecasts and allocations before proceeding.")
+        else:
+            # Get params from pre-season (use stored params or create default)
+            if st.session_state.workflow_result:
+                # Use the params from the last run
+                stored_params = st.session_state.flow_state.get("last_run_params")
+                if stored_params:
+                    render_inseason_planning(stored_params)
+                else:
+                    # Fallback: create default params with pre-season results
+                    categories = st.session_state.data_loader.get_categories()
+                    default_params = WorkflowParams(
+                        category=categories[0] if categories else "Women's Dresses",
+                        forecast_horizon_weeks=12,
+                        season_start_date=date.today(),
+                        dc_holdback_pct=0.45,
+                        safety_stock_pct=0.20,
+                        replenishment_strategy="weekly",
+                        markdown_week=6,
+                        markdown_threshold=0.60,
+                        elasticity=2.0,
+                        variance_threshold=0.20,
+                        max_reforecasts=2,
+                    )
+                    render_inseason_planning(default_params)
+            else:
+                st.info("Pre-season results not found. Please run pre-season planning first.")
 
 
 if __name__ == "__main__":

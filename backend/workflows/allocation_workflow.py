@@ -32,6 +32,7 @@ async def run_allocation(
     context: ForecastingContext,
     forecast: ForecastResult,
     dc_holdback_pct: float = 0.45,
+    safety_stock_pct: float = 0.20,
     replenishment_strategy: str = "weekly",
     hooks: Optional[RunHooks] = None,
 ) -> AllocationResult:
@@ -51,6 +52,7 @@ async def run_allocation(
         context: ForecastingContext with data_loader for store data
         forecast: ForecastResult from demand workflow
         dc_holdback_pct: Percentage held at DC (default: 0.45 = 45%)
+        safety_stock_pct: Safety stock buffer percentage (default: 0.20 = 20%)
         replenishment_strategy: "none", "weekly", or "bi-weekly"
 
     Returns:
@@ -58,7 +60,7 @@ async def run_allocation(
     """
     logger.info("=" * 80)
     logger.info("WORKFLOW: Inventory Allocation")
-    logger.info(f"Forecast: {forecast.total_demand} units, safety_stock={forecast.safety_stock_pct:.0%}")
+    logger.info(f"Forecast: {forecast.total_demand} units, safety_stock={safety_stock_pct:.0%}")
     logger.info(f"DC Holdback: {dc_holdback_pct:.0%}, Replenishment: {replenishment_strategy}")
     logger.info("=" * 80)
 
@@ -67,7 +69,7 @@ async def run_allocation(
 
 Forecast Data:
 - Total Demand: {forecast.total_demand} units
-- Safety Stock: {forecast.safety_stock_pct:.0%}
+- Safety Stock: {safety_stock_pct:.0%}
 - Weekly Forecast: {forecast.forecast_by_week}
 - Confidence: {forecast.confidence:.0%}
 

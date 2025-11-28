@@ -4,11 +4,24 @@ Agent Lifecycle Hooks for Streamlit UI Integration
 Provides event-based completion detection for agents instead of brittle string matching.
 Uses OpenAI Agents SDK lifecycle hooks to trigger Streamlit visualizations and
 real-time execution monitoring.
+
+Integrates with the Phased Progress Tracker sidebar for visual workflow status.
 """
 
 from agents import RunHooks
 from typing import Any
 from datetime import datetime
+
+# Import phase tracking functions
+from utils.sidebar_monitor import (
+    start_phase,
+    complete_phase,
+    skip_phase,
+    set_phase_tool,
+    set_phase_message,
+    initialize_phase_state,
+    reset_workflow_phases,
+)
 
 
 class StreamlitVisualizationHooks(RunHooks):
@@ -52,6 +65,7 @@ class StreamlitVisualizationHooks(RunHooks):
         Called BEFORE agent is invoked.
 
         Use this to show which agent is currently active in the sidebar.
+        Also triggers phase start in the Phased Progress Tracker.
         """
         if not self.st_session_state:
             return
@@ -70,7 +84,33 @@ class StreamlitVisualizationHooks(RunHooks):
             'timestamp': datetime.now().isoformat()
         })
 
+        # ==================== PHASE TRACKING ====================
+        # Map agent names to workflow phases
+        phase_name = self._get_phase_for_agent(agent_name)
+        if phase_name:
+            start_phase(self.st_session_state, phase_name, f"Running {agent_name}...")
+            print(f"📊 [PHASE] Started phase: {phase_name}")
+
         print(f"✨ [HOOK] Agent '{agent_name}' is now ACTIVE")
+
+    def _get_phase_for_agent(self, agent_name: str) -> str:
+        """Map agent name to workflow phase name."""
+        agent_lower = agent_name.lower()
+
+        if 'demand' in agent_lower or 'forecast' in agent_lower:
+            # Check if this is a reforecast (variance triggered)
+            if getattr(self.st_session_state, 'variance_check_completed', False):
+                return 'reforecast'
+            return 'forecast'
+        elif 'inventory' in agent_lower or 'allocation' in agent_lower:
+            return 'allocation'
+        elif 'variance' in agent_lower:
+            return 'variance'
+        elif 'coordinator' in agent_lower:
+            # Coordinator doesn't map to a specific phase
+            return None
+
+        return None
 
     async def on_agent_end(self, ctx, agent, output: Any) -> None:
         """
@@ -150,6 +190,13 @@ class StreamlitVisualizationHooks(RunHooks):
             'event': 'completed',
             'timestamp': datetime.now().isoformat()
         })
+
+        # ==================== PHASE TRACKING ====================
+        # Complete the phase for this agent
+        phase_name = self._get_phase_for_agent(agent_name)
+        if phase_name:
+            complete_phase(self.st_session_state, phase_name)
+            print(f"📊 [PHASE] Completed phase: {phase_name}")
 
         print(f"✅ [HOOK] Agent '{agent_name}' completed")
 
@@ -242,6 +289,13 @@ class StreamlitVisualizationHooks(RunHooks):
         }
         self.st_session_state.tools_executing.append(tool_entry)
         self.st_session_state.current_tool = tool_name
+
+        # ==================== PHASE TRACKING ====================
+        # Update current tool in the active phase
+        agent_name = getattr(agent, 'name', 'Unknown Agent')
+        phase_name = self._get_phase_for_agent(agent_name)
+        if phase_name:
+            set_phase_tool(self.st_session_state, phase_name, tool_name)
 
         print(f"🔧 [HOOK] Tool '{tool_name}' executing...")
 

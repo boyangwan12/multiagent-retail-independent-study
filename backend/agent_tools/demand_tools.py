@@ -781,10 +781,12 @@ def run_demand_forecast(
         total_demand = sum(forecast_result["predictions"])
         weekly_average = total_demand // forecast_horizon_weeks if forecast_horizon_weeks > 0 else 0
 
-        # Calculate safety stock (inverse of confidence, clamped)
+        # Get confidence score
         confidence = forecast_result["confidence"]
-        safety_stock_pct = 1.0 - confidence
-        safety_stock_pct = max(0.10, min(0.50, safety_stock_pct))
+
+        # Safety stock is now user-controlled via WorkflowParams
+        # We keep a default value here for schema compatibility
+        safety_stock_pct = 0.20  # Default, actual value comes from user params
 
         # Assess data quality
         data_quality = "excellent" if confidence >= 0.7 else "good" if confidence >= 0.5 else "poor"

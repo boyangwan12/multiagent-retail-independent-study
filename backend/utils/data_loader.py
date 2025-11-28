@@ -41,6 +41,21 @@ class TrainingDataLoader:
         self._date_range: Optional[Dict[str, str]] = None
         self._store_attributes: Optional[Dict] = None
 
+    def clear_cache(self):
+        """Clear all cached data to force reload from files."""
+        self._categories = None
+        self._stores = None
+        self._date_range = None
+        self._store_attributes = None
+
+    def update_data_paths(self, sales_path: Optional[str] = None, stores_path: Optional[str] = None):
+        """Update data file paths and clear cache."""
+        if sales_path:
+            self.historical_sales_path = Path(sales_path)
+        if stores_path:
+            self.store_attributes_path = Path(stores_path)
+        self.clear_cache()
+
     def get_categories(self) -> List[str]:
         """Get unique product categories from historical sales data."""
         if self._categories is None:

@@ -7,6 +7,7 @@ from agents import Runner, set_tracing_disabled, SQLiteSession
 from config import OPENAI_MODEL
 from utils import SessionManager, TrainingDataLoader, StreamlitVisualizationHooks
 from utils.context import ForecastingContext
+from utils.sidebar_monitor import initialize_phase_state, reset_workflow_phases
 from my_agents.coordinator_agent import create_coordinator_agent
 from agent_tools.variance_tools import check_variance, calculate_mape
 import re
@@ -712,6 +713,9 @@ if "session_id" not in st.session_state:
     st.session_state.inventory_allocation_data = None  # InventoryAllocationOutput as dict
     st.session_state.variance_data = None  # VarianceCheckOutput as dict
 
+    # Phase tracking for Phased Progress Tracker sidebar
+    initialize_phase_state(st.session_state)
+
     # Create SDK Session for conversation memory
     st.session_state.sdk_session = SQLiteSession(
         session_id=st.session_state.session_id,
@@ -730,9 +734,9 @@ st.markdown("""
 with st.sidebar:
     # Only show execution monitor if data is uploaded and agent is initialized
     if st.session_state.uploaded and st.session_state.agent:
-        # Import and render the real-time execution monitor
-        from utils.sidebar_monitor import render_execution_monitor
-        render_execution_monitor(st.session_state)
+        # Render the Phased Progress Tracker sidebar
+        from utils.sidebar_monitor import render_phased_progress_sidebar
+        render_phased_progress_sidebar(st.session_state)
     else:
         # Show setup status when not yet ready
         st.markdown("### 📋 Session Info")
@@ -965,6 +969,9 @@ else:
                     st.session_state.demand_agent_completed = False
                     st.session_state.inventory_agent_completed = False
                     st.session_state.variance_check_completed = False
+
+                    # Reset workflow phases for fresh progress tracking
+                    reset_workflow_phases(st.session_state)
 
                     # Update context with variance data if available
                     if hasattr(st.session_state, 'variance_file_path') and st.session_state.variance_file_path:

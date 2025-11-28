@@ -109,6 +109,7 @@ async def run_full_season(
         context=context,
         forecast=forecast,
         dc_holdback_pct=params.dc_holdback_pct,
+        safety_stock_pct=params.safety_stock_pct,
         replenishment_strategy=params.replenishment_strategy,
         hooks=hooks,
     )
