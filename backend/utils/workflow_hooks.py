@@ -118,7 +118,7 @@ class WorkflowState:
     phases: List[PhaseInfo] = field(default_factory=lambda: [
         PhaseInfo("forecast", "Forecast", "📊"),
         PhaseInfo("allocation", "Allocation", "📦"),
-        PhaseInfo("reallocation", "Realloc", "🔄"),
+        PhaseInfo("replenishment", "Replenishment", "🔄"),
         PhaseInfo("pricing", "Pricing", "💰"),
     ])
     current_phase_index: int = -1
@@ -371,7 +371,7 @@ class WorkflowUIHooks(RunHooks):
             return "📈"
         elif 'inventory' in agent_lower or 'allocation' in agent_lower:
             return "📦"
-        elif 'realloc' in agent_lower:
+        elif 'realloc' in agent_lower or 'replenish' in agent_lower:
             return "🔄"
         elif 'pricing' in agent_lower or 'markdown' in agent_lower:
             return "💰"
@@ -390,8 +390,8 @@ class WorkflowUIHooks(RunHooks):
             return 'forecast'
         elif 'inventory' in agent_lower or 'allocation' in agent_lower:
             return 'allocation'
-        elif 'realloc' in agent_lower:
-            return 'reallocation'
+        elif 'realloc' in agent_lower or 'replenish' in agent_lower:
+            return 'replenishment'
         elif 'pricing' in agent_lower or 'markdown' in agent_lower:
             return 'pricing'
 
@@ -519,13 +519,24 @@ def render_phased_progress_sidebar(workflow_state: WorkflowState, show_header: b
 
     # ==================== HEADER ====================
     if show_header:
-        st.markdown("#### Agent Workflow")
+        st.markdown("#### 🤖 Agent Workflow Status")
 
     # ==================== IDLE STATE ====================
     if not workflow_state.is_running and workflow_state.completed_phases == 0:
         st.info("Ready to run workflow")
+
+        # Show available phases with expected agents
+        phase_agents = {
+            "forecast": ("📈 Demand Forecasting Agent", "📊 Variance Analysis Agent"),
+            "allocation": ("📦 Inventory Allocation Agent",),
+            "replenishment": ("🔄 Strategic Replenishment Agent",),
+            "pricing": ("💰 Pricing Agent",),
+        }
+
         for phase in workflow_state.phases:
-            st.markdown(f"○ {phase.display_name}")
+            agents = phase_agents.get(phase.name, ())
+            agent_hint = f" → {', '.join(agents)}" if agents else ""
+            st.markdown(f"○ {phase.icon} {phase.display_name}{agent_hint}")
         return
 
     # ==================== PHASE LIST ====================
@@ -553,7 +564,7 @@ def render_phased_progress_sidebar(workflow_state: WorkflowState, show_header: b
 
 
 def _render_completed_phase(phase: PhaseInfo):
-    """Render a completed phase card."""
+    """Render a completed phase card with full agent and tool details."""
     import streamlit as st
 
     duration_str = ""
@@ -561,58 +572,108 @@ def _render_completed_phase(phase: PhaseInfo):
         duration_ms = (phase.end_time - phase.start_time) * 1000
         duration_str = f" ({duration_ms/1000:.1f}s)" if duration_ms > 1000 else f" ({duration_ms:.0f}ms)"
 
-    with st.expander(f"✅ {phase.display_name}{duration_str}", expanded=False):
-        if phase.agent_name:
-            icon = phase.agent_icon or "🤖"
-            st.write(f"**{icon} {phase.agent_name}**")
+    # Show tool count in header
+    tool_count = len(phase.tools_used) if phase.tools_used else 0
+    tool_info = f" • {tool_count} tools" if tool_count > 0 else ""
 
-        if phase.tools_used:
-            st.write("**Tools executed:**")
-            for tool in phase.tools_used[-5:]:
-                dur = ""
-                if tool.duration_ms:
-                    dur = f" - {tool.duration_ms/1000:.1f}s" if tool.duration_ms > 1000 else f" - {tool.duration_ms:.0f}ms"
-                st.write(f"• `{tool.name}`{dur}")
+    # Use checkbox toggle instead of expander to avoid nesting issues
+    st.markdown(f"✅ **{phase.display_name}**{duration_str}{tool_info}")
+
+    # Collapsible details using checkbox
+    show_key = f"show_phase_{phase.name}"
+    if show_key not in st.session_state:
+        st.session_state[show_key] = False
+
+    if st.checkbox("Show details", key=f"toggle_{phase.name}", value=st.session_state[show_key]):
+        st.session_state[show_key] = True
+        with st.container():
+            # Agent info with icon
+            if phase.agent_name:
+                icon = phase.agent_icon or "🤖"
+                st.caption(f"{icon} {phase.agent_name}")
+
+            # Tools section - show ALL tools
+            if phase.tools_used:
+                for tool in phase.tools_used:
+                    dur = ""
+                    if tool.duration_ms:
+                        dur = f" ({tool.duration_ms/1000:.1f}s)" if tool.duration_ms > 1000 else f" ({tool.duration_ms:.0f}ms)"
+                    st.caption(f"  ✓ `{tool.name}()`{dur}")
+    else:
+        st.session_state[show_key] = False
 
 
 def _render_running_phase(phase: PhaseInfo, workflow_state: WorkflowState):
-    """Render the currently running phase."""
+    """Render the currently running phase with live agent and tool status."""
     import streamlit as st
 
     with st.status(f"{phase.icon} {phase.display_name}", expanded=True, state="running"):
-        # Agent info
+        # Agent info with details
         if workflow_state.current_agent:
             icon = workflow_state.current_agent_icon or "🤖"
-            st.write(f"**{icon} {workflow_state.current_agent}**")
+            st.markdown(f"**{icon} {workflow_state.current_agent}**")
 
-        # Tools
+            # Show what the agent is doing
+            if workflow_state.current_agent_instructions:
+                st.caption(f"_{workflow_state.current_agent_instructions}_")
+
+        # Tools - running
         running_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.RUNNING]
         completed_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
 
         if running_tools:
+            st.markdown("**🔄 Running:**")
             for tool in running_tools:
-                st.write(f"▸ **{tool.name}()** running...")
+                st.markdown(f"▸ `{tool.name}()` ...")
+                if tool.description:
+                    st.caption(f"   ↳ {tool.description}")
 
+        # Tools - completed (show ALL, not just last 3)
         if completed_tools:
-            for tool in completed_tools[-3:]:
+            st.markdown("**✅ Completed:**")
+            for tool in completed_tools:
                 dur = ""
                 if tool.duration_ms:
                     dur = f" ({tool.duration_ms/1000:.1f}s)" if tool.duration_ms > 1000 else f" ({tool.duration_ms:.0f}ms)"
-                st.write(f"✓ {tool.name}{dur}")
+                st.markdown(f"✓ `{tool.name}()`{dur}")
+
+        # Show tool count
+        total_tools = len(running_tools) + len(completed_tools)
+        if total_tools > 0:
+            st.caption(f"Tools: {len(completed_tools)}/{total_tools} complete")
 
 
 def _render_stats(workflow_state: WorkflowState):
-    """Render stats row."""
+    """Render stats row with detailed metrics."""
     import streamlit as st
 
-    all_tools = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
-    agent_count = len([e for e in workflow_state.events if e.get("type") == "agent"]) // 2
+    # Count completed tools across all phases
+    all_phase_tools = []
+    for phase in workflow_state.phases:
+        if phase.tools_used:
+            all_phase_tools.extend(phase.tools_used)
+    # Also add current tools
+    current_completed = [t for t in workflow_state.current_tools if t.status == ToolStatus.COMPLETED]
+    total_tools = len(all_phase_tools) + len(current_completed)
+
+    # Count unique agents from events
+    agent_events = [e for e in workflow_state.events if e.get("type") == "agent" and "started" in e.get("message", "")]
+    agent_names = list(set([e.get("message", "").replace(" started", "") for e in agent_events]))
 
     st.divider()
     col1, col2, col3 = st.columns(3)
     col1.metric("Time", f"{workflow_state.elapsed_seconds:.1f}s")
-    col2.metric("Tools", len(all_tools))
-    col3.metric("Agents", agent_count)
+    col2.metric("Tools", total_tools)
+    col3.metric("Agents", len(agent_names))
+
+    # Event log (use checkbox toggle instead of expander to avoid nesting)
+    if workflow_state.events:
+        if st.checkbox("📜 Show Event Log", key="show_event_log", value=False):
+            for event in reversed(workflow_state.events[-10:]):
+                event_type = event.get("type", "")
+                message = event.get("message", "")
+                icon = {"agent": "🤖", "tool": "🔧", "phase": "📍", "workflow": "▶️", "guardrail": "🛡️"}.get(event_type, "•")
+                st.caption(f"{icon} {message}")
 
 
 def get_phase_for_agent(agent_name: str) -> Optional[str]:
@@ -631,8 +692,8 @@ def get_phase_for_agent(agent_name: str) -> Optional[str]:
         return 'forecast'
     elif 'inventory' in agent_lower or 'allocation' in agent_lower:
         return 'allocation'
-    elif 'realloc' in agent_lower:
-        return 'reallocation'
+    elif 'realloc' in agent_lower or 'replenish' in agent_lower:
+        return 'replenishment'
     elif 'pricing' in agent_lower or 'markdown' in agent_lower:
         return 'pricing'
     elif 'variance' in agent_lower:

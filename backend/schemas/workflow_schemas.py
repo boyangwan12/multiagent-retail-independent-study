@@ -147,6 +147,10 @@ class SeasonResult(BaseModel):
         default_factory=list,
         description="List of phases completed: ['forecast', 'allocation', 'reallocation', 'pricing']",
     )
+    replenishment_skipped_reason: Optional[str] = Field(
+        default=None,
+        description="Reason replenishment was skipped (e.g., bi-weekly cadence, no sales data)",
+    )
 
     @property
     def markdown_applied(self) -> bool:

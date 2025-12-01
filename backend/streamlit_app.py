@@ -36,6 +36,8 @@ from workflows.season_workflow import (
     run_inseason_update,
 )
 from workflows.forecast_workflow import run_forecast
+from workflows.reallocation_workflow import run_strategic_replenishment
+from workflows.pricing_workflow import run_markdown_check
 from agent_tools.variance_tools import check_variance
 from agent_tools.bayesian_reforecast import bayesian_reforecast
 from agent_tools.demand_tools import (
@@ -128,6 +130,20 @@ def init_session_state():
 
     if "selected_reallocation_strategy" not in st.session_state:
         st.session_state.selected_reallocation_strategy = "dc_only"
+
+    if "reallocation_history" not in st.session_state:
+        st.session_state.reallocation_history = []  # Track applied reallocations per week
+
+    if "markdown_history" not in st.session_state:
+        st.session_state.markdown_history = []  # Track applied markdowns per week
+
+    if "current_pricing" not in st.session_state:
+        st.session_state.current_pricing = {
+            "base_price": 89.0,
+            "current_price": 89.0,
+            "total_markdown_pct": 0.0,
+            "cost_price": 35.0,
+        }
 
     # Pending upload data for callback pattern
     if "pending_week_sales" not in st.session_state:
@@ -427,30 +443,71 @@ def render_preseason_parameters() -> WorkflowParams:
 # In-Season Parameters (rendered conditionally in In-Season tab)
 # =============================================================================
 def render_operational_parameters(forecast_horizon: int) -> tuple[str, int]:
-    """Render operational parameters (always shown in In-Season). Returns (replenishment, markdown_week)."""
+    """Render operational parameters (always shown in In-Season). Returns (replenishment, markdown_week).
+
+    Settings are LOCKED after first sales data is uploaded to ensure consistency.
+    """
+    # Check if season has started (any sales data uploaded)
+    weeks_with_sales = st.session_state.flow_state.get("weeks_with_sales", [])
+    season_started = len(weeks_with_sales) > 0
+
+    # Initialize locked settings storage if not exists
+    if "locked_operational_settings" not in st.session_state.flow_state:
+        st.session_state.flow_state["locked_operational_settings"] = None
+
     with st.container(border=True):
         render_active_section_header("Operational Settings", "⚙️")
+
+        # Show lock message if season has started
+        if season_started:
+            st.caption("🔒 *Settings locked after season start to ensure data consistency.*")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            replenishment = st.selectbox(
-                "Replenishment Strategy",
-                options=["weekly", "bi-weekly", "none"],
-                index=0,
-                help="How often to replenish stores from DC",
-                key="inseason_replenishment",
-            )
+            if season_started and st.session_state.flow_state["locked_operational_settings"]:
+                # Use locked settings
+                locked = st.session_state.flow_state["locked_operational_settings"]
+                replenishment = locked["replenishment_strategy"]
+                # Show as disabled display
+                st.selectbox(
+                    "Replenishment Strategy",
+                    options=[replenishment],
+                    index=0,
+                    help="Locked: Cannot change after sales data uploaded",
+                    key="inseason_replenishment_locked",
+                    disabled=True,
+                )
+            else:
+                replenishment = st.selectbox(
+                    "Replenishment Strategy",
+                    options=["weekly", "bi-weekly", "none"],
+                    index=0,
+                    help="How often to replenish stores from DC",
+                    key="inseason_replenishment",
+                )
 
         with col2:
-            markdown_week = st.slider(
-                "Markdown Checkpoint Week",
-                min_value=4,
-                max_value=min(forecast_horizon, 12),
-                value=min(6, forecast_horizon),
-                help="Week when markdown decision becomes available",
-                key="inseason_markdown_week",
-            )
+            if season_started and st.session_state.flow_state["locked_operational_settings"]:
+                # Use locked settings - display as text since slider can't have min==max
+                locked = st.session_state.flow_state["locked_operational_settings"]
+                markdown_week = locked["markdown_week"]
+                st.text_input(
+                    "Markdown Checkpoint Week",
+                    value=f"Week {markdown_week}",
+                    help="Locked: Cannot change after sales data uploaded",
+                    key="inseason_markdown_week_locked",
+                    disabled=True,
+                )
+            else:
+                markdown_week = st.slider(
+                    "Markdown Checkpoint Week",
+                    min_value=4,
+                    max_value=min(forecast_horizon, 12),
+                    value=min(6, forecast_horizon),
+                    help="Week when markdown decision becomes available",
+                    key="inseason_markdown_week",
+                )
 
     return replenishment, markdown_week
 
@@ -1017,6 +1074,92 @@ def render_markdown_command_center(
     st.markdown("---")
 
     # ==========================================================================
+    # Auto-run Pricing Agent (agentic behavior)
+    # ==========================================================================
+    pricing_agent_key = f"pricing_agent_result_wk{week}"
+    pricing_is_agent_key = f"pricing_is_agent_wk{week}"
+    pricing_running_key = f"pricing_running_wk{week}"
+
+    if pricing_agent_key not in st.session_state:
+        st.session_state[pricing_agent_key] = None
+    if pricing_is_agent_key not in st.session_state:
+        st.session_state[pricing_is_agent_key] = False
+    if pricing_running_key not in st.session_state:
+        st.session_state[pricing_running_key] = False
+
+    pricing_agent_result = st.session_state.get(pricing_agent_key)
+
+    # Auto-generate rule-based result if none exists (instant)
+    if not pricing_agent_result:
+        gap = params.markdown_threshold - current_sell_through
+        raw_markdown = gap * params.elasticity
+        recommended_markdown = max(0, min(0.40, raw_markdown))
+
+        from schemas.pricing_schemas import MarkdownResult
+        pricing_agent_result = MarkdownResult(
+            gap=gap,
+            elasticity_used=params.elasticity,
+            raw_markdown_pct=raw_markdown,
+            recommended_markdown_pct=recommended_markdown,
+            is_max_markdown=(recommended_markdown >= 0.40),
+            explanation=f"Rule-based: Gap ({gap:.1%}) × Elasticity ({params.elasticity}) = {raw_markdown:.1%}"
+        )
+        st.session_state[pricing_agent_key] = pricing_agent_result
+        st.session_state[pricing_is_agent_key] = False
+
+    # Check if agent is currently running
+    if st.session_state[pricing_running_key]:
+        st.info("🤖 Running Pricing Agent...")
+        with st.spinner("💰 Calculating optimal markdown with AI..."):
+            try:
+                async def run_pricing_with_timeout():
+                    return await asyncio.wait_for(
+                        run_pricing_agent_async(
+                            params=params,
+                            selected_week=week,
+                            current_sell_through=current_sell_through,
+                        ),
+                        timeout=90.0
+                    )
+                agent_result = asyncio.run(run_pricing_with_timeout())
+                st.session_state[pricing_agent_key] = agent_result
+                st.session_state[pricing_is_agent_key] = True
+                st.session_state[pricing_running_key] = False
+                st.rerun()
+            except asyncio.TimeoutError:
+                st.warning("⏱️ Agent timed out. Keeping rule-based result.")
+                st.session_state[pricing_running_key] = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Pricing agent failed: {e}")
+                st.session_state[pricing_running_key] = False
+                st.rerun()
+
+    # Show result
+    if pricing_agent_result:
+        is_agent = st.session_state.get(pricing_is_agent_key, False)
+        result_type = "🤖 AI Agent" if is_agent else "📊 Rule-based"
+
+        col_result, col_btn = st.columns([3, 1])
+        with col_result:
+            st.success(f"**{result_type} Recommendation: {pricing_agent_result.recommended_markdown_pct:.0%} markdown**")
+        with col_btn:
+            if not is_agent and not st.session_state.get(pricing_running_key, False):
+                if st.button("🤖 Run AI Agent", key=f"run_pricing_agent_{week}", help="Get AI-powered analysis"):
+                    st.session_state[pricing_running_key] = True
+                    st.rerun()
+
+        # Show reasoning
+        show_reasoning = st.checkbox("Show Reasoning", key=f"show_pricing_reasoning_{week}", value=False)
+        if show_reasoning:
+            with st.container():
+                st.markdown(f"**{result_type} Analysis:**")
+                st.markdown(pricing_agent_result.explanation)
+                st.caption(f"Gap: {pricing_agent_result.gap:.1%} | Elasticity: {pricing_agent_result.elasticity_used} | Raw: {pricing_agent_result.raw_markdown_pct:.1%}")
+
+    st.markdown("---")
+
+    # ==========================================================================
     # Scenario Selection
     # ==========================================================================
     st.markdown("### 📋 Select Markdown Scenario")
@@ -1375,31 +1518,103 @@ to increase by approximately {final_markdown / elasticity:.0%} percentage points
     # ==========================================================================
     st.markdown("---")
 
-    action_col1, action_col2, action_col3 = st.columns([2, 1, 1])
+    # Check if markdown was already applied this week
+    markdown_history = st.session_state.get("markdown_history", [])
+    already_applied = any(m["week"] == week for m in markdown_history)
 
-    with action_col1:
-        if st.button(
-            f"✅ Apply {final_markdown:.0%} Markdown & Reforecast",
-            type="primary",
-            use_container_width=True,
-            key=f"apply_markdown_wk{week}",
-        ):
-            with st.spinner(f"Applying {final_markdown:.0%} markdown and rerunning forecast..."):
-                import time
-                time.sleep(1.5)  # Simulate processing
+    if already_applied:
+        # Show what was already applied
+        applied_record = next(m for m in markdown_history if m["week"] == week)
+        st.success(f"✅ **Markdown already applied for Week {week}**")
 
-                st.session_state[applied_key] = True
-                st.session_state[f"applied_markdown_pct_wk{week}"] = final_markdown
-                st.success(f"✅ {final_markdown:.0%} markdown applied! Forecast updated.")
-                st.balloons()
+        col_info1, col_info2, col_info3, col_info4 = st.columns(4)
+        with col_info1:
+            st.metric("Markdown Applied", f"{applied_record['markdown_pct']:.0%}")
+        with col_info2:
+            st.metric("New Price", f"${applied_record['after_price']:.2f}",
+                     delta=f"-${applied_record['before_price'] - applied_record['after_price']:.2f}")
+        with col_info3:
+            st.metric("Expected ST Boost", f"+{applied_record['sell_through_boost']:.0%}")
+        with col_info4:
+            st.metric("Margin", f"{applied_record['after_margin']:.0f}%",
+                     delta=f"{applied_record['after_margin'] - applied_record['before_margin']:.0f}%")
 
-    with action_col2:
-        if st.button("📅 Schedule for Later", use_container_width=True, key=f"schedule_markdown_wk{week}"):
-            st.info("📅 Scheduling feature coming soon!")
+        # Show cumulative markdown if multiple markdowns applied
+        current_pricing = st.session_state.get("current_pricing", {})
+        if current_pricing.get("total_markdown_pct", 0) > applied_record["markdown_pct"]:
+            st.info(f"📊 **Cumulative markdown:** {current_pricing['total_markdown_pct']:.0%} | "
+                   f"**Current price:** ${current_pricing['current_price']:.2f}")
+    else:
+        action_col1, action_col2, action_col3 = st.columns([2, 1, 1])
 
-    with action_col3:
-        if st.button("⏭️ Skip This Week", use_container_width=True, key=f"skip_markdown_wk{week}"):
-            st.warning("Markdown skipped. Will reassess next week.")
+        with action_col1:
+            if st.button(
+                f"✅ Apply {final_markdown:.0%} Markdown",
+                type="primary",
+                use_container_width=True,
+                key=f"apply_markdown_wk{week}",
+            ):
+                # Actually apply the markdown
+                result = apply_markdown(
+                    markdown_pct=final_markdown,
+                    week=week,
+                    current_sell_through=current_sell_through,
+                    elasticity=elasticity,
+                    total_allocated=allocated,
+                    total_sold=sold,
+                )
+
+                if result.get("success"):
+                    st.session_state[applied_key] = True
+                    st.session_state[f"applied_markdown_pct_wk{week}"] = final_markdown
+
+                    st.success(f"✅ **Markdown Applied!** {final_markdown:.0%} off")
+
+                    # Show before/after summary
+                    st.markdown("#### 💰 Pricing Changes Applied")
+
+                    col_before, col_arrow, col_after = st.columns([2, 1, 2])
+
+                    with col_before:
+                        st.markdown("**Before:**")
+                        st.metric("Price", f"${result['before_price']:.2f}")
+                        st.metric("Sell-Through", f"{result['before_sell_through']:.0%}")
+
+                    with col_arrow:
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("### →")
+
+                    with col_after:
+                        st.markdown("**After:**")
+                        st.metric("Price", f"${result['after_price']:.2f}",
+                                 delta=f"-${result['price_reduction']:.2f}")
+                        st.metric("Projected ST", f"{result['projected_sell_through']:.0%}",
+                                 delta=f"+{result['sell_through_boost']:.0%}")
+
+                    # Impact summary
+                    st.markdown("---")
+                    impact_cols = st.columns(3)
+                    with impact_cols[0]:
+                        st.metric("Expected Additional Sales", f"+{result['expected_additional_sales']:,} units")
+                    with impact_cols[1]:
+                        st.metric("Projected Leftover", f"{result['projected_leftover']:,} units")
+                    with impact_cols[2]:
+                        st.metric("Margin Impact", f"{result['after_margin']:.0f}%",
+                                 delta=f"{result['after_margin'] - result['before_margin']:.0f}%")
+
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error("Failed to apply markdown")
+
+        with action_col2:
+            if st.button("📅 Schedule for Later", use_container_width=True, key=f"schedule_markdown_wk{week}"):
+                st.info("📅 Scheduling feature coming soon!")
+
+        with action_col3:
+            if st.button("⏭️ Skip This Week", use_container_width=True, key=f"skip_markdown_wk{week}"):
+                st.warning("Markdown skipped. Will reassess next week.")
 
 
 # =============================================================================
@@ -1855,6 +2070,16 @@ def _save_week_sales_callback(week_num: int):
 
     # Update current_week
     st.session_state.current_week = max(st.session_state.current_week, week_num)
+
+    # LOCK operational settings on FIRST sales data upload (season start)
+    # This ensures consistency - can't change replenishment strategy mid-season
+    weeks_with_sales = st.session_state.flow_state.get("weeks_with_sales", [])
+    if len(weeks_with_sales) == 0:
+        # This is the first sales data - lock the current operational settings
+        st.session_state.flow_state["locked_operational_settings"] = {
+            "replenishment_strategy": st.session_state.get("inseason_replenishment", "weekly"),
+            "markdown_week": st.session_state.get("inseason_markdown_week", 6),
+        }
 
     # Mark week as having sales uploaded in flow state (unlocks variance section)
     mark_week_sales_uploaded(week_num)
@@ -2373,8 +2598,351 @@ def _display_variance_analysis(analysis: dict, params: WorkflowParams, selected_
 
 
 # =============================================================================
+# Markdown Execution
+# =============================================================================
+
+def apply_markdown(
+    markdown_pct: float,
+    week: int,
+    current_sell_through: float,
+    elasticity: float,
+    total_allocated: int,
+    total_sold: int,
+) -> dict:
+    """
+    Apply approved markdown to update pricing and expected sell-through.
+
+    This function records the markdown decision and updates:
+    - Effective price for remaining inventory
+    - Expected sell-through boost based on elasticity
+    - Projected final sell-through
+
+    Args:
+        markdown_pct: Markdown percentage (0.0-0.40)
+        week: Week number when markdown is applied
+        current_sell_through: Current sell-through rate before markdown
+        elasticity: Price elasticity factor
+        total_allocated: Total units allocated
+        total_sold: Total units sold so far
+
+    Returns:
+        Dict with before/after summary for UI feedback
+    """
+    # Base pricing constants (could be made configurable)
+    BASE_PRICE = 89.0
+    COST_PRICE = 35.0
+
+    # Calculate before state
+    before_price = BASE_PRICE
+    before_sell_through = current_sell_through
+    remaining_units = total_allocated - total_sold
+
+    # Calculate after state
+    after_price = BASE_PRICE * (1 - markdown_pct)
+    sell_through_boost = markdown_pct / elasticity if elasticity > 0 else 0
+    projected_sell_through = min(current_sell_through + sell_through_boost, 0.95)
+
+    # Calculate margin
+    before_margin = ((before_price - COST_PRICE) / before_price) * 100
+    after_margin = ((after_price - COST_PRICE) / after_price) * 100
+
+    # Expected additional sales from markdown
+    expected_additional_sales = int(total_allocated * sell_through_boost)
+    projected_total_sold = min(total_sold + expected_additional_sales, total_allocated)
+    projected_leftover = total_allocated - projected_total_sold
+
+    # Initialize markdown history if needed
+    if "markdown_history" not in st.session_state:
+        st.session_state.markdown_history = []
+
+    # Initialize current pricing state if needed
+    if "current_pricing" not in st.session_state:
+        st.session_state.current_pricing = {
+            "base_price": BASE_PRICE,
+            "current_price": BASE_PRICE,
+            "total_markdown_pct": 0.0,
+            "cost_price": COST_PRICE,
+        }
+
+    # Update current pricing state
+    # Note: Markdowns stack - if already marked down 10%, a new 15% takes it to ~25% off original
+    previous_total_markdown = st.session_state.current_pricing["total_markdown_pct"]
+    new_total_markdown = min(previous_total_markdown + markdown_pct, 0.50)  # Cap at 50% total
+    st.session_state.current_pricing["current_price"] = BASE_PRICE * (1 - new_total_markdown)
+    st.session_state.current_pricing["total_markdown_pct"] = new_total_markdown
+
+    # Record this markdown
+    markdown_record = {
+        "week": week,
+        "markdown_pct": markdown_pct,
+        "cumulative_markdown_pct": new_total_markdown,
+        "before_price": before_price if previous_total_markdown == 0 else BASE_PRICE * (1 - previous_total_markdown),
+        "after_price": st.session_state.current_pricing["current_price"],
+        "before_sell_through": before_sell_through,
+        "projected_sell_through": projected_sell_through,
+        "sell_through_boost": sell_through_boost,
+        "remaining_units_at_markdown": remaining_units,
+        "expected_additional_sales": expected_additional_sales,
+        "before_margin": before_margin,
+        "after_margin": after_margin,
+    }
+    st.session_state.markdown_history.append(markdown_record)
+
+    return {
+        "success": True,
+        "week": week,
+        "markdown_pct": markdown_pct,
+        "cumulative_markdown_pct": new_total_markdown,
+        "before_price": markdown_record["before_price"],
+        "after_price": markdown_record["after_price"],
+        "price_reduction": markdown_record["before_price"] - markdown_record["after_price"],
+        "before_sell_through": before_sell_through,
+        "projected_sell_through": projected_sell_through,
+        "sell_through_boost": sell_through_boost,
+        "remaining_units": remaining_units,
+        "expected_additional_sales": expected_additional_sales,
+        "projected_leftover": projected_leftover,
+        "before_margin": before_margin,
+        "after_margin": after_margin,
+    }
+
+
+# =============================================================================
 # Strategic Replenishment Visualization
 # =============================================================================
+
+def apply_reallocation(transfers: list, selected_week: int) -> dict:
+    """
+    Apply approved reallocation transfers to update actual inventory numbers.
+
+    This function modifies the allocation in session state to reflect:
+    - DC holdback decreases from DC releases
+    - Store allocations increase/decrease based on transfers
+
+    Args:
+        transfers: List of transfer dicts with 'from', 'to', 'units' keys
+        selected_week: Week number when reallocation is applied
+
+    Returns:
+        Dict with before/after summary for UI feedback
+    """
+    if not st.session_state.workflow_result:
+        return {"error": "No allocation data available"}
+
+    allocation = st.session_state.workflow_result.allocation
+
+    # Capture before state
+    before_dc = allocation.dc_holdback
+    before_stores = {s.store_id: s.allocation_units for s in allocation.store_allocations}
+
+    # Build store lookup for quick updates
+    store_map = {s.store_id: s for s in allocation.store_allocations}
+
+    # Track changes
+    dc_released = 0
+    stores_increased = {}
+    stores_decreased = {}
+
+    for t in transfers:
+        units = t['units']
+        from_loc = t['from']
+        to_store = t['to']
+
+        if from_loc == 'DC':
+            # DC release - decrease DC holdback
+            dc_released += units
+        else:
+            # Store-to-store - decrease sender
+            if from_loc in store_map:
+                store_map[from_loc].allocation_units -= units
+                stores_decreased[from_loc] = stores_decreased.get(from_loc, 0) + units
+
+        # Increase receiver
+        if to_store in store_map:
+            store_map[to_store].allocation_units += units
+            stores_increased[to_store] = stores_increased.get(to_store, 0) + units
+
+    # Update DC holdback
+    allocation.dc_holdback -= dc_released
+
+    # Initialize reallocation history if needed
+    if "reallocation_history" not in st.session_state:
+        st.session_state.reallocation_history = []
+
+    # Record this reallocation
+    reallocation_record = {
+        "week": selected_week,
+        "dc_released": dc_released,
+        "transfers_count": len(transfers),
+        "total_units_moved": sum(t['units'] for t in transfers),
+        "stores_increased": stores_increased,
+        "stores_decreased": stores_decreased,
+        "before_dc": before_dc,
+        "after_dc": allocation.dc_holdback,
+    }
+    st.session_state.reallocation_history.append(reallocation_record)
+
+    # Capture after state
+    after_dc = allocation.dc_holdback
+    after_stores = {s.store_id: s.allocation_units for s in allocation.store_allocations}
+
+    return {
+        "success": True,
+        "week": selected_week,
+        "before_dc": before_dc,
+        "after_dc": after_dc,
+        "dc_released": dc_released,
+        "stores_increased": stores_increased,
+        "stores_decreased": stores_decreased,
+        "transfers_applied": len(transfers),
+        "total_units_moved": sum(t['units'] for t in transfers),
+    }
+
+
+# =============================================================================
+# Agentic Replenishment & Pricing Runners (with UI hooks)
+# =============================================================================
+
+async def run_replenishment_agent_async(
+    params: WorkflowParams,
+    selected_week: int,
+    variance_pct: float = 0.0,
+) -> dict:
+    """
+    Run the Strategic Replenishment Agent with UI hooks for sidebar updates.
+
+    Returns data in the format expected by the UI (adapter pattern).
+
+    Note: The WorkflowUIHooks automatically handles phase start/end based on
+    agent name detection in on_agent_start/on_agent_end callbacks.
+    """
+    # Build context
+    context = ForecastingContext(
+        data_loader=st.session_state.data_loader,
+        session_id=st.session_state.session_id,
+        current_week=selected_week,
+        actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
+        total_sold=st.session_state.total_sold,
+    )
+
+    # Attach allocation result to context (required by replenishment workflow)
+    if st.session_state.workflow_result:
+        context.allocation_result = st.session_state.workflow_result.allocation
+        context.forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
+
+    # Create hooks for UI updates
+    # Hooks auto-detect agent name and map to phase (replenishment)
+    hooks = WorkflowUIHooks(st.session_state.workflow_state)
+
+    try:
+        # Run the actual agent workflow
+        # Hooks will auto-call start_phase("replenishment") when agent starts
+        # and end_phase("replenishment") when agent ends
+        analysis = await run_strategic_replenishment(
+            context=context,
+            current_week=selected_week,
+            variance_pct=variance_pct,
+            force_run=True,  # Always run when user clicks
+            hooks=hooks,
+        )
+
+        if analysis is None:
+            return None
+
+        # Convert ReallocationAnalysis to UI dict format (adapter)
+        return _convert_analysis_to_ui_format(analysis, params, selected_week)
+
+    except Exception as e:
+        # Ensure phase is marked as error on failure
+        st.session_state.workflow_state._add_event("error", f"Replenishment agent failed: {e}")
+        raise e
+
+
+def _convert_analysis_to_ui_format(analysis: ReallocationAnalysis, params: WorkflowParams, selected_week: int) -> dict:
+    """Convert ReallocationAnalysis to the dict format expected by the UI."""
+    # Convert TransferOrder objects to dicts
+    transfers = [
+        {
+            "from": t.from_location,
+            "to": t.to_store,
+            "units": t.units,
+            "priority": t.priority,
+            "reason": t.reason,
+        }
+        for t in analysis.transfers
+    ]
+
+    return {
+        "dc_available": analysis.dc_units_available,
+        "total_units": analysis.total_units_to_move,
+        "transfers": transfers,
+        "should_reallocate": analysis.should_reallocate,
+        "confidence": analysis.confidence,
+        "high_performers": analysis.high_performers,
+        "underperformers": analysis.underperformers,
+        "on_target": analysis.on_target_stores,
+        "store_performances": [],  # Agent doesn't return this detail
+        "weeks_remaining": analysis.weeks_remaining,
+        "selected_week": selected_week,
+        "strategy": analysis.strategy,
+        "explanation": analysis.explanation,
+        "has_real_store_data": True,  # Agent uses real data
+        "overall_variance": 0.0,  # Could be passed in
+        "recent_variance": 0.0,
+        "weeks_of_data": selected_week,
+        "urgency_factor": 1.0,
+        "variance_severity": 1.0,
+        "season_progress_pct": (selected_week / params.forecast_horizon_weeks) * 100,
+    }
+
+
+async def run_pricing_agent_async(
+    params: WorkflowParams,
+    selected_week: int,
+    current_sell_through: float,
+) -> MarkdownResult:
+    """
+    Run the Pricing Agent with UI hooks for sidebar updates.
+
+    Note: The WorkflowUIHooks automatically handles phase start/end based on
+    agent name detection in on_agent_start/on_agent_end callbacks.
+    """
+    # Build context
+    context = ForecastingContext(
+        data_loader=st.session_state.data_loader,
+        session_id=st.session_state.session_id,
+        current_week=selected_week,
+        actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
+        total_sold=st.session_state.total_sold,
+    )
+
+    # Attach allocation for sell-through calculation
+    if st.session_state.workflow_result:
+        context.total_allocated = st.session_state.workflow_result.allocation.initial_store_allocation
+
+    # Create hooks for UI updates
+    # Hooks auto-detect agent name and map to phase (pricing)
+    hooks = WorkflowUIHooks(st.session_state.workflow_state)
+
+    try:
+        # Run the actual agent workflow
+        # Hooks will auto-call start_phase("pricing") when agent starts
+        # and end_phase("pricing") when agent ends
+        result = await run_markdown_check(
+            context=context,
+            current_sell_through=current_sell_through,
+            target_sell_through=params.markdown_threshold,
+            week_number=selected_week,
+            hooks=hooks,
+        )
+
+        return result
+
+    except Exception as e:
+        # Ensure phase is marked as error on failure
+        st.session_state.workflow_state._add_event("error", f"Pricing agent failed: {e}")
+        raise e
+
 
 def _generate_reallocation_data(params: WorkflowParams, selected_week: int, strategy: str) -> dict:
     """Generate reallocation data using real store sales when available.
@@ -2688,6 +3256,19 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
         st.info("Upload sales data to enable strategic replenishment analysis.")
         return
 
+    # Check if replenishment should be skipped for the SELECTED week based on cadence
+    # Calculate on-the-fly based on replenishment strategy and week number
+    replenishment_strategy = params.replenishment_strategy
+    if replenishment_strategy == "bi-weekly" and selected_week % 2 != 0:
+        # Odd week with bi-weekly strategy - show skip message
+        next_week = selected_week + 1
+        st.info(f"📅 **Replenishment Skipped (Week {selected_week})**: Bi-weekly cadence - this is an off-cycle week. Next replenishment analysis at Week {next_week}.")
+        st.caption("The bi-weekly replenishment strategy runs analysis on even weeks (2, 4, 6, 8, 10, 12).")
+        return
+    elif replenishment_strategy == "none":
+        st.info("📅 **Replenishment Disabled**: Strategy is set to 'none'. No replenishment analysis will be performed.")
+        return
+
     # Strategy selector
     st.markdown("#### 📋 Select Replenishment Strategy")
 
@@ -2719,13 +3300,76 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
 
     st.markdown("---")
 
-    # Generate reallocation data (uses real store data when available)
-    strategy = st.session_state.selected_reallocation_strategy
-    realloc_data = _generate_reallocation_data(params, selected_week, strategy)
+    # Initialize session state keys
+    replenishment_key = f"replenishment_agent_result_wk{selected_week}"
+    replenishment_is_agent_key = f"replenishment_is_agent_wk{selected_week}"
+    replenishment_running_key = f"replenishment_running_wk{selected_week}"
+
+    if replenishment_key not in st.session_state:
+        st.session_state[replenishment_key] = None
+    if replenishment_is_agent_key not in st.session_state:
+        st.session_state[replenishment_is_agent_key] = False
+    if replenishment_running_key not in st.session_state:
+        st.session_state[replenishment_running_key] = False
+
+    realloc_data = st.session_state[replenishment_key]
+
+    # Auto-generate rule-based result if none exists (instant)
+    if not realloc_data:
+        strategy = st.session_state.selected_reallocation_strategy
+        realloc_data = _generate_reallocation_data(params, selected_week, strategy)
+        if realloc_data:
+            st.session_state[replenishment_key] = realloc_data
+            st.session_state[replenishment_is_agent_key] = False
+        else:
+            st.warning("Unable to generate reallocation analysis.")
+            return
+
+    # Check if agent is currently running
+    if st.session_state[replenishment_running_key]:
+        st.info("🤖 Running Replenishment Agent...")
+        with st.spinner("🔄 Analyzing store performance with AI..."):
+            try:
+                async def run_with_timeout():
+                    return await asyncio.wait_for(
+                        run_replenishment_agent_async(
+                            params=params,
+                            selected_week=selected_week,
+                            variance_pct=0.0,
+                        ),
+                        timeout=90.0
+                    )
+                agent_result = asyncio.run(run_with_timeout())
+                if agent_result:
+                    st.session_state[replenishment_key] = agent_result
+                    st.session_state[replenishment_is_agent_key] = True
+                st.session_state[replenishment_running_key] = False
+                st.rerun()
+            except asyncio.TimeoutError:
+                st.warning("⏱️ Agent timed out. Keeping rule-based result.")
+                st.session_state[replenishment_running_key] = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Replenishment agent failed: {e}")
+                st.session_state[replenishment_running_key] = False
+                st.rerun()
 
     if not realloc_data:
-        st.warning("Unable to generate reallocation analysis.")
+        st.warning("No reallocation data available.")
         return
+
+    # Show result type indicator with Run AI Agent button
+    is_agent = st.session_state.get(replenishment_is_agent_key, False)
+    result_type = "🤖 AI Agent" if is_agent else "📊 Rule-based"
+
+    col_type, col_btn = st.columns([3, 1])
+    with col_type:
+        st.caption(f"**Analysis Type:** {result_type}")
+    with col_btn:
+        if not is_agent and not st.session_state.get(replenishment_running_key, False):
+            if st.button("🤖 Run AI Agent", key=f"run_repl_agent_{selected_week}", help="Get AI-powered analysis"):
+                st.session_state[replenishment_running_key] = True
+                st.rerun()
 
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -2968,26 +3612,91 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
 
     # Action buttons
     st.markdown("---")
-    col_approve, col_skip = st.columns(2)
 
-    with col_approve:
-        if st.button(
-            "✅ Approve Transfers",
-            key=f"approve_realloc_{selected_week}",
-            type="primary",
-            use_container_width=True,
-            disabled=not realloc_data['should_reallocate'],
-        ):
-            st.success(f"Approved {len(realloc_data['transfers'])} transfers ({realloc_data['total_units']:,} units)")
-            st.session_state.reallocation_result = realloc_data
+    # Check if reallocation was already applied this week
+    reallocation_history = st.session_state.get("reallocation_history", [])
+    already_applied = any(r["week"] == selected_week for r in reallocation_history)
 
-    with col_skip:
-        if st.button(
-            "⏭️ Skip Replenishment",
-            key=f"skip_realloc_{selected_week}",
-            use_container_width=True,
-        ):
-            st.info("Strategic replenishment skipped for this week.")
+    if already_applied:
+        # Show what was already applied
+        applied_record = next(r for r in reallocation_history if r["week"] == selected_week)
+        st.success(f"✅ **Reallocation already applied for Week {selected_week}**")
+
+        col_info1, col_info2, col_info3 = st.columns(3)
+        with col_info1:
+            st.metric("DC Released", f"{applied_record['dc_released']:,} units")
+        with col_info2:
+            st.metric("Transfers", f"{applied_record['transfers_count']}")
+        with col_info3:
+            st.metric("DC Now", f"{applied_record['after_dc']:,} units",
+                     delta=f"-{applied_record['dc_released']:,}")
+    else:
+        col_approve, col_skip = st.columns(2)
+
+        with col_approve:
+            if st.button(
+                "✅ Approve & Apply Transfers",
+                key=f"approve_realloc_{selected_week}",
+                type="primary",
+                use_container_width=True,
+                disabled=not realloc_data['should_reallocate'],
+            ):
+                # Actually apply the reallocation
+                result = apply_reallocation(realloc_data['transfers'], selected_week)
+
+                if result.get("success"):
+                    st.session_state.reallocation_result = realloc_data
+                    st.success(f"✅ **Transfers Applied!** {result['transfers_applied']} transfers ({result['total_units_moved']:,} units)")
+
+                    # Show before/after summary
+                    st.markdown("#### 📊 Allocation Changes Applied")
+
+                    col_before, col_arrow, col_after = st.columns([2, 1, 2])
+
+                    with col_before:
+                        st.markdown("**Before:**")
+                        st.metric("DC Holdback", f"{result['before_dc']:,}")
+
+                    with col_arrow:
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("### →")
+
+                    with col_after:
+                        st.markdown("**After:**")
+                        st.metric("DC Holdback", f"{result['after_dc']:,}",
+                                 delta=f"-{result['dc_released']:,}")
+
+                    # Show store changes (using columns instead of nested expanders)
+                    if result['stores_increased'] or result['stores_decreased']:
+                        st.markdown("**Store Changes:**")
+                        store_col1, store_col2 = st.columns(2)
+
+                        with store_col1:
+                            if result['stores_increased']:
+                                st.markdown("📈 **Receiving:**")
+                                for store_id, units in sorted(result['stores_increased'].items(),
+                                                              key=lambda x: -x[1])[:5]:
+                                    st.caption(f"{store_id}: +{units:,}")
+
+                        with store_col2:
+                            if result['stores_decreased']:
+                                st.markdown("📉 **Sending:**")
+                                for store_id, units in sorted(result['stores_decreased'].items(),
+                                                              key=lambda x: -x[1])[:5]:
+                                    st.caption(f"{store_id}: -{units:,}")
+
+                    st.rerun()
+                else:
+                    st.error(f"Failed to apply reallocation: {result.get('error', 'Unknown error')}")
+
+        with col_skip:
+            if st.button(
+                "⏭️ Skip Replenishment",
+                key=f"skip_realloc_{selected_week}",
+                use_container_width=True,
+            ):
+                st.info("Strategic replenishment skipped for this week.")
 
 
 def render_week_sections(params: WorkflowParams, selected_week: int, week_info: dict):
@@ -3457,6 +4166,15 @@ def render_preseason_tab():
             try:
                 result = asyncio.run(run_workflow_async(params))
                 st.session_state.workflow_result = result
+
+                # Store replenishment skip reason per-week for bi-weekly cadence tracking
+                if st.session_state.current_week > 0:
+                    week_num = st.session_state.current_week
+                    if week_num not in st.session_state.week_data:
+                        st.session_state.week_data[week_num] = {}
+                    st.session_state.week_data[week_num]["replenishment_skipped_reason"] = getattr(
+                        result, 'replenishment_skipped_reason', None
+                    )
 
                 # Mark pre-season as complete and save params
                 mark_preseason_complete()

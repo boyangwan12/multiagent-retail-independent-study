@@ -40,6 +40,30 @@ from utils.context import ForecastingContext
 logger = logging.getLogger("season_workflow")
 
 
+def should_run_replenishment_this_week(current_week: int, strategy: str) -> tuple[bool, str]:
+    """
+    Check if replenishment should run based on cadence strategy.
+
+    Args:
+        current_week: Current week number (1-12)
+        strategy: Replenishment strategy: 'none', 'weekly', or 'bi-weekly'
+
+    Returns:
+        Tuple of (should_run, reason_message)
+    """
+    if strategy == "none":
+        return False, "Replenishment strategy is 'none'"
+    elif strategy == "bi-weekly":
+        # Run on even weeks (2, 4, 6, 8, 10, 12)
+        if current_week % 2 == 0:
+            return True, f"Bi-weekly cadence: week {current_week} is a replenishment week"
+        else:
+            next_replenishment_week = current_week + 1
+            return False, f"Bi-weekly cadence: skipping week {current_week}, next replenishment at week {next_replenishment_week}"
+    else:  # "weekly" or any other value defaults to weekly
+        return True, "Weekly replenishment enabled"
+
+
 async def run_full_season(
     context: ForecastingContext,
     params: WorkflowParams,
@@ -130,28 +154,41 @@ async def run_full_season(
     logger.info("=" * 40)
 
     reallocation: Optional[ReallocationAnalysis] = None
+    replenishment_skipped_reason: Optional[str] = None
 
     # DETERMINISTIC: Python decides if reallocation agent should run
     # Only run if we have actual sales (in-season) and had variance
     if context.has_actual_sales and variance_history:
-        # Get the latest variance for trigger decision
-        latest_variance = variance_history[-1] if variance_history else None
-        variance_pct = getattr(latest_variance, 'variance_pct', 0) if latest_variance else 0
-
-        reallocation = await run_strategic_replenishment(
-            context=context,
+        # Check replenishment cadence (weekly vs bi-weekly)
+        should_run, cadence_message = should_run_replenishment_this_week(
             current_week=context.current_week,
-            variance_pct=variance_pct,
-            hooks=hooks,
+            strategy=params.replenishment_strategy,
         )
+        logger.info(f"Replenishment cadence check: {cadence_message}")
 
-        if reallocation is not None and reallocation.should_reallocate:
-            phases_completed.append("reallocation")
-            logger.info(f"Strategic replenishment recommended: {len(reallocation.transfers)} transfers")
-            logger.info(f"Strategy: {reallocation.strategy}, Units to move: {reallocation.total_units_to_move}")
+        if should_run:
+            # Get the latest variance for trigger decision
+            latest_variance = variance_history[-1] if variance_history else None
+            variance_pct = getattr(latest_variance, 'variance_pct', 0) if latest_variance else 0
+
+            reallocation = await run_strategic_replenishment(
+                context=context,
+                current_week=context.current_week,
+                variance_pct=variance_pct,
+                hooks=hooks,
+            )
+
+            if reallocation is not None and reallocation.should_reallocate:
+                phases_completed.append("reallocation")
+                logger.info(f"Strategic replenishment recommended: {len(reallocation.transfers)} transfers")
+                logger.info(f"Strategy: {reallocation.strategy}, Units to move: {reallocation.total_units_to_move}")
+            else:
+                logger.info("Strategic replenishment not needed or not triggered")
         else:
-            logger.info("Strategic replenishment not needed or not triggered")
+            replenishment_skipped_reason = cadence_message
+            logger.info(f"Skipping strategic replenishment - {cadence_message}")
     else:
+        replenishment_skipped_reason = "No actual sales data (pre-season mode)"
         logger.info(
             "Skipping strategic replenishment - no actual sales data (pre-season mode)"
         )
@@ -200,6 +237,7 @@ async def run_full_season(
         reforecast_count=reforecast_count,
         total_duration_seconds=total_duration,
         phases_completed=phases_completed,
+        replenishment_skipped_reason=replenishment_skipped_reason,
     )
 
     logger.info("\n" + "=" * 80)
