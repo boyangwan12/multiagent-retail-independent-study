@@ -3358,6 +3358,9 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
         st.warning("No reallocation data available.")
         return
 
+    # Get current strategy for display
+    strategy = realloc_data.get('strategy', st.session_state.selected_reallocation_strategy)
+
     # Show result type indicator with Run AI Agent button
     is_agent = st.session_state.get(replenishment_is_agent_key, False)
     result_type = "🤖 AI Agent" if is_agent else "📊 Rule-based"
