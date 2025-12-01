@@ -46,12 +46,8 @@ from agent_tools.demand_tools import (
     EnsembleForecaster,
 )
 from schemas.forecast_schemas import ForecastResult
-from utils.workflow_hooks import (
-    WorkflowState,
-    WorkflowUIHooks,
-    create_workflow_hooks,
-    render_phased_progress_sidebar,
-)
+from utils.agent_status_hooks import AgentStatus, AgentStatusHooks
+from utils.sidebar_status import render_agent_status_sidebar
 
 
 # =============================================================================
@@ -156,12 +152,9 @@ def init_session_state():
     if "pending_store_sales" not in st.session_state:
         st.session_state.pending_store_sales = {}  # {week_num: {store_id: sales_value}}
 
-    # Workflow visualization state
-    if "workflow_state" not in st.session_state:
-        st.session_state.workflow_state = WorkflowState()
-
-    if "show_workflow_drawer" not in st.session_state:
-        st.session_state.show_workflow_drawer = False
+    # Agent status tracking (native SDK hooks)
+    if "agent_status" not in st.session_state:
+        st.session_state.agent_status = AgentStatus()
 
     # ==========================================================================
     # FLOW STATE TRACKING - Controls locked/active states of UI sections
@@ -241,12 +234,8 @@ def save_run_params(params):
 # Sidebar - Phased Progress Tracker
 # =============================================================================
 def render_sidebar_agent_status():
-    """Render the sidebar with the Phased Progress Tracker."""
-    state = st.session_state.workflow_state
-
-    # Render phased progress directly in sidebar (not collapsed)
-    with st.sidebar:
-        render_phased_progress_sidebar(state, show_header=True)
+    """Render the sidebar with agent status (native SDK hooks)."""
+    render_agent_status_sidebar(st.session_state.agent_status, show_header=True)
 
 
 # =============================================================================
@@ -2812,9 +2801,6 @@ async def run_replenishment_agent_async(
     Run the Strategic Replenishment Agent with UI hooks for sidebar updates.
 
     Returns data in the format expected by the UI (adapter pattern).
-
-    Note: The WorkflowUIHooks automatically handles phase start/end based on
-    agent name detection in on_agent_start/on_agent_end callbacks.
     """
     # Build context
     context = ForecastingContext(
@@ -2830,21 +2816,20 @@ async def run_replenishment_agent_async(
         context.allocation_result = st.session_state.workflow_result.allocation
         context.forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
 
-    # Create hooks for UI updates
-    # Hooks auto-detect agent name and map to phase (replenishment)
-    hooks = WorkflowUIHooks(st.session_state.workflow_state)
+    # Create hooks for UI updates (native SDK) with toast notifications
+    hooks = AgentStatusHooks(st.session_state.agent_status, on_event=st.toast)
+    st.session_state.agent_status.start()
 
     try:
-        # Run the actual agent workflow
-        # Hooks will auto-call start_phase("replenishment") when agent starts
-        # and end_phase("replenishment") when agent ends
         analysis = await run_strategic_replenishment(
             context=context,
             current_week=selected_week,
             variance_pct=variance_pct,
-            force_run=True,  # Always run when user clicks
+            force_run=True,
             hooks=hooks,
         )
+
+        st.session_state.agent_status.end()
 
         if analysis is None:
             return None
@@ -2853,8 +2838,7 @@ async def run_replenishment_agent_async(
         return _convert_analysis_to_ui_format(analysis, params, selected_week)
 
     except Exception as e:
-        # Ensure phase is marked as error on failure
-        st.session_state.workflow_state._add_event("error", f"Replenishment agent failed: {e}")
+        st.session_state.agent_status.end()
         raise e
 
 
@@ -2901,12 +2885,7 @@ async def run_pricing_agent_async(
     selected_week: int,
     current_sell_through: float,
 ) -> MarkdownResult:
-    """
-    Run the Pricing Agent with UI hooks for sidebar updates.
-
-    Note: The WorkflowUIHooks automatically handles phase start/end based on
-    agent name detection in on_agent_start/on_agent_end callbacks.
-    """
+    """Run the Pricing Agent with UI hooks for sidebar updates."""
     # Build context
     context = ForecastingContext(
         data_loader=st.session_state.data_loader,
@@ -2920,14 +2899,11 @@ async def run_pricing_agent_async(
     if st.session_state.workflow_result:
         context.total_allocated = st.session_state.workflow_result.allocation.initial_store_allocation
 
-    # Create hooks for UI updates
-    # Hooks auto-detect agent name and map to phase (pricing)
-    hooks = WorkflowUIHooks(st.session_state.workflow_state)
+    # Create hooks for UI updates (native SDK) with toast notifications
+    hooks = AgentStatusHooks(st.session_state.agent_status, on_event=st.toast)
+    st.session_state.agent_status.start()
 
     try:
-        # Run the actual agent workflow
-        # Hooks will auto-call start_phase("pricing") when agent starts
-        # and end_phase("pricing") when agent ends
         result = await run_markdown_check(
             context=context,
             current_sell_through=current_sell_through,
@@ -2936,11 +2912,11 @@ async def run_pricing_agent_async(
             hooks=hooks,
         )
 
+        st.session_state.agent_status.end()
         return result
 
     except Exception as e:
-        # Ensure phase is marked as error on failure
-        st.session_state.workflow_state._add_event("error", f"Pricing agent failed: {e}")
+        st.session_state.agent_status.end()
         raise e
 
 
@@ -4051,22 +4027,18 @@ async def run_workflow_async(params: WorkflowParams):
     context = ForecastingContext(
         data_loader=st.session_state.data_loader,
         session_id=st.session_state.session_id,
-        season_start_date=params.season_start_date,  # Pass for calendar-aligned forecasting
+        season_start_date=params.season_start_date,
         current_week=st.session_state.current_week,
         actual_sales=st.session_state.actual_sales if st.session_state.actual_sales else None,
         total_sold=st.session_state.total_sold,
     )
 
-    # Create hooks for UI updates
-    hooks = WorkflowUIHooks(st.session_state.workflow_state)
-
-    # Start workflow tracking
-    st.session_state.workflow_state.start_workflow()
+    # Create hooks for UI updates (native SDK) with toast notifications
+    hooks = AgentStatusHooks(st.session_state.agent_status, on_event=st.toast)
+    st.session_state.agent_status.start()
 
     try:
         if st.session_state.current_week > 0 and st.session_state.actual_sales:
-            # Track phase transitions
-            st.session_state.workflow_state.start_phase("forecast")
             result = await run_inseason_update(
                 context=context,
                 params=params,
@@ -4076,19 +4048,17 @@ async def run_workflow_async(params: WorkflowParams):
                 hooks=hooks,
             )
         else:
-            st.session_state.workflow_state.start_phase("forecast")
             result = await run_preseason_planning(
                 context=context,
                 params=params,
                 hooks=hooks,
             )
 
-        # Mark workflow complete
-        st.session_state.workflow_state.end_workflow()
+        st.session_state.agent_status.end()
         return result
 
     except Exception as e:
-        st.session_state.workflow_state.end_workflow()
+        st.session_state.agent_status.end()
         raise e
 
 
