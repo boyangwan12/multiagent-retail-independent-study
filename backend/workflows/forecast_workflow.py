@@ -20,6 +20,7 @@ from agents import Runner, RunHooks
 
 from my_agents.demand_agent import demand_agent
 from my_agents.variance_agent import variance_agent, VarianceAnalysis
+from my_agents.reforecast_agent import reforecast_agent, ReforecastResult
 from schemas.forecast_schemas import ForecastResult
 from utils.context import ForecastingContext
 
@@ -70,14 +71,15 @@ async def run_forecast_with_variance_loop(
     category: str,
     forecast_horizon: int,
     variance_threshold: float = 0.20,  # Kept for API compatibility, agent uses its own logic
-    max_reforecasts: int = 2,
+    max_reforecasts: int = 2,  # Kept for API compatibility, no longer loops
     hooks: Optional[RunHooks] = None,
 ) -> Tuple[ForecastResult, List[VarianceAnalysis]]:
     """
     Run demand forecast with AGENTIC variance analysis.
 
     Uses a Variance Analysis Agent that reasons about variance patterns
-    and decides whether to reforecast.
+    and decides whether to reforecast. The agent now directly executes
+    the reforecast using the bayesian_reforecast_tool.
 
     The agent considers:
     - Variance magnitude AND trend
@@ -89,15 +91,15 @@ async def run_forecast_with_variance_loop(
     1. Run demand agent → ForecastResult
     2. If no actual sales → return (pre-season mode)
     3. Run variance agent → VarianceAnalysis (agent REASONS about variance)
-    4. If agent says reforecast AND count < max → re-forecast
-    5. Loop until agent says no reforecast or max reached
+    4. If agent decides reforecast needed → agent calls bayesian_reforecast_tool
+    5. Return agent's result (with optional reforecast applied)
 
     Args:
         context: ForecastingContext with data_loader and optional actual_sales
         category: Product category to forecast
         forecast_horizon: Number of weeks to forecast
         variance_threshold: Kept for API compatibility (agent uses its own reasoning)
-        max_reforecasts: Maximum re-forecast attempts (default: 2)
+        max_reforecasts: Kept for API compatibility (no longer loops)
 
     Returns:
         Tuple of (ForecastResult, List[VarianceAnalysis])
@@ -105,85 +107,103 @@ async def run_forecast_with_variance_loop(
     logger.info("=" * 80)
     logger.info("WORKFLOW: Forecast with Agentic Variance Analysis")
     logger.info(f"Category: {category}, Horizon: {forecast_horizon} weeks")
-    logger.info(f"Max reforecasts: {max_reforecasts}")
     logger.info("=" * 80)
 
     analysis_history: List[VarianceAnalysis] = []
-    reforecast_count = 0
-    forecast: Optional[ForecastResult] = None
 
-    while True:
-        # Step 1: Run demand agent
-        logger.info(f"Running demand forecast (attempt {reforecast_count + 1})...")
+    # Step 1: Run demand agent
+    logger.info("Running demand forecast...")
 
-        result = await Runner.run(
-            starting_agent=demand_agent,
-            input=f"Forecast demand for {category} for {forecast_horizon} weeks",
+    result = await Runner.run(
+        starting_agent=demand_agent,
+        input=f"Forecast demand for {category} for {forecast_horizon} weeks",
+        context=context,
+        hooks=hooks,
+    )
+
+    forecast = result.final_output
+    logger.info(
+        f"Forecast received: total={forecast.total_demand}, "
+        f"confidence={forecast.confidence:.2f}"
+    )
+
+    # Update context with forecast and store the forecast result for bayesian tool
+    context.forecast_by_week = forecast.forecast_by_week
+    context.forecast_result = forecast
+
+    # Step 2: Check if we have actual sales data
+    if not context.has_actual_sales:
+        logger.info("No actual sales data - pre-season mode, skipping variance analysis")
+        return forecast, analysis_history
+
+    # Step 3: Run VARIANCE AGENT (agentic analysis with optional reforecast!)
+    logger.info(f"Running variance agent analysis at week {context.current_week}...")
+
+    variance_result = await Runner.run(
+        starting_agent=variance_agent,
+        input=f"Analyze variance for week {context.current_week}. "
+              f"We have {forecast_horizon - context.current_week} weeks remaining in the season. "
+              f"If reforecast is warranted, execute it using the bayesian_reforecast_tool.",
+        context=context,
+        hooks=hooks,
+        max_turns=25,  # Increased to allow tool calling
+    )
+
+    analysis: VarianceAnalysis = variance_result.final_output
+    analysis_history.append(analysis)
+
+    logger.info(f"Variance Agent Analysis:")
+    logger.info(f"  - Severity: {analysis.severity}")
+    logger.info(f"  - Likely Cause: {analysis.likely_cause}")
+    logger.info(f"  - Trend: {analysis.trend_direction}")
+    logger.info(f"  - Recommended Action: {analysis.recommended_action}")
+    logger.info(f"  - Should Reforecast: {analysis.should_reforecast}")
+    logger.info(f"  - Confidence: {analysis.confidence:.0%}")
+
+    # Step 4: If variance agent recommends reforecast, hand off to Reforecast Agent
+    if analysis.should_reforecast:
+        logger.info("Variance Agent recommends reforecast - handing off to Reforecast Agent...")
+
+        reforecast_result_obj = await Runner.run(
+            starting_agent=reforecast_agent,
+            input="Execute Bayesian reforecast using current forecast and actual sales data.",
             context=context,
             hooks=hooks,
+            max_turns=15,  # Simple agent, but allow enough turns for tool calling
         )
 
-        forecast = result.final_output
-        logger.info(
-            f"Forecast received: total={forecast.total_demand}, "
-            f"confidence={forecast.confidence:.2f}"
-        )
+        reforecast_result: ReforecastResult = reforecast_result_obj.final_output
 
-        # Update context with forecast
-        context.forecast_by_week = forecast.forecast_by_week
+        # Parse the JSON from the agent
+        import json
+        reforecast_data = json.loads(reforecast_result.reforecast_json)
 
-        # Step 2: Check if we have actual sales data
-        if not context.has_actual_sales:
-            logger.info("No actual sales data - pre-season mode, skipping variance analysis")
-            return forecast, analysis_history
+        if reforecast_data.get("success"):
+            logger.info("Reforecast Agent executed Bayesian reforecast successfully!")
+            logger.info(f"  - Original total: {forecast.total_demand}")
+            logger.info(f"  - Updated total: {reforecast_data['total_demand']}")
+            logger.info(f"  - Adjustment: {reforecast_data['adjustment_applied']:.2%}")
 
-        # Step 3: Run VARIANCE AGENT (agentic analysis!)
-        logger.info(f"Running variance agent analysis at week {context.current_week}...")
-
-        variance_result = await Runner.run(
-            starting_agent=variance_agent,
-            input=f"Analyze variance for week {context.current_week}. "
-                  f"We have {forecast_horizon - context.current_week} weeks remaining in the season. "
-                  f"This is reforecast attempt {reforecast_count + 1} of {max_reforecasts + 1}.",
-            context=context,
-            hooks=hooks,
-        )
-
-        analysis: VarianceAnalysis = variance_result.final_output
-        analysis_history.append(analysis)
-
-        logger.info(f"Variance Agent Analysis:")
-        logger.info(f"  - Severity: {analysis.severity}")
-        logger.info(f"  - Likely Cause: {analysis.likely_cause}")
-        logger.info(f"  - Trend: {analysis.trend_direction}")
-        logger.info(f"  - Recommended Action: {analysis.recommended_action}")
-        logger.info(f"  - Should Reforecast: {analysis.should_reforecast}")
-        logger.info(f"  - Confidence: {analysis.confidence:.0%}")
-
-        # Step 4: Agent decides whether to reforecast
-        if not analysis.should_reforecast:
-            logger.info(f"Variance agent recommends: {analysis.recommended_action}")
-            logger.info("No reforecast needed - returning current forecast")
-            return forecast, analysis_history
-
-        if reforecast_count >= max_reforecasts:
-            logger.warning(
-                f"Max reforecasts ({max_reforecasts}) reached. "
-                f"Agent wanted to reforecast but limit hit."
+            # Create updated ForecastResult from the Bayesian reforecast
+            forecast = ForecastResult(
+                total_demand=reforecast_data["total_demand"],
+                forecast_by_week=reforecast_data["forecast_by_week"],
+                safety_stock_pct=forecast.safety_stock_pct,
+                confidence=reforecast_data["confidence"],
+                model_used="Bayesian-Reforecast (Agent-Executed)",
+                lower_bound=reforecast_data["lower_bound"],
+                upper_bound=reforecast_data["upper_bound"],
+                weekly_average=reforecast_data["total_demand"] // forecast_horizon,
             )
-            return forecast, analysis_history
 
-        # Step 5: Agent recommended reforecast - prepare and loop
-        logger.info(
-            f"Variance agent triggered reforecast. "
-            f"Adjustments: {analysis.reforecast_adjustments}"
-        )
-
-        # Could pass adjustments to demand agent here in future
-        # For now, just re-run with updated context
-
-        reforecast_count += 1
-        # Loop continues...
+            # Update context with reforecast
+            context.forecast_by_week = forecast.forecast_by_week
+            context.forecast_result = forecast
+        else:
+            logger.error(f"Reforecast Agent failed: {reforecast_data.get('error', 'Unknown error')}")
+    else:
+        logger.info(f"Variance agent recommends: {analysis.recommended_action}")
+        logger.info("No reforecast needed - using original forecast")
 
     return forecast, analysis_history
 
@@ -213,6 +233,7 @@ async def check_forecast_variance(
         input=f"Analyze variance for week {context.current_week}.",
         context=context,
         hooks=hooks,
+        max_turns=25,  # Increased to allow tool calling
     )
 
     return result.final_output

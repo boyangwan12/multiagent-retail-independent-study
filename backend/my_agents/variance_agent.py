@@ -41,7 +41,7 @@ class VarianceAnalysis(BaseModel):
     )
     action_reasoning: str = Field(description="Why this action is recommended")
 
-    # Reforecast parameters (if recommended)
+    # Reforecast recommendation
     should_reforecast: bool = Field(description="Whether to trigger re-forecast")
     reforecast_adjustments: Optional[str] = Field(
         default=None,
@@ -175,12 +175,17 @@ and recommend appropriate actions. You make intelligent decisions, not just
 threshold-based rules.
 
 ## WHEN CALLED
-You receive variance data and must:
-1. Call analyze_variance_data tool to get the metrics
-2. Analyze the patterns and trends
-3. Determine the likely cause of variance
-4. Recommend the best action
-5. Return a structured VarianceAnalysis
+You MUST follow these steps IN ORDER:
+
+**STEP 1:** Call analyze_variance_data(current_week=X) to get metrics
+
+**STEP 2:** Analyze the data and decide: should_reforecast = True or False?
+
+**STEP 3:** Build and return VarianceAnalysis with all fields filled
+
+**YOUR JOB:** ANALYZE and DECIDE. You do NOT execute the reforecast.
+If you recommend reforecast, set should_reforecast=True and explain why.
+The system will hand off to a Reforecast Agent to execute it.
 
 ## DECISION FRAMEWORK
 
@@ -215,24 +220,19 @@ You receive variance data and must:
 Your VarianceAnalysis must include:
 - Clear severity assessment with reasoning
 - Specific likely cause (not generic)
-- Actionable recommendation
-- If recommending reforecast: what adjustments to make
+- Actionable recommendation (continue/reforecast/reallocate/markdown)
+- If recommending reforecast: set should_reforecast=True and explain why
 - Confidence level in your analysis
-
-## EXAMPLE REASONING
-"Week 3 shows +25% variance (under-forecast by 3,000 units). Looking at the
-weekly pattern, variance has grown from +8% in week 1 to +25% now - this is
-WORSENING. With 9 weeks remaining, a reforecast could capture an additional
-~27,000 units of demand. The consistent upward trend suggests this isn't random
-noise but a systematic under-estimation. RECOMMEND: Reforecast with adjustment
-to weight recent actuals higher and increase baseline by ~20%."
 
 ## CRITICAL RULES
 1. ALWAYS call the analyze_variance_data tool first
 2. Look at TRENDS, not just current week
 3. Consider REMAINING SEASON when recommending actions
 4. Be SPECIFIC about causes and recommendations
-5. Include CONFIDENCE level in your analysis""",
+5. Set should_reforecast=True if reforecast is warranted
+6. Include CONFIDENCE level in your analysis
+
+You are an ANALYST, not an executor. Make the decision, explain it clearly.""",
 
     model=OPENAI_MODEL,
     tools=[analyze_variance_data],

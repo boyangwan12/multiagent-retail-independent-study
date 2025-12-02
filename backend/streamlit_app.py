@@ -39,7 +39,7 @@ from workflows.forecast_workflow import run_forecast
 from workflows.reallocation_workflow import run_strategic_replenishment
 from workflows.pricing_workflow import run_markdown_check
 from agent_tools.variance_tools import check_variance
-from agent_tools.bayesian_reforecast import bayesian_reforecast
+# bayesian_reforecast now only used via Variance Agent's bayesian_reforecast_tool
 from agent_tools.demand_tools import (
     clean_historical_sales,
     aggregate_to_weekly,
@@ -2317,60 +2317,7 @@ def _render_forecast_only_chart(params: WorkflowParams):
     st.plotly_chart(fig, use_container_width=True)
 
 
-def _run_direct_reforecast(params: WorkflowParams) -> ForecastResult:
-    """
-    Run reforecast using Bayesian updating with actual sales performance.
-
-    This uses a statistically rigorous Bayesian approach that:
-    1. Treats original forecast as prior belief
-    2. Updates beliefs based on actual sales data
-    3. Applies adjustments proportional to statistical confidence
-    4. Properly propagates uncertainty for future weeks
-    """
-    # Get original forecast and actuals
-    original_forecast = st.session_state.workflow_result.forecast
-    actual_sales = st.session_state.actual_sales
-    original_by_week = original_forecast.forecast_by_week
-
-    weeks_with_actuals = len(actual_sales)
-    total_weeks = len(original_by_week)
-
-    if weeks_with_actuals == 0 or total_weeks == 0:
-        # No actuals yet, return original forecast
-        return original_forecast
-
-    # Run Bayesian reforecast
-    bayesian_result = bayesian_reforecast(
-        original_forecast_by_week=original_by_week,
-        actual_sales=actual_sales,
-        original_confidence=original_forecast.confidence,
-        original_lower_bound=original_forecast.lower_bound,
-        original_upper_bound=original_forecast.upper_bound,
-    )
-
-    # Determine trend direction for model name
-    if bayesian_result.adjustment_applied > 1.05:
-        direction = "upward"
-    elif bayesian_result.adjustment_applied < 0.95:
-        direction = "downward"
-    else:
-        direction = "stable"
-
-    # Calculate weekly average
-    weekly_average = bayesian_result.total_demand // total_weeks if total_weeks > 0 else 0
-
-    return ForecastResult(
-        total_demand=bayesian_result.total_demand,
-        forecast_by_week=bayesian_result.forecast_by_week,
-        safety_stock_pct=original_forecast.safety_stock_pct,
-        confidence=bayesian_result.confidence,
-        model_used=f"Bayesian-Reforecast ({direction})",
-        lower_bound=bayesian_result.lower_bound,
-        upper_bound=bayesian_result.upper_bound,
-        weekly_average=weekly_average,
-        data_quality="bayesian_updated",
-        explanation=bayesian_result.explanation,
-    )
+# REMOVED: _run_direct_reforecast() - now handled by Variance Agent with bayesian_reforecast_tool
 
 
 def _render_reforecast_comparison(params: WorkflowParams):
@@ -2430,210 +2377,106 @@ def _render_reforecast_comparison(params: WorkflowParams):
 
 def _render_agentic_variance_analysis(params: WorkflowParams, selected_week: int, variance_pct: float, is_high_variance: bool):
     """
-    Render agentic variance analysis with automatic reforecast on high variance.
+    Render variance analysis and execute reforecast if needed.
 
-    This performs intelligent analysis directly (no LLM call to avoid hanging)
-    and automatically triggers reforecast when variance is high.
+    For Streamlit UI: Uses direct bayesian_reforecast (fast, reliable)
+    Backend workflows use the agent system for consistency.
     """
-    # Compute analysis directly (fast, no LLM)
-    analysis = _compute_variance_analysis(params, selected_week, variance_pct)
+    reforecast_key = f"reforecast_week_{selected_week}"
 
-    # Display the analysis
-    _display_variance_analysis(analysis, params, selected_week)
+    # Check if already analyzed for this week
+    if not st.session_state.get(reforecast_key):
+        st.info("📊 Analyzing variance...")
 
-    # AUTO-TRIGGER reforecast if agent analysis recommends it
-    # (analysis already accounts for severity, trend, and weeks remaining)
-    if analysis["should_reforecast"]:
-        reforecast_key = f"reforecast_week_{selected_week}"
+        # Simple rule-based decision (fast for UI)
+        abs_variance = abs(variance_pct * 100)
+        forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
+        total_weeks = len(forecast_by_week)
+        weeks_remaining = total_weeks - selected_week
 
-        # Check if already reforecasted
-        if not st.session_state.get(reforecast_key):
-            st.warning("🔄 Auto-triggering re-forecast based on analysis...")
+        # Determine if reforecast is needed
+        should_reforecast = False
+        if abs_variance >= 20 and weeks_remaining >= 3:
+            should_reforecast = True
+            severity = "high" if abs_variance < 35 else "critical"
+            action = "reforecast"
+        elif abs_variance >= 10:
+            severity = "medium"
+            action = "monitor"
+        else:
+            severity = "low"
+            action = "continue"
 
-            with st.spinner("Running re-forecast with updated data..."):
+        # Display analysis
+        st.markdown(f"### 🔍 Variance Analysis")
+
+        severity_icons = {"low": "🟢", "medium": "🟡", "high": "🟠", "critical": "🔴"}
+        severity_icon = severity_icons.get(severity, "⚪")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Severity", f"{severity_icon} {severity.upper()}")
+        with col2:
+            st.metric("Variance", f"{variance_pct*100:+.1f}%")
+        with col3:
+            st.metric("Weeks Left", f"{weeks_remaining}/{total_weeks}")
+
+        st.markdown(f"**Recommended Action:** {action.upper()}")
+
+        # Execute reforecast if needed
+        if should_reforecast:
+            st.info("🔄 High variance detected - executing Bayesian reforecast...")
+
+            with st.spinner("Running reforecast..."):
                 try:
-                    reforecast_result = _run_direct_reforecast(params)
+                    from agent_tools.bayesian_reforecast import bayesian_reforecast
+                    from schemas.forecast_schemas import ForecastResult
+
+                    # Run Bayesian reforecast directly
+                    original_forecast = st.session_state.workflow_result.forecast
+                    bayesian_result = bayesian_reforecast(
+                        original_forecast_by_week=original_forecast.forecast_by_week,
+                        actual_sales=st.session_state.actual_sales,
+                        original_confidence=original_forecast.confidence,
+                        original_lower_bound=original_forecast.lower_bound,
+                        original_upper_bound=original_forecast.upper_bound,
+                    )
+
+                    # Create ForecastResult
+                    reforecast_result = ForecastResult(
+                        total_demand=bayesian_result.total_demand,
+                        forecast_by_week=bayesian_result.forecast_by_week,
+                        safety_stock_pct=original_forecast.safety_stock_pct,
+                        confidence=bayesian_result.confidence,
+                        model_used="Bayesian-Reforecast",
+                        lower_bound=bayesian_result.lower_bound,
+                        upper_bound=bayesian_result.upper_bound,
+                        weekly_average=bayesian_result.total_demand // total_weeks,
+                        explanation=bayesian_result.explanation,
+                    )
+
                     st.session_state.reforecast_result = reforecast_result
                     st.session_state[reforecast_key] = True
-                    st.success("✅ Re-forecast complete!")
-                    st.rerun()
+
+                    st.success("✅ Reforecast complete!")
+                    _render_reforecast_comparison(params)
+
                 except Exception as e:
-                    st.error(f"Re-forecast failed: {e}")
+                    st.error(f"Reforecast failed: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
         else:
-            # Already reforecasted - show the comparison
-            if st.session_state.reforecast_result:
-                _render_reforecast_comparison(params)
-
-
-def _compute_variance_analysis(params: WorkflowParams, selected_week: int, current_variance_pct: float) -> dict:
-    """
-    Compute variance analysis using intelligent rules (no LLM needed).
-
-    Analyzes:
-    - Weekly variance trend
-    - Severity based on magnitude
-    - Likely causes based on patterns
-    - Recommended actions
-    """
-    forecast_by_week = st.session_state.workflow_result.forecast.forecast_by_week
-    actual_sales = st.session_state.actual_sales
-    total_weeks = len(forecast_by_week)
-    weeks_remaining = total_weeks - selected_week
-
-    # Calculate weekly variances
-    weekly_variances = []
-    for i in range(min(len(actual_sales), selected_week)):
-        if forecast_by_week[i] > 0:
-            var = (actual_sales[i] - forecast_by_week[i]) / forecast_by_week[i] * 100
-        else:
-            var = 0
-        weekly_variances.append(var)
-
-    # Determine trend
-    if len(weekly_variances) >= 2:
-        recent = weekly_variances[-1]
-        earlier = weekly_variances[0]
-        if abs(recent) > abs(earlier) + 5:
-            trend = "worsening"
-        elif abs(recent) < abs(earlier) - 5:
-            trend = "improving"
-        else:
-            trend = "stable"
+            st.info(f"ℹ️ No reforecast needed - variance within acceptable range")
+            st.session_state[reforecast_key] = True
     else:
-        trend = "insufficient_data"
-
-    # Determine severity
-    abs_variance = abs(current_variance_pct * 100)
-    if abs_variance < 10:
-        severity = "low"
-    elif abs_variance < 20:
-        severity = "medium"
-    elif abs_variance < 35:
-        severity = "high"
-    else:
-        severity = "critical"
-
-    # Determine likely cause
-    if current_variance_pct > 0:  # Under-forecast (actual > forecast)
-        if trend == "worsening":
-            likely_cause = "Systematic under-forecasting - demand stronger than predicted, possibly due to favorable market conditions or unaccounted promotions"
-        else:
-            likely_cause = "Demand exceeding forecast - may indicate seasonal strength or successful marketing"
-    else:  # Over-forecast (actual < forecast)
-        if trend == "worsening":
-            likely_cause = "Systematic over-forecasting - demand weaker than predicted, possibly due to competition or market softness"
-        else:
-            likely_cause = "Sales below forecast - may indicate inventory issues, weather impact, or changing consumer preferences"
-
-    # Determine recommended action
-    if severity == "low":
-        recommended_action = "continue"
-        action_reasoning = "Variance is within acceptable range. Continue monitoring."
-        should_reforecast = False
-    elif severity == "medium" and trend != "worsening":
-        recommended_action = "continue"
-        action_reasoning = "Moderate variance but trend is stable/improving. Monitor closely."
-        should_reforecast = False
-    elif weeks_remaining < 2:
-        recommended_action = "markdown" if current_variance_pct < 0 else "continue"
-        action_reasoning = "Too few weeks remaining for reforecast to be effective."
-        should_reforecast = False
-    else:
-        recommended_action = "reforecast"
-        action_reasoning = f"High variance ({abs_variance:.1f}%) with {weeks_remaining} weeks remaining. Reforecast recommended to capture demand shift."
-        should_reforecast = True
-
-    # Build explanation
-    explanation = f"""
-**Variance Analysis for Week {selected_week}:**
-
-- Current variance: {current_variance_pct*100:+.1f}%
-- Trend: {trend.title()} (comparing week 1 to week {selected_week})
-- Weeks remaining: {weeks_remaining} of {total_weeks}
-
-**Weekly Breakdown:**
-{', '.join([f'W{i+1}: {v:+.1f}%' for i, v in enumerate(weekly_variances)])}
-
-**Assessment:**
-{likely_cause}
-
-**Recommendation:**
-{action_reasoning}
-"""
-
-    return {
-        "variance_pct": current_variance_pct * 100,
-        "severity": severity,
-        "trend_direction": trend,
-        "likely_cause": likely_cause,
-        "recommended_action": recommended_action,
-        "action_reasoning": action_reasoning,
-        "should_reforecast": should_reforecast,
-        "confidence": 0.85 if len(weekly_variances) >= 3 else 0.70,
-        "explanation": explanation,
-        "weekly_variances": weekly_variances,
-        "weeks_remaining": weeks_remaining,
-    }
+        # Already analyzed - show cached result
+        if st.session_state.reforecast_result:
+            st.success("✅ Using cached reforecast")
+            _render_reforecast_comparison(params)
 
 
-def _display_variance_analysis(analysis: dict, params: WorkflowParams, selected_week: int):
-    """Display the variance analysis results."""
-
-    # Severity badge
-    severity_colors = {
-        "low": "🟢",
-        "medium": "🟡",
-        "high": "🟠",
-        "critical": "🔴"
-    }
-    severity = analysis.get("severity", "medium")
-    severity_icon = severity_colors.get(severity, "⚪")
-
-    st.markdown(f"### {severity_icon} Analysis: **{severity.upper()}** Severity")
-
-    # Key metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Variance", f"{analysis['variance_pct']:+.1f}%")
-    with col2:
-        trend = analysis.get("trend_direction", "stable")
-        st.metric("Trend", trend.title())
-    with col3:
-        st.metric("Confidence", f"{analysis.get('confidence', 0.75):.0%}")
-    with col4:
-        action_icons = {
-            "continue": "✅",
-            "reforecast": "🔄",
-            "reallocate": "📦",
-            "markdown": "💰",
-            "investigate": "🔍"
-        }
-        action = analysis.get("recommended_action", "continue")
-        icon = action_icons.get(action, "❓")
-        st.metric("Action", f"{icon} {action.title()}")
-
-    # Likely cause
-    st.markdown("---")
-    st.markdown("#### 🔍 Likely Cause")
-    st.info(analysis.get("likely_cause", "Unknown"))
-
-    # Analysis reasoning
-    st.markdown("#### 💭 Analysis")
-    st.markdown(analysis.get("explanation", ""))
-
-    # Action recommendation box
-    st.markdown("#### 🎯 Recommended Action")
-    action = analysis.get("recommended_action", "continue")
-    action_reasoning = analysis.get("action_reasoning", "")
-
-    if action == "continue":
-        st.success(f"**{action.upper()}**: {action_reasoning}")
-    elif action == "reforecast":
-        st.warning(f"**{action.upper()}**: {action_reasoning}")
-    elif action == "markdown":
-        st.warning(f"**{action.upper()}**: {action_reasoning}")
-    else:
-        st.info(f"**{action.upper()}**: {action_reasoning}")
+# REMOVED: _compute_variance_analysis() - now handled by Variance Agent
+# REMOVED: _display_variance_analysis() - now handled by Variance Agent
 
 
 # =============================================================================

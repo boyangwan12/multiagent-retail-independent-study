@@ -17,6 +17,7 @@ import numpy as np
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
 import logging
+from agents import function_tool, RunContextWrapper
 
 logger = logging.getLogger("bayesian_reforecast")
 
@@ -469,3 +470,80 @@ def bayesian_reforecast(
     )
 
     return reforecaster.update_with_actuals(actual_sales)
+
+
+@function_tool
+def bayesian_reforecast_tool(
+    ctx: RunContextWrapper,
+) -> str:
+    """
+    Perform Bayesian reforecast using current forecast and actual sales from context.
+
+    This tool applies statistically rigorous Bayesian updating to adjust the forecast
+    based on observed actual sales performance. It:
+    - Treats the original forecast as a prior belief
+    - Updates based on actual sales data (likelihood)
+    - Applies adjustments proportional to statistical confidence
+    - Properly propagates uncertainty for future weeks
+
+    The tool automatically retrieves forecast and actuals from context, performs
+    the Bayesian update, and returns the adjusted forecast with rich explanation.
+
+    Returns:
+        JSON string with reforecast results
+    """
+    import json
+    from utils.context import ForecastingContext
+
+    context: ForecastingContext = ctx.context
+
+    # Get data from context
+    original_forecast_by_week = context.forecast_by_week
+    actual_sales = context.actual_sales
+
+    if not original_forecast_by_week:
+        return json.dumps({
+            "error": "No forecast available in context",
+            "success": False
+        })
+
+    if not actual_sales or len(actual_sales) == 0:
+        return json.dumps({
+            "error": "No actual sales data available for reforecast",
+            "success": False
+        })
+
+    # Get confidence and bounds from the original forecast result if available
+    original_confidence = 0.80  # Default
+    original_lower_bound = None
+    original_upper_bound = None
+
+    # Try to get from context if forecast result is stored
+    if hasattr(context, 'forecast_result') and context.forecast_result:
+        original_confidence = context.forecast_result.confidence
+        original_lower_bound = context.forecast_result.lower_bound
+        original_upper_bound = context.forecast_result.upper_bound
+
+    # Perform Bayesian reforecast
+    result = bayesian_reforecast(
+        original_forecast_by_week=original_forecast_by_week,
+        actual_sales=actual_sales,
+        original_confidence=original_confidence,
+        original_lower_bound=original_lower_bound,
+        original_upper_bound=original_upper_bound,
+    )
+
+    # Return as JSON string for agent consumption
+    return json.dumps({
+        "success": True,
+        "forecast_by_week": result.forecast_by_week,
+        "lower_bound": result.lower_bound,
+        "upper_bound": result.upper_bound,
+        "total_demand": result.total_demand,
+        "confidence": result.confidence,
+        "explanation": result.explanation,
+        "observed_bias": result.observed_bias,
+        "bias_significance": result.bias_significance,
+        "adjustment_applied": result.adjustment_applied,
+        "uncertainty_growth_pct": result.uncertainty_growth_pct,
+    })
