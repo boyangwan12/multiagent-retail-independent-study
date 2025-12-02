@@ -75,6 +75,9 @@ def init_session_state():
     if "workflow_result" not in st.session_state:
         st.session_state.workflow_result = None
 
+    if "original_forecast" not in st.session_state:
+        st.session_state.original_forecast = None
+
     if "running" not in st.session_state:
         st.session_state.running = False
 
@@ -2163,11 +2166,16 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
     if not st.session_state.workflow_result:
         return
 
-    forecast = st.session_state.workflow_result.forecast
+    # Current forecast (may have been updated by reforecast)
+    current_forecast = st.session_state.workflow_result.forecast
+
+    # Original forecast (unchanged, for comparison)
+    original_forecast = st.session_state.get("original_forecast", current_forecast)
+
     actual_sales = st.session_state.actual_sales
 
     # Full forecast horizon (show ALL forecast weeks, not truncated)
-    full_forecast = forecast.forecast_by_week
+    full_forecast = original_forecast.forecast_by_week
     total_forecast_weeks = len(full_forecast)
 
     if total_forecast_weeks == 0:
@@ -2179,13 +2187,13 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
     # Create unified comparison chart
     fig = go.Figure()
 
-    # 1. Add confidence bands for full forecast horizon (if available)
-    if forecast.lower_bound and forecast.upper_bound:
+    # 1. Add confidence bands for current forecast (if available)
+    if current_forecast.lower_bound and current_forecast.upper_bound:
         weeks = list(range(1, total_forecast_weeks + 1))
         fig.add_trace(
             go.Scatter(
                 x=weeks + weeks[::-1],
-                y=forecast.upper_bound + forecast.lower_bound[::-1],
+                y=current_forecast.upper_bound + current_forecast.lower_bound[::-1],
                 fill="toself",
                 fillcolor="rgba(31, 119, 180, 0.15)",
                 line=dict(color="rgba(255,255,255,0)"),
@@ -2194,14 +2202,14 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
             )
         )
 
-    # 2. FULL Forecast line (all weeks in horizon)
+    # 2. Original Forecast line (grey, for reference)
     fig.add_trace(
         go.Scatter(
             x=list(range(1, total_forecast_weeks + 1)),
             y=full_forecast,
             mode="lines+markers",
             name="Original Forecast",
-            line=dict(color="#1f77b4", width=2),
+            line=dict(color="#95a5a6", width=2, dash="dash"),
             marker=dict(size=6),
         )
     )
@@ -2233,16 +2241,15 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
             )
         )
 
-    # 5. Reforecast line (if triggered) - show full horizon
-    if st.session_state.reforecast_result:
-        reforecast = st.session_state.reforecast_result
+    # 5. Current Forecast line (if different from original due to reforecast)
+    if current_forecast != original_forecast:
         fig.add_trace(
             go.Scatter(
-                x=list(range(1, len(reforecast.forecast_by_week) + 1)),
-                y=reforecast.forecast_by_week,
+                x=list(range(1, len(current_forecast.forecast_by_week) + 1)),
+                y=current_forecast.forecast_by_week,
                 mode="lines+markers",
-                name="Updated Forecast",
-                line=dict(color="#2ecc71", width=3, dash="dash"),
+                name="Current Forecast (Updated)",
+                line=dict(color="#2ecc71", width=3),
                 marker=dict(size=8, symbol="star"),
             )
         )
@@ -2457,6 +2464,10 @@ def _render_agentic_variance_analysis(params: WorkflowParams, selected_week: int
 
                     st.session_state.reforecast_result = reforecast_result
                     st.session_state[reforecast_key] = True
+
+                    # CRITICAL: Update the baseline forecast for future variance calculations
+                    # This ensures Week 2 variance is calculated against the reforecast, not the original
+                    st.session_state.workflow_result.forecast = reforecast_result
 
                     st.success("✅ Reforecast complete!")
                     _render_reforecast_comparison(params)
@@ -3848,6 +3859,7 @@ def render_data_upload():
                         # Update data loader and clear old results
                         st.session_state.data_loader.clear_cache()
                         st.session_state.workflow_result = None
+                        st.session_state.original_forecast = None
                         st.session_state.flow_state["preseason_complete"] = False
                         st.success(f"✅ Sales data saved and loaded!")
                         st.rerun()
@@ -3901,6 +3913,7 @@ def render_data_upload():
                         # Update data loader and clear old results
                         st.session_state.data_loader.clear_cache()
                         st.session_state.workflow_result = None
+                        st.session_state.original_forecast = None
                         st.session_state.flow_state["preseason_complete"] = False
                         st.success(f"✅ Store data saved and loaded!")
                         st.rerun()
@@ -4035,6 +4048,10 @@ def render_preseason_tab():
             try:
                 result = asyncio.run(run_workflow_async(params))
                 st.session_state.workflow_result = result
+
+                # Store original forecast for comparison (before any reforecasts)
+                if not st.session_state.get("original_forecast"):
+                    st.session_state.original_forecast = result.forecast
 
                 # Store replenishment skip reason per-week for bi-weekly cadence tracking
                 if st.session_state.current_week > 0:

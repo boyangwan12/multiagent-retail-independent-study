@@ -196,7 +196,7 @@ async def run_forecast_with_variance_loop(
                 weekly_average=reforecast_data["total_demand"] // forecast_horizon,
             )
 
-            # Update context with reforecast
+            # Update context with reforecast - this is critical for subsequent weeks!
             context.forecast_by_week = forecast.forecast_by_week
             context.forecast_result = forecast
         else:
