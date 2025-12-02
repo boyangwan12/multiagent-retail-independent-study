@@ -2227,21 +2227,7 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
             )
         )
 
-        # 4. Variance shading (only for weeks with both forecast and actual)
-        forecast_subset = full_forecast[:weeks_with_actuals]
-        fig.add_trace(
-            go.Scatter(
-                x=list(range(1, weeks_with_actuals + 1)) + list(range(weeks_with_actuals, 0, -1)),
-                y=forecast_subset + actual_sales[::-1],
-                fill="toself",
-                fillcolor="rgba(231, 76, 60, 0.15)",
-                line=dict(color="rgba(255,255,255,0)"),
-                name="Variance Gap",
-                showlegend=True,
-            )
-        )
-
-    # 5. Current Forecast line (if different from original due to reforecast)
+    # 4. Current Forecast line (if different from original due to reforecast)
     if current_forecast != original_forecast:
         fig.add_trace(
             go.Scatter(
@@ -2254,7 +2240,7 @@ def _render_variance_chart(params: WorkflowParams, selected_week: int):
             )
         )
 
-    # 6. Add vertical line for current week
+    # 5. Add vertical line for current week
     if weeks_with_actuals > 0:
         fig.add_vline(
             x=weeks_with_actuals,
