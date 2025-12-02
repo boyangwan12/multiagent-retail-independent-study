@@ -1,105 +1,127 @@
 """
-Streamlit sidebar renderer for agent status.
+Streamlit sidebar dashboard for session context, metrics, and workflow progress.
 
-This module provides a simple sidebar UI that displays:
-- Current running agent
-- Current tool being called
-- Event history log
+Displays:
+- Session context (product, season, weeks)
+- Key metrics (forecast, allocated, sell-through, current week)
+- Completed workflow steps
 
 Usage:
-    from utils.sidebar_status import render_agent_status_sidebar
-    from utils.agent_status_hooks import AgentStatus
+    from utils.sidebar_status import render_sidebar_dashboard
 
-    # In your Streamlit app
-    if "agent_status" not in st.session_state:
-        st.session_state.agent_status = AgentStatus()
-
-    render_agent_status_sidebar(st.session_state.agent_status)
+    # In your Streamlit app main function
+    render_sidebar_dashboard()
 """
 
 import streamlit as st
-from utils.agent_status_hooks import AgentStatus
 
 
-def render_agent_status_sidebar(status: AgentStatus, show_header: bool = True):
+def render_sidebar_dashboard():
     """
-    Render current agent/tool status in Streamlit sidebar.
+    Render the sidebar dashboard with session context, metrics, and workflow progress.
 
-    Args:
-        status: AgentStatus instance containing current state
-        show_header: Whether to show the section header
+    Pulls data from st.session_state to display current workflow state.
     """
-    # Use st.sidebar prefix for all elements
+    # Get params from flow_state if available
+    params = None
+    if "flow_state" in st.session_state:
+        params = st.session_state.flow_state.get("last_run_params")
+
+    workflow_result = st.session_state.get("workflow_result")
+    current_week = st.session_state.get("current_week", 0)
+    total_weeks = st.session_state.get("total_season_weeks", 12)
+    actual_sales = st.session_state.get("actual_sales", [])
+    total_sold = st.session_state.get("total_sold", 0)
+
+    # =========================================================================
+    # SESSION CONTEXT
+    # =========================================================================
+    st.sidebar.markdown("### 📊 Session Context")
+
+    if params:
+        st.sidebar.markdown(f"**Product:** {params.category}")
+        if params.season_start_date:
+            st.sidebar.markdown(f"**Season:** {params.season_start_date.strftime('%b %Y')}")
+        else:
+            st.sidebar.markdown("**Season:** Not set")
+        st.sidebar.markdown(f"**Weeks:** 1-{params.forecast_horizon_weeks}")
+    else:
+        st.sidebar.caption("No workflow started yet")
+
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🤖 Agent Status")
 
-    # Debug: show status state
-    st.sidebar.caption(f"Running: {status.is_running} | History: {len(status.history)}")
+    # =========================================================================
+    # KEY METRICS
+    # =========================================================================
+    st.sidebar.markdown("### 📈 Key Metrics")
 
-    # Current status display
-    if status.is_running:
-        if status.current_agent:
-            st.sidebar.success(f"▶️ **{status.current_agent}**")
-            if status.current_tool:
-                st.sidebar.info(f"🔧 `{status.current_tool}()`")
-            else:
-                st.sidebar.caption("💭 Thinking...")
+    if workflow_result:
+        # Total Forecast
+        total_forecast = sum(workflow_result.forecast.forecast_by_week)
+        st.sidebar.metric("Total Forecast", f"{total_forecast:,} units")
+
+        # Total Allocated
+        total_allocated = workflow_result.allocation.initial_store_allocation
+        st.sidebar.metric("Allocated", f"{total_allocated:,} units")
+
+        # Sell-Through %
+        if total_allocated > 0 and total_sold > 0:
+            sell_through = total_sold / total_allocated
+            st.sidebar.metric("Sell-Through", f"{sell_through:.0%}")
         else:
-            st.sidebar.warning("⏳ Initializing...")
+            st.sidebar.metric("Sell-Through", "—")
+
+        # Current Week
+        st.sidebar.metric("Current Week", f"{current_week} of {total_weeks}")
     else:
-        if status.history:
-            # Count completed agents
-            agents_run = len([e for e in status.history if e.get("type") == "agent_end"])
-            tools_run = len([e for e in status.history if e.get("type") == "tool_end"])
+        st.sidebar.caption("Run pre-season workflow to see metrics")
 
-            # Show last completed agent
-            last_agent = None
-            for event in reversed(status.history):
-                if event.get("type") == "agent_end":
-                    last_agent = event.get("name")
-                    break
+    st.sidebar.markdown("---")
 
-            if last_agent:
-                st.sidebar.success(f"✅ **{last_agent}**")
-            st.sidebar.caption(f"Agents: {agents_run} | Tools: {tools_run}")
-        else:
-            st.sidebar.info("💤 Ready - run an agent to see status")
+    # =========================================================================
+    # COMPLETED STEPS
+    # =========================================================================
+    st.sidebar.markdown("### ✅ Workflow Progress")
 
-    # Event history - always show if there's history
-    if status.history:
-        with st.sidebar.expander("📜 Event Log", expanded=True):
-            # Show last 15 events, most recent first
-            for event in reversed(status.history[-15:]):
-                _render_event(event)
+    # Pre-season Forecast
+    forecast_done = workflow_result is not None
+    _render_step("Pre-season Forecast", forecast_done)
+
+    # Initial Allocation
+    allocation_done = workflow_result is not None and workflow_result.allocation is not None
+    _render_step("Initial Allocation", allocation_done)
+
+    # Replenishment (check if any week has replenishment result)
+    replenishment_done = False
+    if current_week > 0:
+        for wk in range(1, current_week + 1):
+            key = f"replenishment_agent_result_wk{wk}"
+            if st.session_state.get(key):
+                replenishment_done = True
+                break
+
+    if current_week > 0:
+        _render_step(f"Week {current_week} Replenishment", replenishment_done)
     else:
-        # Show available agents hint when no history
-        st.sidebar.markdown("---")
-        st.sidebar.caption("**Available Agents:**")
-        agents = [
-            "📈 Demand Forecasting",
-            "📊 Variance Analysis",
-            "📦 Inventory Allocation",
-            "🔄 Strategic Replenishment",
-            "💰 Pricing"
-        ]
-        for agent in agents:
-            st.sidebar.caption(f"• {agent}")
+        _render_step("Replenishment", False, disabled=True)
+
+    # Markdown Analysis (check if any week has pricing result)
+    markdown_done = False
+    if current_week > 0:
+        for wk in range(1, current_week + 1):
+            key = f"pricing_agent_result_wk{wk}"
+            if st.session_state.get(key):
+                markdown_done = True
+                break
+
+    _render_step("Markdown Analysis", markdown_done)
 
 
-def _render_event(event: dict):
-    """Render a single event in the log."""
-    event_type = event.get("type", "")
-    name = event.get("name", "")
-
-    if event_type == "agent_start":
-        st.caption(f"▶️ {name}")
-    elif event_type == "agent_end":
-        st.caption(f"✅ {name}")
-    elif event_type == "tool_start":
-        st.caption(f"  🔧 {name}()")
-    elif event_type == "tool_end":
-        st.caption(f"  ✓ {name}()")
-    elif event_type == "handoff":
-        from_agent = event.get("from", "?")
-        to_agent = event.get("to", "?")
-        st.caption(f"🔀 {from_agent} → {to_agent}")
+def _render_step(label: str, completed: bool, disabled: bool = False):
+    """Render a single workflow step with checkbox indicator."""
+    if disabled:
+        st.sidebar.markdown(f"⬜ {label}", help="Not yet available")
+    elif completed:
+        st.sidebar.markdown(f"☑️ {label}")
+    else:
+        st.sidebar.markdown(f"☐ {label}")

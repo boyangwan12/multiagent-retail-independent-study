@@ -47,7 +47,7 @@ from agent_tools.demand_tools import (
 )
 from schemas.forecast_schemas import ForecastResult
 from utils.agent_status_hooks import AgentStatus, AgentStatusHooks
-from utils.sidebar_status import render_agent_status_sidebar
+from utils.sidebar_status import render_sidebar_dashboard
 
 
 # =============================================================================
@@ -234,8 +234,8 @@ def save_run_params(params):
 # Sidebar - Phased Progress Tracker
 # =============================================================================
 def render_sidebar_agent_status():
-    """Render the sidebar with agent status (native SDK hooks)."""
-    render_agent_status_sidebar(st.session_state.agent_status, show_header=True)
+    """Render the sidebar dashboard with session context, metrics, and progress."""
+    render_sidebar_dashboard()
 
 
 # =============================================================================
@@ -3290,16 +3290,10 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
 
     realloc_data = st.session_state[replenishment_key]
 
-    # Auto-generate rule-based result if none exists (instant)
-    if not realloc_data:
-        strategy = st.session_state.selected_reallocation_strategy
-        realloc_data = _generate_reallocation_data(params, selected_week, strategy)
-        if realloc_data:
-            st.session_state[replenishment_key] = realloc_data
-            st.session_state[replenishment_is_agent_key] = False
-        else:
-            st.warning("Unable to generate reallocation analysis.")
-            return
+    # Auto-trigger AI agent if no result exists yet
+    if not realloc_data and not st.session_state[replenishment_running_key]:
+        st.session_state[replenishment_running_key] = True
+        st.rerun()
 
     # Check if agent is currently running
     if st.session_state[replenishment_running_key]:
@@ -3319,14 +3313,33 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
                 if agent_result:
                     st.session_state[replenishment_key] = agent_result
                     st.session_state[replenishment_is_agent_key] = True
+                else:
+                    # Agent returned None - fallback to rule-based
+                    strategy = st.session_state.selected_reallocation_strategy
+                    fallback = _generate_reallocation_data(params, selected_week, strategy)
+                    if fallback:
+                        st.session_state[replenishment_key] = fallback
+                        st.session_state[replenishment_is_agent_key] = False
                 st.session_state[replenishment_running_key] = False
                 st.rerun()
             except asyncio.TimeoutError:
-                st.warning("⏱️ Agent timed out. Keeping rule-based result.")
+                st.warning("⏱️ Agent timed out. Using rule-based fallback.")
+                # Fallback to rule-based on timeout
+                strategy = st.session_state.selected_reallocation_strategy
+                fallback = _generate_reallocation_data(params, selected_week, strategy)
+                if fallback:
+                    st.session_state[replenishment_key] = fallback
+                    st.session_state[replenishment_is_agent_key] = False
                 st.session_state[replenishment_running_key] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Replenishment agent failed: {e}")
+                # Fallback to rule-based on error
+                strategy = st.session_state.selected_reallocation_strategy
+                fallback = _generate_reallocation_data(params, selected_week, strategy)
+                if fallback:
+                    st.session_state[replenishment_key] = fallback
+                    st.session_state[replenishment_is_agent_key] = False
                 st.session_state[replenishment_running_key] = False
                 st.rerun()
 
@@ -3337,18 +3350,8 @@ def render_strategic_replenishment_section(params: WorkflowParams, selected_week
     # Get current strategy for display
     strategy = realloc_data.get('strategy', st.session_state.selected_reallocation_strategy)
 
-    # Show result type indicator with Run AI Agent button
-    is_agent = st.session_state.get(replenishment_is_agent_key, False)
-    result_type = "🤖 AI Agent" if is_agent else "📊 Rule-based"
-
-    col_type, col_btn = st.columns([3, 1])
-    with col_type:
-        st.caption(f"**Analysis Type:** {result_type}")
-    with col_btn:
-        if not is_agent and not st.session_state.get(replenishment_running_key, False):
-            if st.button("🤖 Run AI Agent", key=f"run_repl_agent_{selected_week}", help="Get AI-powered analysis"):
-                st.session_state[replenishment_running_key] = True
-                st.rerun()
+    # Show analysis type indicator (AI agent runs automatically)
+    st.caption("**Analysis Type:** 🤖 AI Agent")
 
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
