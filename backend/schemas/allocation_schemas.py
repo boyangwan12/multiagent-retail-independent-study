@@ -123,7 +123,15 @@ class AllocationResult(BaseModel):
     )
     explanation: str = Field(
         ...,
-        description="Agent's reasoning about the allocation decisions",
+        description="Agent's brief summary of the allocation (1-2 sentences)",
+    )
+    reasoning_steps: List[str] = Field(
+        default_factory=list,
+        description="Step-by-step reasoning trace of key decisions made during allocation",
+    )
+    key_factors: List[str] = Field(
+        default_factory=list,
+        description="Key factors that influenced the allocation (e.g., 'NYC-001 received 488 units due to 2.3x average sales')",
     )
 
     def validate_unit_conservation(self) -> bool:

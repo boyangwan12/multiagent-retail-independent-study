@@ -379,6 +379,14 @@ def recalculate_allocation_dynamic(forecast, dc_holdback_pct: float, safety_stoc
             allocation_factor=s.allocation_factor,
         ))
 
+    # Preserve original reasoning if available, or generate new for recalculation
+    original_reasoning = getattr(original_allocation, 'reasoning_steps', [])
+    original_factors = getattr(original_allocation, 'key_factors', [])
+
+    # Find top store for key factors
+    top_store = max(new_store_allocations, key=lambda s: s.allocation_units)
+    top_cluster = max(new_cluster_allocations, key=lambda c: c.allocation_units)
+
     return AllocationResult(
         manufacturing_qty=manufacturing_qty,
         safety_stock_pct=safety_stock_pct,
@@ -388,8 +396,18 @@ def recalculate_allocation_dynamic(forecast, dc_holdback_pct: float, safety_stoc
         cluster_allocations=new_cluster_allocations,
         store_allocations=new_store_allocations,
         replenishment_strategy=original_allocation.replenishment_strategy,
-        explanation=f"Dynamically recalculated: {manufacturing_qty:,} units manufactured "
-                   f"({dc_holdback_pct:.0%} DC holdback, {safety_stock_pct:.0%} safety stock)",
+        explanation=f"I recalculated the allocation with your adjusted parameters: {manufacturing_qty:,} total units, {dc_holdback_pct:.0%} DC holdback.",
+        reasoning_steps=original_reasoning if original_reasoning else [
+            f"Recalculated manufacturing: {total_demand:,} demand × {1 + safety_stock_pct:.0%} = {manufacturing_qty:,} units",
+            f"Applied {dc_holdback_pct:.0%} DC holdback: {dc_holdback:,} units reserved",
+            f"Scaled store allocations proportionally (factor: {scale_factor:.2f}x)",
+            f"Distributed {initial_store_allocation:,} units across {len(new_store_allocations)} stores",
+        ],
+        key_factors=original_factors if original_factors else [
+            f"Top store: {top_store.store_id} receives {top_store.allocation_units:,} units",
+            f"Largest cluster: {top_cluster.cluster_name} ({top_cluster.allocation_units:,} units, {top_cluster.store_count} stores)",
+            f"Replenishment: {original_allocation.replenishment_strategy} strategy maintained",
+        ],
     )
 
 
@@ -800,10 +818,42 @@ def render_allocation_section(allocation: AllocationResult):
             mime="text/csv",
         )
 
-    # Agent explanation
-    with st.expander("Agent Explanation", expanded=False):
-        st.markdown(f"**Replenishment Strategy:** {allocation.replenishment_strategy}")
-        st.info(allocation.explanation)
+    # Agentic Explanation Panel (always visible)
+    st.markdown("---")
+    with st.container(border=True):
+        st.markdown("### 🤖 Inventory Agent")
+
+        # Main explanation in conversational tone
+        st.markdown(f"*\"{allocation.explanation}\"*")
+
+        # Two columns for reasoning and key factors
+        col_reasoning, col_factors = st.columns(2)
+
+        with col_reasoning:
+            st.markdown("**My Decision Process:**")
+            # Check if reasoning_steps exists and has content
+            if hasattr(allocation, 'reasoning_steps') and allocation.reasoning_steps:
+                for step in allocation.reasoning_steps:
+                    st.markdown(f"• {step}")
+            else:
+                # Fallback for older allocations without reasoning_steps
+                st.markdown(f"• Replenishment strategy: {allocation.replenishment_strategy}")
+                st.markdown(f"• DC holdback: {allocation.dc_holdback_percentage:.0%} of manufacturing")
+                st.markdown(f"• Distributed to {len(allocation.store_allocations)} stores across {len(allocation.cluster_allocations)} clusters")
+
+        with col_factors:
+            st.markdown("**Key Factors:**")
+            # Check if key_factors exists and has content
+            if hasattr(allocation, 'key_factors') and allocation.key_factors:
+                for factor in allocation.key_factors:
+                    st.markdown(f"• {factor}")
+            else:
+                # Fallback: generate basic factors from data
+                top_store = max(allocation.store_allocations, key=lambda s: s.allocation_units)
+                top_cluster = max(allocation.cluster_allocations, key=lambda c: c.allocation_units)
+                st.markdown(f"• Top store: {top_store.store_id} ({top_store.allocation_units:,} units)")
+                st.markdown(f"• Largest cluster: {top_cluster.cluster_name} ({top_cluster.allocation_units:,} units)")
+                st.markdown(f"• Strategy: {allocation.replenishment_strategy} replenishment")
 
 
 # =============================================================================

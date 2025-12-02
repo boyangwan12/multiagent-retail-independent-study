@@ -96,18 +96,34 @@ Your output MUST include these fields:
 - cluster_allocations: List[ClusterAllocation] - Per-cluster breakdown (use clusters from tool)
 - store_allocations: List[StoreAllocation] - Per-store breakdown (use ALL_STORES from tool - all 50 stores!)
 - replenishment_strategy: str - "none", "weekly", or "bi-weekly"
-- explanation: str - YOUR reasoning about the allocation (REQUIRED)
+- explanation: str - Brief 1-2 sentence summary of your allocation
+- reasoning_steps: List[str] - Step-by-step decisions you made (see below)
+- key_factors: List[str] - Key factors that influenced allocation (see below)
 
 CRITICAL: For store_allocations, use the `all_stores` field from allocate_inventory result.
 This contains ALL stores (should be 50). Do NOT manually construct this list.
 
-## EXPLANATION GUIDELINES
-Your explanation should:
-1. Summarize manufacturing and DC holdback quantities
-2. Describe cluster distribution (which tier gets what %)
-3. Note silhouette score for clustering quality (target > 0.4)
-4. Confirm unit conservation (all units accounted for)
-5. Explain the replenishment strategy choice
+## AGENTIC EXPLANATION (IMPORTANT)
+You must provide transparent reasoning so users understand your decisions.
+
+### explanation (brief summary)
+A 1-2 sentence conversational summary. Example:
+"I allocated 9,600 units across 50 stores, prioritizing high-performing urban locations while maintaining DC reserve for replenishment."
+
+### reasoning_steps (your decision trace)
+List 4-6 key steps showing HOW you reasoned. Write in first person. Example:
+- "Calculated manufacturing quantity: 8,000 demand × 1.20 safety stock = 9,600 units"
+- "Applied 45% DC holdback: 4,320 units reserved for weekly replenishment"
+- "Clustered stores into 3 tiers using K-means (silhouette score: 0.68 - good separation)"
+- "Distributed 5,280 units: Fashion Forward 45%, Mainstream 35%, Value Conscious 20%"
+- "Allocated to individual stores using 70% historical sales + 30% store attributes"
+
+### key_factors (WHY specific stores got their allocation)
+List 3-5 specific insights about the allocation. Be concrete with store IDs and numbers. Example:
+- "NYC-001 received 488 units (highest) - 2.3x network average sales, premium mall location"
+- "Fashion Forward cluster (12 stores) gets 45% because their avg weekly sales is $42K vs $18K network avg"
+- "Value Conscious stores get minimum 2-week inventory despite lower sales to ensure coverage"
+- "DC holdback of 4,320 units enables 8 weeks of replenishment at projected sell-through rate"
 
 ## UNIT CONSERVATION
 CRITICAL: Units must be conserved at every level:
@@ -130,13 +146,19 @@ Input: "Allocate 8000 units with 20% safety stock, 45% DC holdback"
      dc_holdback_percentage=0.45,
      replenishment_strategy="weekly"
    )
-4. Return AllocationResult with explanation like:
-   "Manufacturing 9,600 units (8,000 demand + 20% safety stock).
-   DC holdback: 4,320 units (45%). Initial store allocation: 5,280 units.
-   Cluster distribution: Fashion_Forward 45% (2,376 units, 12 stores),
-   Mainstream 35% (1,848 units, 18 stores), Value_Conscious 20% (1,056 units, 10 stores).
-   Clustering quality: 0.68 silhouette score (good separation).
-   Unit conservation validated. Weekly replenishment enabled from DC reserve."
+4. Return AllocationResult with:
+   - explanation: "I allocated 9,600 units across 50 stores, with 45% DC holdback for weekly replenishment."
+   - reasoning_steps: [
+       "Calculated manufacturing: 8,000 × 1.20 = 9,600 units",
+       "Applied 45% DC holdback: 4,320 units reserved",
+       "Clustered 50 stores into 3 tiers (silhouette: 0.68)",
+       "Distributed 5,280 units by cluster performance"
+     ]
+   - key_factors: [
+       "Fashion Forward (12 stores) gets 45% - highest avg sales $42K/week",
+       "Top store NYC-001: 488 units due to 2.3x network average",
+       "DC reserve enables 8 weeks of replenishment capacity"
+     ]
 
 ## CRITICAL RULES
 1. ALWAYS call cluster_stores first, then allocate_inventory
