@@ -66,6 +66,9 @@ st.set_page_config(
 # =============================================================================
 def init_session_state():
     """Initialize session state variables."""
+    if "show_landing" not in st.session_state:
+        st.session_state.show_landing = True
+
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4())[:8]
 
@@ -4121,6 +4124,235 @@ def render_preseason_tab():
     return params  # Return params for use in main
 
 
+# =============================================================================
+# Landing Page
+# =============================================================================
+def render_landing_page():
+    """Render the landing page for the application."""
+
+    # Custom CSS
+    st.markdown("""
+    <style>
+    .team-link {
+        text-decoration: none;
+        color: #0066cc;
+    }
+    .team-link:hover {
+        text-decoration: underline;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ==========================================================================
+    # HERO SECTION
+    # ==========================================================================
+    st.markdown("# 🤖 Agentic Retail Forecasting System")
+    st.markdown("### AI-Powered Demand Forecasting & Inventory Optimization with Multi-Agent Orchestration")
+
+    # GitHub Button
+    st.link_button(
+        "⭐ View on GitHub",
+        "https://github.com/boyangwan12/multiagent-retail-independent-study",
+        use_container_width=False
+    )
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # COURSE / PROGRAM INFO
+    # ==========================================================================
+    st.markdown("## 📚 Course Information")
+    st.info(
+        "**Independent Study Project** — Master of Management Analytics (MMA7), McGill University, Desautels Faculty of Management\n\n"
+        "This project explores the application of agentic AI systems in retail demand forecasting "
+        "and inventory management, combining traditional ML techniques with LLM-powered reasoning agents.\n\n"
+        "Timeframe: Sep 19 - Dec 05 2025"
+    )
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # WHAT IT DOES
+    # ==========================================================================
+    st.markdown("## 💡 What It Does")
+    st.markdown(
+        """
+        This system orchestrates **6 specialized AI agents** to manage the complete retail
+        planning lifecycle — from pre-season demand forecasting through in-season adjustments
+        to markdown optimization. Python workflows control *when* agents run, while agents
+        control *how* they reason about business decisions.
+        """
+    )
+
+    # Example Scenario
+    st.markdown("#### Example: Women's Dresses - Spring Season")
+    st.markdown(
+        """
+        1. **Pre-Season**: The Demand Agent analyzes 3 years of historical sales data and predicts
+           15,000 units demand for a 12-week spring season. The Inventory Agent clusters 50 stores
+           into 3 performance tiers and allocates inventory accordingly.
+
+        2. **Week 3**: Actual sales are 25% above forecast. The Variance Agent *reasons* that warm
+           weather arrived early (not a one-time spike) and recommends reforecasting. The Reforecast
+           Agent adjusts remaining weeks upward using Bayesian updates.
+
+        3. **Week 8**: High-performing stores are running low. The Reallocation Agent identifies
+           underperforming locations and recommends transferring 500 units to prevent stockouts.
+
+        4. **Week 10**: Sell-through is at 62% vs 70% target. The Pricing Agent calculates a 15%
+           markdown to clear remaining inventory before season end.
+        """
+    )
+
+    # Flexible for Multiple Scenarios
+    st.success(
+        "**📊 Adaptable to Multiple Retail Scenarios** — Users can adjust parameters like forecast horizon, "
+        "DC holdback percentage, safety stock levels, markdown thresholds, and replenishment cadence. "
+        "The system works across different product categories (apparel, accessories, footwear) and "
+        "seasonal patterns (spring/summer, fall/winter, holiday)."
+    )
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # KEY FEATURES
+    # ==========================================================================
+    st.markdown("## ✨ Key Features")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+            - **Deterministic Orchestration** — Python controls agent execution flow
+            - **Typed Data Flow** — Pydantic schemas enforce structured outputs
+            - **Agentic Variance Analysis** — LLM reasons about causes, not just thresholds
+            - **Bayesian Reforecasting** — Updates predictions with actual sales data
+            """
+        )
+
+    with col2:
+        st.markdown(
+            """
+            - **K-Means Store Clustering** — Groups stores by 7 attributes
+            - **3-Layer Inventory Allocation** — DC → Cluster → Store distribution
+            - **Strategic Replenishment** — AI-driven transfer recommendations
+            - **Markdown Optimization** — Gap × Elasticity pricing formula
+            """
+        )
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # AGENT OVERVIEW
+    # ==========================================================================
+    st.markdown("## 🤖 Agent Architecture")
+
+    agent_cols = st.columns(3)
+    agents_row1 = [
+        ("🎯", "Demand Agent", "Prophet + Holt Winters Exponential Smoothing(ETS) ensemble forecasting with seasonality detection"),
+        ("📦", "Inventory Agent", "K-means clustering and 3-layer hierarchical allocation"),
+        ("💰", "Pricing Agent", "Markdown optimization using Gap × Elasticity formula"),
+    ]
+    agents_row2 = [
+        ("📊", "Variance Agent", "Intelligent reasoning about forecast vs actual deviations"),
+        ("🔄", "Reforecast Agent", "Bayesian posterior updates with actual sales data"),
+        ("🚚", "Reallocation Agent", "Strategic replenishment and store transfer planning"),
+    ]
+
+    for col, (icon, name, desc) in zip(agent_cols, agents_row1):
+        with col:
+            st.markdown(f"**{icon} {name}**")
+            st.caption(desc)
+
+    agent_cols2 = st.columns(3)
+    for col, (icon, name, desc) in zip(agent_cols2, agents_row2):
+        with col:
+            st.markdown(f"**{icon} {name}**")
+            st.caption(desc)
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # TECH STACK
+    # ==========================================================================
+    st.markdown("## 🛠️ Tech Stack")
+
+    tech_cols = st.columns(4)
+    with tech_cols[0]:
+        st.markdown("**Frontend**")
+        st.code("Streamlit\nPlotly", language=None)
+    with tech_cols[1]:
+        st.markdown("**Agent Framework**")
+        st.code("OpenAI Agents SDK\nGPT-4o-mini", language=None)
+    with tech_cols[2]:
+        st.markdown("**ML / Forecasting**")
+        st.code("Prophet\nARIMA\nscikit-learn", language=None)
+    with tech_cols[3]:
+        st.markdown("**Validation**")
+        st.code("Pydantic\nGuardrails", language=None)
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # RESOURCES (Placeholder)
+    # ==========================================================================
+    st.markdown("## 📄 Resources")
+    st.markdown("*Coming soon — documentation, presentation slides, and project report.*")
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # TEAM
+    # ==========================================================================
+    st.markdown("## 👥 Team")
+
+    team_cols = st.columns(5)
+    team_members = [
+        ("Boyang Wan", "https://www.linkedin.com/in/boyang-wan-2000/"),
+        ("Henry Tang", "https://www.linkedin.com/in/heng-tang-683090251/"),
+        ("Yi Juan (Yina) Liang Li", "https://www.linkedin.com/in/yi-juan-yina-liang-li/"),
+        ("JaeYoon Lee", "https://www.linkedin.com/in/jaeyoon-lee-277655308/"),
+        ("Jintao Li", "https://www.linkedin.com/in/jintao-li/"),
+    ]
+
+    for col, (name, linkedin) in zip(team_cols, team_members):
+        with col:
+            st.markdown(f"**{name}**")
+            st.link_button("LinkedIn", linkedin, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # ACKNOWLEDGMENTS
+    # ==========================================================================
+    st.markdown("## 🙏 Acknowledgments")
+
+    ack_col1, ack_col2 = st.columns(2)
+
+    with ack_col1:
+        st.markdown("**Instructor**")
+        st.markdown("Fatih Nayebi")
+        st.link_button("LinkedIn", "https://www.linkedin.com/in/thefatih/", use_container_width=False)
+
+    with ack_col2:
+        st.markdown("**Special Thanks**")
+        st.markdown("Arnav Gupta")
+        st.link_button("LinkedIn", "https://www.linkedin.com/in/arnavgupta97/", use_container_width=False)
+
+    st.markdown("---")
+
+    # ==========================================================================
+    # CTA BUTTON
+    # ==========================================================================
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🚀 Launch Demo", type="primary", use_container_width=True):
+            st.session_state.show_landing = False
+            st.rerun()
+        st.caption("Enter the forecasting application")
+
+
 def main():
     """Main application entry point."""
     st.title("📊 Retail Forecasting Multi-Agent System")
@@ -4181,4 +4413,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if st.session_state.show_landing:
+        render_landing_page()
+    else:
+        main()

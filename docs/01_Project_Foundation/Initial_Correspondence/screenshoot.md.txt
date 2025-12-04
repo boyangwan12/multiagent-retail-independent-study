@@ -1,0 +1,31 @@
+Title:
+Product Lifecycle: From Design to Client with AI
+
+Two Major Phases:
+
+Pre-season planning and optimization (~18 months)
+
+Steps: Design → Budgeting → Assortment → Pricing → Buying → Production → Allocation
+
+Sub-section: Demand & Supply Planning
+• Pre-season Demand Forecasting & Budgeting
+• Assortment Planning & Optimization
+• Allocation Planning & Optimization
+
+In-season management (26 weeks)
+
+Steps: Sales vs Budget → Re-stocking → Replenishment → Markdown → Order Fulfillment → Transfers → Promotion → Planogram
+
+Sub-section: Revenue Growth Management
+• In-season Demand Forecasting
+• Markdown Optimization
+• Order Fulfillment Optimization
+
+Divider:
+“Start of Season (t₀)” separates Pre-season and In-season phases.
+
+Timeline Labels:
+
+Pre-season: t₋18 → t₋12 → t₋9 → t₋6 → t₋3 → t₋2 → t₋1
+
+In-season: t₀ → t₊26w
