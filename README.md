@@ -17,17 +17,6 @@ This project demonstrates the application of **agentic AI systems** in retail de
 
 ---
 
-## Problem Statement
-
-Traditional retail forecasting systems rely on rigid rule-based logic that fails to adapt to real-world complexity. When forecasts deviate from actuals, human analysts must manually interpret variance causes and decide on corrective actions.
-
-**This project addresses:**
-- How can AI agents *reason* about forecast variance rather than just detect it?
-- How can we maintain deterministic control while leveraging LLM intelligence?
-- How can multi-agent systems coordinate across forecasting, inventory, and pricing decisions?
-
----
-
 ## Key Features
 
 | Feature | Description |
