@@ -4300,7 +4300,10 @@ def render_landing_page():
     # RESOURCES (Placeholder)
     # ==========================================================================
     st.markdown("## 📄 Resources")
-    st.markdown("*Coming soon — documentation, presentation slides, and project report.*")
+    st.markdown("""
+- **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=XuXk4sf2ZU8)
+- *Documentation, presentation slides, and project report coming soon.*
+""")
 
     st.markdown("---")
 
@@ -4334,7 +4337,7 @@ def render_landing_page():
 
     with ack_col1:
         st.markdown("**Instructor**")
-        st.markdown("Fatih Nayebi")
+        st.markdown("Dr. Fatih Nayebi")
         st.link_button("LinkedIn", "https://www.linkedin.com/in/thefatih/", use_container_width=False)
 
     with ack_col2:
