@@ -1146,7 +1146,9 @@ def render_markdown_command_center(
             elasticity_used=params.elasticity,
             raw_markdown_pct=raw_markdown,
             recommended_markdown_pct=recommended_markdown,
-            is_max_markdown=(recommended_markdown >= 0.40),
+            current_sell_through=current_sell_through,
+            target_sell_through=target_sell_through,
+            week_number=week,
             explanation=f"Rule-based: Gap ({gap:.1%}) × Elasticity ({params.elasticity}) = {raw_markdown:.1%}"
         )
         st.session_state[pricing_agent_key] = pricing_agent_result
