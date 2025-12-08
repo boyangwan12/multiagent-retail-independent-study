@@ -4301,8 +4301,8 @@ def render_landing_page():
     # ==========================================================================
     st.markdown("## 📄 Resources")
     st.markdown("""
-- **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=XuXk4sf2ZU8)
-- *Documentation, presentation slides, and project report coming soon.*
+- **Demo Video**: [Watch on YouTube](https://youtu.be/uf3IUQrL2dc)
+- **Presentation Deck**: [View PDF](https://github.com/boyangwan12/multiagent-retail-independent-study/blob/main/presentation_deck.pdf)
 """)
 
     st.markdown("---")

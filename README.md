@@ -7,6 +7,16 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="docs/cover.png" alt="Multi-Agent Retail App Cover" width="100%">
+</p>
+
+### 🎬 Demo Video
+
+[![Watch Demo Video](https://img.youtube.com/vi/uf3IUQrL2dc/maxresdefault.jpg)](https://youtu.be/uf3IUQrL2dc)
+
+▶️ [Watch on YouTube](https://youtu.be/uf3IUQrL2dc)
+
 ---
 
 ## Overview
@@ -255,12 +265,6 @@ The application will open at `http://localhost:8501`
 - **`RunContextWrapper`** for dependency injection
 - **`output_guardrails`** for business rule validation
 - **`RunHooks`** for real-time UI status updates
-
----
-
-## Resources
-
-*Coming soon — documentation, presentation slides, and project report.*
 
 ---
 
