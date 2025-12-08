@@ -18,9 +18,9 @@
 
 ## Overview
 
-This project demonstrates the application of **agentic AI systems** in retail demand forecasting and inventory management. Built on the **OpenAI Agents SDK**, it combines deterministic Python workflow orchestration with LLM-powered reasoning agents to provide intelligent, self-correcting forecasting and allocation decisions.
+This project demonstrates the application of **agentic AI systems** in retail demand forecasting, inventory management and markdown strategy. Built on the **OpenAI Agents SDK**, it combines deterministic Python workflow orchestration with LLM-powered reasoning agents to provide intelligent, self-correcting forecasting and allocation decisions.
 
-**Independent Study Project** — McGill University, Desautels Faculty of Management
+**Independent Study Project** — BUSA 611 - 613, McGill University, Desautels Faculty of Management
 
 ---
 
@@ -279,7 +279,7 @@ The application will open at `http://localhost:8501`
 
 ## Acknowledgments
 
-**Instructor**: [Fatih Nayebi](https://www.linkedin.com/in/thefatih/)
+**Instructor**: [Dr. Fatih Nayebi](https://www.linkedin.com/in/thefatih/)
 
 **Special Thanks**: [Arnav Gupta](https://www.linkedin.com/in/arnavgupta97/)
 
